@@ -1,0 +1,84 @@
+# Copyright (c) 2026 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import("//build/config/components/idl_tool/idl.gni")
+import("//build/ohos.gni")
+import("//base/customization/assessment_configuration_service/assessment.gni")
+
+idl_gen_interface("assessment_service_interface") {
+    sources = [ "IAssessmentService.idl" ]
+    hitrace = "HITRACE_TAG_ABILITY_MANAGER"
+    log_domainid = "0xD003950"
+    log_tag = "AssessmentService"
+}
+
+idl_gen_interface("assessment_callback_interface") {
+    sources = [ "IAssessmentCallback.idl" ]
+    hitrace = "HITRACE_TAG_ABILITY_MANAGER"
+    log_domainid = "0xD003950"
+    log_tag = "AssessmentService"
+}
+
+config("assessment_interface_config") {
+    visibility = [ ":*" ]
+    include_dirs = [
+        "include",
+        "${target_gen_dir}",
+    ]
+    cflags = []
+    if (target_cpu == "arm") {
+        cflags += [ "-DBINDER_IPC_32BIT" ]
+    }
+}
+
+ohos_shared_library("assessment_manager") {
+    configs = []
+    public_configs = [ ":assessment_interface_config" ]
+
+    output_values = get_target_outputs(":assessment_service_interface")
+    sources = filter_include(output_values, [ "*.cpp" ]) + [
+        "include/assessment_callback_code.h",
+        "src/assessment_service_client.cpp",
+        "src/assessment_service_load_callback.cpp",
+    ]
+
+    sanitize = {
+        cfi = true
+        cfi_cross_dso = true
+        cfi_policy = "adaptive"
+        debug = false
+    }
+    branch_protector_ret = "pac_ret"
+
+    defines = [ "AMS_LOG_TAG = \"AssessmentService\"" ]
+    deps = [
+        ":assessment_service_interface",
+        ":assessment_callback_interface",
+    ]
+
+    external_deps = [
+        "ability_base:want",
+        "bundle_framework:appexecfwk_base",
+        "bundle_framework:appexecfwk_core",
+        "c_utils:utils",
+        "hilog:libhilog",
+        "hitrace:hitrace_meter",
+        "ipc:ipc_single",
+        "safwk:system_ability_fwk",
+        "samgr:samgr_proxy",
+    ]
+
+    innerapi_tags = [ "platformsdk" ]
+    subsystem_name = "customization"
+    part_name = "assessment_configuration_service"
+}

@@ -1,0 +1,85 @@
+# Copyright (c) 2026 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import("//build/ohos.gni")
+import("//base/customization/assessment_configuration_service/assessment.gni")
+
+ohos_prebuilt_etc("assessment_service.cfg") {
+  relative_install_dir = "init"
+  source = "etc/assessment_service.cfg"
+  part_name = "assessment_configuration_service"
+  subsystem_name = "customization"
+}
+
+config("assessment_config") {
+  visibility = [ ":*" ]
+  include_dirs = [
+    "include",
+    "${assessment_innerkits_path}/assessment_service/include",
+    "${target_gen_dir}"
+  ]
+  cflags = []
+  if (target_cpu == "arm") {
+    cflags += [ "-DBINDER_IPC_32BIT" ]
+  }
+}
+
+assessment_sources = [
+  "src/assessment_service.cpp",
+  "src/assessment_service_ability.cpp",
+  "src/callback_manager.cpp",
+]
+
+ohos_shared_library("assessmentsvcs") {
+  sanitize = {
+    cfi = true
+    cfi_cross_dso = true
+    cfi_policy = "adaptive"
+    debug = false
+  }
+  branch_protector_ret = "pac_ret"
+  include_dirs = []
+  shlib_type = "sa"
+  configs = []
+  public_configs = [ ":assessment_config" ]
+
+  sources = assessment_sources
+
+  defines = [ "AMS_LOG_TAG = \"AssessmentService\"" ]
+
+  deps = [
+    "${assessment_innerkits_path}/assessment_service:assessment_manager",
+    "sa_profile:assessment_service_sa_profile",
+  ]
+
+  external_deps = [
+    "ability_base:want",
+    "ability_runtime:ability_context_native",
+    "ability_runtime:ability_connect_callback_stub",
+    "ability_runtime:extension_manager",
+    "ability_runtime:ability_manager",
+    "bundle_framework:appexecfwk_base",
+    "bundle_framework:appexecfwk_core",
+    "c_utils:utils",
+    "eventhandler:libeventhandler",
+    "hilog:libhilog",
+    "hitrace:hitrace_meter",
+    "init:libbegetutil",
+    "ipc:ipc_single",
+    "safwk:system_ability_fwk",
+    "samgr:samgr_proxy",
+  ]
+
+  subsystem_name = "customization"
+  part_name = "assessment_configuration_service"
+}

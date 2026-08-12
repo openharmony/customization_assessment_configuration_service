@@ -1,0 +1,12 @@
+
+import("//build/ohos.gni")
+import("assessment.gni")
+
+group("assessment_target") {
+    deps = [
+        "services/assessment_service:assessmentsvcs",
+        "services/assessment_service:assessment_service.cfg",
+        "services/assessment_service/sa_profile:assessment_service_sa_profile",
+        "interfaces/inner_api/assessment_service:assessment_manager",
+    ]
+} 
