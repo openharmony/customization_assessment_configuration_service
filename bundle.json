@@ -1,0 +1,49 @@
+{
+    "name": "@ohos/assessment",
+    "description": "Assessment Configuration Service for device assessment and configuration management",
+    "version": "4.0",
+    "license": "Apache License 2.0",
+    "segment": {
+        "destPath": "base/customization/assessment_configuration_service"
+    },
+    "component": {
+        "name": "assessment_configuration_service",
+        "subsystem": "customization",
+        "syscap": [
+            "SystemCapability.Assessment.Configuration"
+        ],
+        "features": [],
+        "adapted_system_type": [
+            "standard"
+        ],
+        "rom": "~500KB",
+        "ram": "~200KB",
+        "deps": {
+            "components": [
+                "ability_base",
+                "ability_runtime",
+                "bundle_framework",
+                "c_utils",
+                "hilog",
+                "hitrace",
+                "init",
+                "ipc",
+                "safwk",
+                "samgr",
+                "eventhandler",
+                "napi"
+            ],
+            "third_party": []
+        },
+        "build": {
+            "sub_component": [
+                "//base/customization/assessment_configuration_service/services/assessment_service:assessmentsvcs",
+                "//base/customization/assessment_configuration_service/services/assessment_service:assessment_service.cfg",
+                "//base/customization/assessment_configuration_service/services/assessment_service/sa_profile:assessment_service_sa_profile",
+                "//base/customization/assessment_configuration_service/services/assessment_service/etc/param:assessment.para",
+                "//base/customization/assessment_configuration_service/services/assessment_service/etc/param:assessment.para.dac",
+                "//base/customization/assessment_configuration_service/interfaces/inner_api/assessment_service:assessment_manager"
+            ]
+        }
+    }
+}
