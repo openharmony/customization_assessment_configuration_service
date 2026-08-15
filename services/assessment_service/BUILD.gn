@@ -26,7 +26,7 @@ config("assessment_config") {
   include_dirs = [
     "include",
     "${assessment_innerkits_path}/assessment_service/include",
-    "${target_gen_dir}"
+    "${target_gen_dir}",
   ]
   cflags = []
   if (target_cpu == "arm") {

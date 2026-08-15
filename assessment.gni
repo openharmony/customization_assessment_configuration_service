@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import("//build/ohos.gni")
 
 assessment_path = "//base/customization/assessment_configuration_service"
@@ -28,5 +29,5 @@ samgr_path = "//foundation/systemabilitymgr/samgr"
 hitrace_path = "//foundation/hitrace/hitrace_meter"
 
 declare_args() {
-    assessment_enable = true
+  assessment_enable = true
 }
