@@ -21,6 +21,23 @@
 
 namespace OHOS {
 namespace AAFwk {
+void AssessmentServiceLoadCallback::OnLoadSystemAbilitySuccess(int32_t systemAbilityId,
+                                                               const sptr<IRemoteObject> &remoteObject)
+{
+    TAG_LOGI(AAFwkTag::DEFAULT, "OnLoadSystemAbilitySuccess, systemAbilityId: %{public}d", systemAbilityId);
+    auto client = AssessmentServiceClient::GetInstance();
+    if (client != nullptr) {
+        client->OnLoadSystemAbilitySuccess(remoteObject);
+    }
+}
 
+void AssessmentServiceLoadCallback::OnLoadSystemAbilityFail(int32_t systemAbilityId)
+{
+    TAG_LOGE(AAFwkTag::DEFAULT, "OnLoadSystemAbilityFail, systemAbilityId: %{public}d", systemAbilityId);
+    auto client = AssessmentServiceClient::GetInstance();
+    if (client != nullptr) {
+        client->OnLoadSystemAbilityFail();
+    }
+}
 } // namespace AAFwk
 } // namespace OHOS

@@ -126,5 +126,6 @@ void CallbackManager::OnEnd(const sptr<IRemoteObject>& token)
     MessageOption option(MessageOption::TF_SYNC);
     it->second->SendRequest(static_cast<uint32_t>(AssessmentCallbackCode::ON_END), data, reply, option);
 }
+
 } // namespace AAFwk
 } // namespace OHOS

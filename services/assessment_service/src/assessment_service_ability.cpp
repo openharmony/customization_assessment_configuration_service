@@ -34,6 +34,28 @@ AssessmentServiceAbility::~AssessmentServiceAbility()
 void AssessmentServiceAbility::OnStart()
 {
     TAG_LOGI(AAFwkTag::DEFAULT, "called");
+    if (service_ != nullptr) {
+        TAG_LOGD(AAFwkTag::DEFAULT, "Assessment service has started");
+        return;
+    }
+
+    service_ = AssessmentService::GetInstance();
+    if (service_ == nullptr) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "null instance");
+        return;
+    }
+
+    if (!service_->Init()) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "init failed");
+        return;
+    }
+
+    service_->LoadState();
+
+    if (!Publish(service_)) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "Publish failed");
+        return;
+    }
 }
 
 void AssessmentServiceAbility::OnStop()

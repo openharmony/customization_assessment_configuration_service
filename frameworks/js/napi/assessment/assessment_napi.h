@@ -13,28 +13,20 @@
  * limitations under the License.
  */
 
-#ifndef OHOS_ASSESSMENT_SERVICE_ABILITY_H
-#define OHOS_ASSESSMENT_SERVICE_ABILITY_H
+#ifndef OHOS_ASSESSMENT_NAPI_H
+#define OHOS_ASSESSMENT_NAPI_H
 
-#include "assessment_service.h"
-#include "system_ability.h"
+#include "js_native_api.h"
+#include <node_api.h>
 
 namespace OHOS {
-namespace AAFwk {
-class AssessmentServiceAbility final : public SystemAbility {
-public:
-    DISALLOW_COPY_AND_MOVE(AssessmentServiceAbility);
-    DECLARE_SYSTEM_ABILITY(AssessmentServiceAbility);
+namespace AbilityRuntime {
 
-    AssessmentServiceAbility(const int32_t systemAbilityId, bool runOnCreate);
-    ~AssessmentServiceAbility();
+napi_value AssessmentNapiBegin(napi_env env, napi_callback_info info);
+napi_value AssessmentNapiEnd(napi_env env, napi_callback_info info);
+napi_value AssessmentNapiIsActive(napi_env env, napi_callback_info info);
+napi_value AssessmentNapiGetConfiguration(napi_env env, napi_callback_info info);
 
-private:
-    void OnStart() override;
-    void OnStop() override;
-
-    sptr<AssessmentService> service_ = nullptr;
-};
-} // namespace AAFwk
+} // namespace AbilityRuntime
 } // namespace OHOS
-#endif // OHOS_ASSESSMENT_SERVICE_ABILITY_H
+#endif // OHOS_ASSESSMENT_NAPI_H

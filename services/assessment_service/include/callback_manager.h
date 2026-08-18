@@ -47,6 +47,7 @@ private:
     std::mutex mutex_;
     std::map<sptr<IRemoteObject>, sptr<IRemoteObject>> callbacks_;
 };
+
 } // namespace AAFwk
 } // namespace OHOS
 #endif // OHOS_AAFWK_ASSESSMENT_CALLBACK_MANAGER_H

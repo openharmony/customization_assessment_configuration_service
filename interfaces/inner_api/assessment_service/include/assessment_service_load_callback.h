@@ -16,8 +16,19 @@
 #ifndef OHOS_ASSESSMENT_SERVICE_LOAD_CALLBACK_H
 #define OHOS_ASSESSMENT_SERVICE_LOAD_CALLBACK_H
 
+#include "iremote_object.h"
+#include "system_ability_load_callback_stub.h"
+
 namespace OHOS {
 namespace AAFwk {
-}
-}
+class AssessmentServiceLoadCallback : public SystemAbilityLoadCallbackStub {
+public:
+    AssessmentServiceLoadCallback() = default;
+    virtual ~AssessmentServiceLoadCallback() = default;
+
+    void OnLoadSystemAbilitySuccess(int32_t systemAbilityId, const sptr<IRemoteObject> &remoteObject) override;
+    void OnLoadSystemAbilityFail(int32_t systemAbilityId) override;
+};
+} // namespace AAFwk
+} // namespace OHOS
 #endif // OHOS_ASSESSMENT_SERVICE_LOAD_CALLBACK_H
