@@ -40,8 +40,16 @@ public:
     napi_ref GetOnInterruptedRef() const;
     napi_ref GetOnEndRef() const;
 
+    void CallJsOnBegin(int32_t code, const std::string &message);
+    void CallJsOnInterrupted(int32_t reason, const std::string &message);
+    void CallJsOnEnd();
+
 private:
     void CallJsCallback(napi_ref callbackRef, napi_value* argv, size_t argc, const std::string& callbackName);
+
+    void PostOnBegin(int32_t code, const std::string &message);
+    void PostOnInterrupted(int32_t reason, const std::string &message);
+    void PostOnEnd();
 
     napi_env env_ = nullptr;
     napi_ref onBeginRef_ = nullptr;
