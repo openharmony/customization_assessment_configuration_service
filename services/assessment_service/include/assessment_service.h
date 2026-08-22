@@ -19,6 +19,11 @@
 #include <mutex>
 #include <string>
 #include <vector>
+#include <condition_variable>
+#include <thread>
+#include <chrono>
+#include <functional>
+#include <atomic>
 
 #include "event_runner.h"
 #include "event_handler.h"
@@ -58,8 +63,14 @@ public:
     void SaveState();
     void ClearState();
 
+    void DoLoop();
+
 private:
     void CleanupCurrentSession();
+
+    int32_t ComputeNextTaskTimeoutLockedUnsafe();
+    void CheckEndpointAndExecuteTaskLockedUnsafe();
+    void Quit();
 
     static std::mutex mutex_;
     static sptr<AssessmentService> instance_;
@@ -69,6 +80,12 @@ private:
     bool isActive_ = false;
     sptr<IRemoteObject> callerToken_;
     AssessmentConfig currentConfig_;
+
+    std::mutex mutexSa_;
+    std::condition_variable condSa_;
+    std::atomic<bool> running_ = false;
+    std::thread thread_;
+    uint64_t endpointCheckPoint_ = 0;
 
     DISALLOW_COPY_AND_MOVE(AssessmentService);
 };
