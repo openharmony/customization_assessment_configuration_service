@@ -16,6 +16,7 @@
 #include "assessment_service.h"
 
 #include <sstream>
+#include <sys/time.h>
 
 #include "callback_manager.h"
 #include "hilog_tag_wrapper.h"
@@ -31,6 +32,9 @@ const char* const PARAM_ASSESSMENT_IS_ACTIVE = "persist.assessment.is_active";
 const char* const PARAM_ASSESSMENT_DURATION = "persist.assessment.duration";
 const char* const PARAM_ASSESSMENT_ALLOWED_APPS = "persist.assessment.allowed_apps";
 const char APP_DELIMITER = '|';
+const uint64_t MILLISECONDS_UNIT = 1000;
+const uint64_t DEFAULT_TIME_SLICE_INTERVAL = 5 * MILLISECONDS_UNIT;
+const int32_t DEFAULT_MAX_DURATIO = 8 * 3600;
 }
 
 std::mutex AssessmentService::mutex_;
@@ -60,6 +64,9 @@ bool AssessmentService::Init()
         return false;
     }
 
+    this->thread_ = std::thread([this]() {
+        this->DoLoop();
+    });
     return true;
 }
 
@@ -122,6 +129,7 @@ void AssessmentService::CleanupCurrentSession()
     isActive_ = false;
     callerToken_ = nullptr;
     currentConfig_ = AssessmentConfig();
+    endpointCheckPoint_ = 0;
 }
 
 ErrCode AssessmentService::Begin(const sptr<IRemoteObject> &token, uint32_t duration,
@@ -131,6 +139,7 @@ ErrCode AssessmentService::Begin(const sptr<IRemoteObject> &token, uint32_t dura
     TAG_LOGI(AAFwkTag::DEFAULT, "Begin called, duration: %{public}d, allowedApps size: %{public}zu",
         duration, allowedApps.size());
 
+    std::unique_lock<std::mutex> lock(this->mutexSa_);
     if (isActive_) {
         TAG_LOGW(AAFwkTag::DEFAULT, "Assessment already active, cleanup and restart");
         CleanupCurrentSession();
@@ -138,13 +147,19 @@ ErrCode AssessmentService::Begin(const sptr<IRemoteObject> &token, uint32_t dura
 
     callerToken_ = token;
     CallbackManager::GetInstance().RegisterCallback(token, callback);
-    currentConfig_.duration = duration;
+    currentConfig_.duration = (duration == 0) ? DEFAULT_MAX_DURATIO : duration;
     currentConfig_.allowedApps = allowedApps;
+
+    auto pt = std::chrono::system_clock::now() + std::chrono::seconds(duration);
+    endpointCheckPoint_ = std::chrono::duration_cast<std::chrono::milliseconds>(
+        pt.time_since_epoch()).count();
     isActive_ = true;
     errCode = ERR_OK;
 
     SaveState();
     CallbackManager::GetInstance().OnBegin(token, 0, "");
+    condSa_.notify_all();
+
     return ERR_OK;
 }
 
@@ -152,6 +167,7 @@ ErrCode AssessmentService::End(const sptr<IRemoteObject> &token, int32_t &errCod
 {
     TAG_LOGI(AAFwkTag::DEFAULT, "End called");
 
+    std::unique_lock<std::mutex> lock(this->mutexSa_);
     if (!isActive_) {
         TAG_LOGW(AAFwkTag::DEFAULT, "Assessment not active");
         errCode = ERR_INVALID_VALUE;
@@ -171,18 +187,19 @@ ErrCode AssessmentService::End(const sptr<IRemoteObject> &token, int32_t &errCod
     if (sam != nullptr) {
         sam->UnloadSystemAbility(ASSESSMENT_SERVICE_ID);
     }
-
     return ERR_OK;
 }
 
 ErrCode AssessmentService::IsActive(bool &isActive)
 {
+    std::unique_lock<std::mutex> lock(this->mutexSa_);
     isActive = isActive_;
     return ERR_OK;
 }
 
 ErrCode AssessmentService::GetConfiguration(uint32_t &duration, std::vector<std::string> &allowedApps)
 {
+    std::unique_lock<std::mutex> lock(this->mutexSa_);
     duration = currentConfig_.duration;
     allowedApps = currentConfig_.allowedApps;
     return ERR_OK;
@@ -209,6 +226,86 @@ void AssessmentService::NotifyEnd()
     TAG_LOGI(AAFwkTag::DEFAULT, "NotifyEnd called");
     if (callerToken_ != nullptr) {
         CallbackManager::GetInstance().OnEnd(callerToken_);
+    }
+}
+
+void AssessmentService::DoLoop()
+{
+    TAG_LOGI(AAFwkTag::DEFAULT, "Assessment execute enter");
+    this->running_ = true;
+    while (running_) {
+        std::unique_lock<std::mutex> lock(this->mutexSa_);
+        if (!running_) {
+            break;
+        }
+
+        int32_t timeout = this->ComputeNextTaskTimeoutLockedUnsafe();
+        TAG_LOGD(AAFwkTag::DEFAULT, "Assessment execute compute next round: %{public}d", timeout);
+
+        auto waitUntil = std::chrono::system_clock::now() + std::chrono::milliseconds(timeout);
+        condSa_.wait_until(lock, waitUntil);
+
+        this->CheckEndpointAndExecuteTaskLockedUnsafe();
+
+        TAG_LOGI(AAFwkTag::DEFAULT, "Assessment execute once");
+    }
+    TAG_LOGI(AAFwkTag::DEFAULT, "Assessment execute exit");
+}
+
+int32_t AssessmentService::ComputeNextTaskTimeoutLockedUnsafe()
+{
+    if (!isActive_ || callerToken_ == nullptr) {
+        return DEFAULT_TIME_SLICE_INTERVAL;
+    }
+
+    uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    if (now >= endpointCheckPoint_) {
+        return 0;
+    }
+
+    uint64_t delta = endpointCheckPoint_ - now;
+    if (delta > DEFAULT_TIME_SLICE_INTERVAL) {
+        return static_cast<int32_t>(DEFAULT_TIME_SLICE_INTERVAL);
+    }
+    return static_cast<int32_t>(delta);
+}
+
+void AssessmentService::CheckEndpointAndExecuteTaskLockedUnsafe()
+{
+    if (!isActive_) {
+        return;
+    }
+    if (callerToken_ == nullptr) {
+        return;
+    }
+    if (currentConfig_.duration == 0) {
+        TAG_LOGD(AAFwkTag::DEFAULT, "assessment task no time limited");
+        return;
+    }
+
+    uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+
+    TAG_LOGI(AAFwkTag::DEFAULT,
+        "assessment task timeout, end: %{public}lu, point:%{public}lu", now, endpointCheckPoint_);
+    if (now >= endpointCheckPoint_) {
+        this->CleanupCurrentSession();
+        auto sam = SystemAbilityManagerClient::GetInstance().GetSystemAbilityManager();
+        if (sam != nullptr) {
+            sam->UnloadSystemAbility(ASSESSMENT_SERVICE_ID);
+        }
+    }
+}
+
+void AssessmentService::Quit()
+{
+    if (this->running_) {
+        this->running_ = false;
+        condSa_.notify_all();
+        if (thread_.joinable()) {
+            thread_.join();
+        }
     }
 }
 }  // namespace AAFwk
