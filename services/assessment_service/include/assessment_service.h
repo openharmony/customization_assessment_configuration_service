@@ -29,6 +29,7 @@
 #include "event_handler.h"
 #include "assessment_error_code.h"
 #include "assessment_service_stub.h"
+#include "assessment_event_manager.h"
 
 namespace OHOS {
 namespace AAFwk {
@@ -64,6 +65,7 @@ public:
     void ClearState();
 
     void DoLoop();
+    void DispatchEvent(const OHOS::EventFwk::CommonEventData& data);
 
 private:
     void CleanupCurrentSession();
@@ -71,6 +73,10 @@ private:
     int32_t ComputeNextTaskTimeoutLockedUnsafe();
     void CheckEndpointAndExecuteTaskLockedUnsafe();
     void Quit();
+
+    bool SubscribeCommonEvent();
+    void UnsubscribeCommonEvent();
+    void HandleBegin(const std::string &ticket, uint32_t operation);
 
     static std::mutex mutex_;
     static sptr<AssessmentService> instance_;
@@ -80,12 +86,14 @@ private:
     bool isActive_ = false;
     sptr<IRemoteObject> callerToken_;
     AssessmentConfig currentConfig_;
+    uint64_t endpointCheckPoint_ = 0;
 
     std::mutex mutexSa_;
     std::condition_variable condSa_;
     std::atomic<bool> running_ = false;
     std::thread thread_;
-    uint64_t endpointCheckPoint_ = 0;
+
+    std::shared_ptr<AssessmentEventObserver> assessmentEventObserver_;
 
     DISALLOW_COPY_AND_MOVE(AssessmentService);
 };

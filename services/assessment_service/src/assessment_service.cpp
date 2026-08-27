@@ -17,6 +17,7 @@
 
 #include <sstream>
 #include <sys/time.h>
+#include <random>
 
 #include "callback_manager.h"
 #include "hilog_tag_wrapper.h"
@@ -24,6 +25,7 @@
 #include "iservice_registry.h"
 #include "syspara/parameters.h"
 #include "system_ability_definition.h"
+#include "extension_manager_client.h"
 
 namespace OHOS {
 namespace AAFwk {
@@ -34,7 +36,40 @@ const char* const PARAM_ASSESSMENT_ALLOWED_APPS = "persist.assessment.allowed_ap
 const char APP_DELIMITER = '|';
 const uint64_t MILLISECONDS_UNIT = 1000;
 const uint64_t DEFAULT_TIME_SLICE_INTERVAL = 5 * MILLISECONDS_UNIT;
-const int32_t DEFAULT_MAX_DURATIO = 8 * 3600;
+const int32_t DEFAULT_MAX_DURATION = 8 * 3600;
+const int32_t TICKET_LEN = 16;
+
+const char* const ASSESSMENT_COMMON_EVENT_CONFIRMATION = "assessment.event.confirmation";
+const std::string SCENEBOARD_BUNDLE_NAME = "com.ohos.sceneboard";
+const std::string SCENEBOARD_ABILITY_NAME = "com.ohos.sceneboard.systemdialog";
+const std::string SYSTEM_UI_BUNDLE_NAME = "com.test.demo";
+const std::string SYSTEM_UI_ABILITY_NAME = "CustomDialogAbility";
+
+enum AssessmentConfirmationOperation : uint32_t {
+    CANCEL = 0,
+    CONFIRM = 1
+};
+}
+
+std::string GenerateRandomString(size_t length)
+{
+    const std::string chars =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "abcdefghijklmnopqrstuvwxyz"
+        "0123456789";
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dis(0, chars.size() - 1);
+
+    std::string result;
+    result.reserve(length);
+
+    for (size_t i = 0; i < length; i++) {
+        result += chars[dis(gen)];
+    }
+
+    return result;
 }
 
 std::mutex AssessmentService::mutex_;
@@ -61,6 +96,11 @@ bool AssessmentService::Init()
     eventHandler_ = std::make_shared<AppExecFwk::EventHandler>(eventRunner_);
     if (eventHandler_ == nullptr) {
         TAG_LOGE(AAFwkTag::DEFAULT, "null eventHandler_");
+        return false;
+    }
+
+    if (!SubscribeCommonEvent()) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "assessment subscribe fail");
         return false;
     }
 
@@ -145,9 +185,28 @@ ErrCode AssessmentService::Begin(const sptr<IRemoteObject> &token, uint32_t dura
         CleanupCurrentSession();
     }
 
+    OHOS::AAFwk::Want want;
+    want.SetElementName(SCENEBOARD_BUNDLE_NAME, SCENEBOARD_ABILITY_NAME);
+
+    std::string ticket = GenerateRandomString(TICKET_LEN);
+    std::string parameters =
+        "{\"ability.want.params.uiExtensionType\":\"sysDialog/common\",\"ticket\":\"" + ticket + "\"}";
+    sptr<AssessmentAbilityConnection> connection = sptr<AssessmentAbilityConnection> (
+        new (std::nothrow)AssessmentAbilityConnection(
+            SYSTEM_UI_BUNDLE_NAME, SYSTEM_UI_ABILITY_NAME, parameters));
+    if (connection == nullptr) {
+        TAG_LOGW(AAFwkTag::DEFAULT, "connection is nullptr.");
+        return ERR_OK;
+    }
+
+    constexpr int32_t DEFAULT_VALUE = -1;
+    auto ret = OHOS::AAFwk::ExtensionManagerClient::GetInstance().ConnectServiceExtensionAbility(
+        want, connection, nullptr, DEFAULT_VALUE);
+    TAG_LOGI(AAFwkTag::DEFAULT, "assessment ConnectServiceExtensionAbility ret is:%{public}d.", ret);
+
     callerToken_ = token;
     CallbackManager::GetInstance().RegisterCallback(token, callback);
-    currentConfig_.duration = (duration == 0) ? DEFAULT_MAX_DURATIO : duration;
+    currentConfig_.duration = (duration == 0) ? DEFAULT_MAX_DURATION : duration;
     currentConfig_.allowedApps = allowedApps;
 
     auto pt = std::chrono::system_clock::now() + std::chrono::seconds(duration);
@@ -305,6 +364,64 @@ void AssessmentService::Quit()
         condSa_.notify_all();
         if (thread_.joinable()) {
             thread_.join();
+        }
+    }
+}
+
+bool AssessmentService::SubscribeCommonEvent()
+{
+    OHOS::EventFwk::MatchingSkills matchingSkills;
+    matchingSkills.AddEvent(ASSESSMENT_COMMON_EVENT_CONFIRMATION);
+    OHOS::EventFwk::CommonEventSubscribeInfo subscribeInfo(matchingSkills);
+
+    this->assessmentEventObserver_ = AssessmentEventObserver::Create(subscribeInfo,
+        std::bind(&AssessmentService::DispatchEvent, this, std::placeholders::_1));
+    if (this->assessmentEventObserver_ == nullptr) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "assessment subscribe null systemEventObserver_");
+        return false;
+    }
+    if (!this->assessmentEventObserver_->Subscribe()) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "assessment subscribe fail");
+        return false;
+    }
+
+    TAG_LOGI(AAFwkTag::DEFAULT, "assessment subscribe success");
+    return true;
+}
+
+void AssessmentService::UnsubscribeCommonEvent()
+{
+    if (this->assessmentEventObserver_ == nullptr) {
+        return;
+    }
+    this->assessmentEventObserver_->Unsubscribe();
+}
+
+void AssessmentService::HandleBegin(const std::string &ticket, uint32_t operation)
+{
+    TAG_LOGI(AAFwkTag::DEFAULT, "assessment handle begin %{public}s, %{public}d", ticket.c_str(), operation);
+    if (operation == AssessmentConfirmationOperation::CANCEL) {
+    } else if (operation == AssessmentConfirmationOperation::CONFIRM) {
+    } else {
+    }
+}
+
+void AssessmentService::DispatchEvent(const OHOS::EventFwk::CommonEventData& eventData)
+{
+    TAG_LOGI(AAFwkTag::DEFAULT, "assessment dispatch_event");
+    const OHOS::AAFwk::Want& want = eventData.GetWant();
+    std::string action = want.GetAction();
+    if (action == ASSESSMENT_COMMON_EVENT_CONFIRMATION) {
+        std::string data = eventData.GetData();
+        TAG_LOGI(AAFwkTag::DEFAULT, "assessment receive data:%{public}s for handle begin", data.c_str());
+
+        std::string ticket;
+        int operation = 0;
+
+        std::replace(data.begin(), data.end(), ':', ' ');
+        std::istringstream is(data);
+        if ((is >> ticket >> operation)) {
+            HandleBegin(ticket, operation);
         }
     }
 }

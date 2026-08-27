@@ -10,7 +10,7 @@
         "name": "assessment_configuration_service",
         "subsystem": "customization",
         "syscap": [
-            "SystemCapability.Assessment.Configuration"
+            "SystemCapability.Customization.AssessmentConfiguration"
         ],
         "features": [],
         "adapted_system_type": [
