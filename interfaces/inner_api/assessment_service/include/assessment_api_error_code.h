@@ -13,22 +13,29 @@
  * limitations under the License.
  */
 
-#ifndef OHOS_AAFWK_ASSESSMENT_ERROR_CODE_H
-#define OHOS_AAFWK_ASSESSMENT_ERROR_CODE_H
+#ifndef OHOS_ASSESSMENT_API_ERROR_CODE_H
+#define OHOS_ASSESSMENT_API_ERROR_CODE_H
+
+#include <string>
 
 namespace OHOS {
 namespace AAFwk {
 
-enum class AssessmentErrCode {
+enum class AssessmentApiErrCode : int32_t {
+    ERR_OK = 0,
+    ERR_PERMISSION_DENIED = 201,
+    ERR_INVALID_PARAMS = 401,
+    ERR_CAPABILITY_NOT_SUPPORT = 801,
+
+    ERR_INTERNAL_ERROR = 86600001,
+    ERR_ASSESSMENT_ALREADY_ACTIVE = 86600002,
+    ERR_INVALID_CONFIG = 86600003,
+    ERR_ENV_DETECTION_FAILED = 86600004,
+    ERR_ASSESSMENT_NOT_ACTIVED = 86600005,
 };
 
-enum class AssessmentInterruptReason {
-    USER_EXIT = 1,
-    TIMEOUT = 2,
-    SYSTEM_ERROR = 3,
-    SECURITY_BREACH = 4,
-};
+std::string AssessmentErrCodeToErrMsg(int32_t errCode);
 
 } // namespace AAFwk
 } // namespace OHOS
-#endif // OHOS_AAFWK_ASSESSMENT_ERROR_CODE_H
+#endif // OHOS_ASSESSMENT_API_ERROR_CODE_H

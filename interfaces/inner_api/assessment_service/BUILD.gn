@@ -48,6 +48,7 @@ ohos_shared_library("assessment_manager") {
     output_values = get_target_outputs(":assessment_service_interface")
     sources = filter_include(output_values, [ "*.cpp" ]) + [
         "include/assessment_callback_code.h",
+        "src/assessment_api_error_code.cpp",
         "src/assessment_service_client.cpp",
         "src/assessment_service_load_callback.cpp",
     ]

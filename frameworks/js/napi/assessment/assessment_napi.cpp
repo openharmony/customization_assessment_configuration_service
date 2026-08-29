@@ -15,6 +15,7 @@
 
 #include "assessment_napi.h"
 
+#include "assessment_api_error_code.h"
 #include "assessment_service_client.h"
 #include "hilog_tag_wrapper.h"
 #include "js_assessment_callback.h"
@@ -32,8 +33,39 @@ constexpr size_t ARGC_ONE = 1;
 constexpr size_t INDEX_ZERO = 0;
 constexpr size_t INDEX_ONE = 1;
 constexpr size_t INDEX_TWO = 2;
-constexpr int32_t RET_ERR = -1;
 constexpr size_t MAX_ALLOWED_APPS_COUNT = 10;
+}
+
+static napi_value GetNapiUndefined(napi_env env)
+{
+    napi_value result;
+    napi_get_undefined(env, &result);
+    return result;
+}
+
+static napi_value CreateError(napi_env env, int32_t err, const std::string& msg)
+{
+    napi_value businessError = nullptr;
+    napi_value errorCode = nullptr;
+    NAPI_CALL(env, napi_create_int32(env, err, &errorCode));
+    napi_value errorMessage = nullptr;
+    NAPI_CALL(env, napi_create_string_utf8(env, msg.c_str(), NAPI_AUTO_LENGTH, &errorMessage));
+    napi_create_error(env, nullptr, errorMessage, &businessError);
+    napi_set_named_property(env, businessError, "code", errorCode);
+    return businessError;
+}
+
+static napi_value ThrowError(napi_env env, int32_t err, const std::string &msg)
+{
+    napi_value error = CreateError(env, err, msg);
+    napi_throw(env, error);
+    return GetNapiUndefined(env);
+}
+
+static napi_value ThrowError(napi_env env, OHOS::AAFwk::AssessmentApiErrCode errCode)
+{
+    return ThrowError(env, static_cast<int32_t>(errCode),
+        OHOS::AAFwk::AssessmentErrCodeToErrMsg(static_cast<int32_t>(errCode)));
 }
 
 static bool NapiIsCallable(napi_env env, napi_value value)
@@ -101,35 +133,26 @@ napi_value AssessmentNapiBegin(napi_env env, napi_callback_info info)
 
     if (argc < ARGC_THREE) {
         TAG_LOGE(AAFwkTag::DEFAULT, "missing parameters");
-        napi_value result = nullptr;
-        napi_create_int32(env, RET_ERR, &result);
-        return result;
+        return ThrowError(env, OHOS::AAFwk::AssessmentApiErrCode::ERR_INVALID_PARAMS);
     }
 
     auto context = OHOS::AbilityRuntime::GetStageModeContext(env, argv[INDEX_ZERO]);
     if (context == nullptr) {
         TAG_LOGE(AAFwkTag::DEFAULT, "null context");
-        napi_value result = nullptr;
-        napi_create_int32(env, RET_ERR, &result);
-        return result;
+        return ThrowError(env, OHOS::AAFwk::AssessmentApiErrCode::ERR_INVALID_PARAMS);
     }
     auto uiAbilityContext = AbilityRuntime::Context::ConvertTo<AbilityRuntime::AbilityContext>(context);
     if (uiAbilityContext == nullptr) {
         TAG_LOGE(AAFwkTag::DEFAULT, "null UIAbilityContext");
-        napi_value result = nullptr;
-        napi_create_int32(env, RET_ERR, &result);
-        return result;
+        return ThrowError(env, OHOS::AAFwk::AssessmentApiErrCode::ERR_INVALID_PARAMS);
     }
     auto token = uiAbilityContext->GetToken();
-
     napi_value configValue = argv[INDEX_ONE];
     napi_valuetype valueType = napi_valuetype::napi_undefined;
     napi_typeof(env, configValue, &valueType);
     if (valueType != napi_valuetype::napi_object) {
         TAG_LOGE(AAFwkTag::DEFAULT, "config is not object");
-        napi_value result = nullptr;
-        napi_create_int32(env, RET_ERR, &result);
-        return result;
+        return ThrowError(env, OHOS::AAFwk::AssessmentApiErrCode::ERR_INVALID_PARAMS);
     }
 
     uint32_t duration = 0;
@@ -188,17 +211,16 @@ napi_value AssessmentNapiBegin(napi_env env, napi_callback_info info)
     if (allowedApps.size() > MAX_ALLOWED_APPS_COUNT) {
         TAG_LOGE(AAFwkTag::DEFAULT, "too many allowedApps, size: %{public}zu, max: %{public}zu",
             allowedApps.size(), MAX_ALLOWED_APPS_COUNT);
-        napi_value result = nullptr;
-        napi_create_int32(env, ERR_INVALID_VALUE, &result);
-        return result;
+        return ThrowError(env, OHOS::AAFwk::AssessmentApiErrCode::ERR_INVALID_PARAMS);
     }
 
     sptr<IRemoteObject> callbackObj = jsCallback;
     ErrCode ret = OHOS::AAFwk::AssessmentServiceClient::GetInstance()->Begin(token, duration, allowedApps, callbackObj);
+    if (ret != ERR_OK) {
+        return ThrowError(env, ret, OHOS::AAFwk::AssessmentErrCodeToErrMsg(ret));
+    }
 
-    napi_value result = nullptr;
-    napi_create_int32(env, static_cast<int32_t>(ret), &result);
-    return result;
+    return GetNapiUndefined(env);
 }
 
 napi_value AssessmentNapiEnd(napi_env env, napi_callback_info info)
@@ -211,32 +233,27 @@ napi_value AssessmentNapiEnd(napi_env env, napi_callback_info info)
 
     if (argc < ARGC_ONE) {
         TAG_LOGE(AAFwkTag::DEFAULT, "missing parameters");
-        napi_value result = nullptr;
-        napi_create_int32(env, RET_ERR, &result);
-        return result;
+        return ThrowError(env, OHOS::AAFwk::AssessmentApiErrCode::ERR_INVALID_PARAMS);
     }
 
     auto context = OHOS::AbilityRuntime::GetStageModeContext(env, argv[INDEX_ZERO]);
     if (context == nullptr) {
         TAG_LOGE(AAFwkTag::DEFAULT, "null context");
-        napi_value result = nullptr;
-        napi_create_int32(env, RET_ERR, &result);
-        return result;
+        return ThrowError(env, OHOS::AAFwk::AssessmentApiErrCode::ERR_INVALID_PARAMS);
     }
     auto uiAbilityContext = AbilityRuntime::Context::ConvertTo<AbilityRuntime::AbilityContext>(context);
     if (uiAbilityContext == nullptr) {
         TAG_LOGE(AAFwkTag::DEFAULT, "null UIAbilityContext");
-        napi_value result = nullptr;
-        napi_create_int32(env, RET_ERR, &result);
-        return result;
+        return ThrowError(env, OHOS::AAFwk::AssessmentApiErrCode::ERR_INVALID_PARAMS);
     }
     auto token = uiAbilityContext->GetToken();
 
     ErrCode ret = OHOS::AAFwk::AssessmentServiceClient::GetInstance()->End(token);
+    if (ret != ERR_OK) {
+        return ThrowError(env, ret, OHOS::AAFwk::AssessmentErrCodeToErrMsg(ret));
+    }
 
-    napi_value result = nullptr;
-    napi_create_int32(env, static_cast<int32_t>(ret), &result);
-    return result;
+    return GetNapiUndefined(env);
 }
 
 napi_value AssessmentNapiIsActive(napi_env env, napi_callback_info info)
@@ -248,7 +265,10 @@ napi_value AssessmentNapiIsActive(napi_env env, napi_callback_info info)
     napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr);
 
     bool isActive = false;
-    OHOS::AAFwk::AssessmentServiceClient::GetInstance()->IsActive(isActive);
+    ErrCode ret = OHOS::AAFwk::AssessmentServiceClient::GetInstance()->IsActive(isActive);
+    if (ret != ERR_OK) {
+        return ThrowError(env, ret, OHOS::AAFwk::AssessmentErrCodeToErrMsg(ret));
+    }
 
     TAG_LOGI(AAFwkTag::DEFAULT, "IsActive result: %{public}d", isActive);
 
@@ -266,7 +286,10 @@ napi_value AssessmentNapiGetConfiguration(napi_env env, napi_callback_info info)
 
     uint32_t duration = 0;
     std::vector<std::string> allowedApps;
-    OHOS::AAFwk::AssessmentServiceClient::GetInstance()->GetConfiguration(duration, allowedApps);
+    ErrCode ret = OHOS::AAFwk::AssessmentServiceClient::GetInstance()->GetConfiguration(duration, allowedApps);
+    if (ret != ERR_OK) {
+        return ThrowError(env, ret, OHOS::AAFwk::AssessmentErrCodeToErrMsg(ret));
+    }
     napi_set_named_property(env, result, "duration", CreateJsValue(env, duration));
 
     napi_value jsArray = nullptr;
