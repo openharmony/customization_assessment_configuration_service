@@ -27,6 +27,7 @@ const std::string ERR_ASSESSMENT_ALREADY_ACTIVE_DESC = "Assessment already activ
 const std::string ERR_INVALID_CONFIGURATION_DESC = "Invalid configuration";
 const std::string ERR_ENV_DETECTION_FAILED_DESC = "Environment check failed";
 const std::string ERR_ASSESSMENT_NOT_ACTIVED_DESC = "Assessment not actived";
+const std::string ERR_USER_CANCELLED_DESC = "User Cancelled";
 }
 
 std::string AssessmentErrCodeToErrMsg(int32_t errCode)
@@ -46,6 +47,8 @@ std::string AssessmentErrCodeToErrMsg(int32_t errCode)
             return ERR_ENV_DETECTION_FAILED_DESC;
         case static_cast<int32_t>(AssessmentApiErrCode::ERR_ASSESSMENT_NOT_ACTIVED):
             return ERR_ASSESSMENT_NOT_ACTIVED_DESC;
+        case static_cast<int32_t>(AssessmentApiErrCode::ERR_USER_CANCELLED):
+            return ERR_USER_CANCELLED_DESC;
         default:
             return ERR_INTERNAL_ERROR_DESC;
     }

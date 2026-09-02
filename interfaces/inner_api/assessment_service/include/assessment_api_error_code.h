@@ -32,6 +32,7 @@ enum class AssessmentApiErrCode : int32_t {
     ERR_INVALID_CONFIG = 86600003,
     ERR_ENV_DETECTION_FAILED = 86600004,
     ERR_ASSESSMENT_NOT_ACTIVED = 86600005,
+    ERR_USER_CANCELLED = 86600006,
 };
 
 std::string AssessmentErrCodeToErrMsg(int32_t errCode);
