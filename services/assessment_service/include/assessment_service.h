@@ -53,8 +53,9 @@ public:
                   const std::vector<std::string> &allowedApps,
                   const sptr<IRemoteObject> &callback, int32_t &errCode) override;
     ErrCode End(const sptr<IRemoteObject> &token, int32_t &errCode) override;
-    ErrCode IsActive(bool &isActive) override;
-    ErrCode GetConfiguration(uint32_t &duration, std::vector<std::string> &allowedApps) override;
+    ErrCode IsActive(bool &isActive, int32_t &errCode) override;
+    ErrCode GetConfiguration(
+        uint32_t &duration, std::vector<std::string> &allowedApps, int32_t &errCode) override;
     
     void NotifyBegin(int32_t code, const std::string &message);
     void NotifyInterrupted(int32_t reason, const std::string &message);

@@ -17,7 +17,6 @@
 
 #include <sstream>
 #include <sys/time.h>
-#include <random>
 
 #include "callback_manager.h"
 #include "hilog_tag_wrapper.h"
@@ -26,6 +25,8 @@
 #include "syspara/parameters.h"
 #include "system_ability_definition.h"
 #include "extension_manager_client.h"
+#include "assessment_utils.h"
+#include "assessment_api_error_code.h"
 
 namespace OHOS {
 namespace AAFwk {
@@ -36,7 +37,7 @@ const char* const PARAM_ASSESSMENT_ALLOWED_APPS = "persist.assessment.allowed_ap
 const char APP_DELIMITER = '|';
 const uint64_t MILLISECONDS_UNIT = 1000;
 const uint64_t DEFAULT_TIME_SLICE_INTERVAL = 5 * MILLISECONDS_UNIT;
-const int32_t DEFAULT_MAX_DURATION = 8 * 3600;
+const uint32_t DEFAULT_MAX_DURATION = 8 * 60 * 60 * 1000;
 const int32_t TICKET_LEN = 16;
 
 const char* const ASSESSMENT_COMMON_EVENT_CONFIRMATION = "assessment.event.confirmation";
@@ -49,27 +50,6 @@ enum AssessmentConfirmationOperation : uint32_t {
     CANCEL = 0,
     CONFIRM = 1
 };
-}
-
-std::string GenerateRandomString(size_t length)
-{
-    const std::string chars =
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-        "abcdefghijklmnopqrstuvwxyz"
-        "0123456789";
-
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<> dis(0, chars.size() - 1);
-
-    std::string result;
-    result.reserve(length);
-
-    for (size_t i = 0; i < length; i++) {
-        result += chars[dis(gen)];
-    }
-
-    return result;
 }
 
 std::mutex AssessmentService::mutex_;
@@ -179,6 +159,12 @@ ErrCode AssessmentService::Begin(const sptr<IRemoteObject> &token, uint32_t dura
     TAG_LOGI(AAFwkTag::DEFAULT, "Begin called, duration: %{public}d, allowedApps size: %{public}zu",
         duration, allowedApps.size());
 
+    if (!AssessmentServiceUtils::CheckDeviceTypeSupported()) {
+        TAG_LOGE(AAFwkTag::ASSESSMENT, "assessment device not supported");
+        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_CAPABILITY_NOT_SUPPORT);
+        return ERR_OK;
+    }
+
     std::unique_lock<std::mutex> lock(this->mutexSa_);
     if (isActive_) {
         TAG_LOGW(AAFwkTag::DEFAULT, "Assessment already active, cleanup and restart");
@@ -188,7 +174,7 @@ ErrCode AssessmentService::Begin(const sptr<IRemoteObject> &token, uint32_t dura
     OHOS::AAFwk::Want want;
     want.SetElementName(SCENEBOARD_BUNDLE_NAME, SCENEBOARD_ABILITY_NAME);
 
-    std::string ticket = GenerateRandomString(TICKET_LEN);
+    std::string ticket = AssessmentServiceUtils::GenerateRandomString(TICKET_LEN);
     std::string parameters =
         "{\"ability.want.params.uiExtensionType\":\"sysDialog/common\",\"ticket\":\"" + ticket + "\"}";
     sptr<AssessmentAbilityConnection> connection = sptr<AssessmentAbilityConnection> (
@@ -196,6 +182,7 @@ ErrCode AssessmentService::Begin(const sptr<IRemoteObject> &token, uint32_t dura
             SYSTEM_UI_BUNDLE_NAME, SYSTEM_UI_ABILITY_NAME, parameters));
     if (connection == nullptr) {
         TAG_LOGW(AAFwkTag::DEFAULT, "connection is nullptr.");
+        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_INTERNAL_ERROR);
         return ERR_OK;
     }
 
@@ -206,10 +193,11 @@ ErrCode AssessmentService::Begin(const sptr<IRemoteObject> &token, uint32_t dura
 
     callerToken_ = token;
     CallbackManager::GetInstance().RegisterCallback(token, callback);
+    duration = std::min(duration, DEFAULT_MAX_DURATION);
     currentConfig_.duration = (duration == 0) ? DEFAULT_MAX_DURATION : duration;
     currentConfig_.allowedApps = allowedApps;
 
-    auto pt = std::chrono::system_clock::now() + std::chrono::seconds(duration);
+    auto pt = std::chrono::system_clock::now() + std::chrono::milliseconds(duration);
     endpointCheckPoint_ = std::chrono::duration_cast<std::chrono::milliseconds>(
         pt.time_since_epoch()).count();
     isActive_ = true;
@@ -225,6 +213,11 @@ ErrCode AssessmentService::Begin(const sptr<IRemoteObject> &token, uint32_t dura
 ErrCode AssessmentService::End(const sptr<IRemoteObject> &token, int32_t &errCode)
 {
     TAG_LOGI(AAFwkTag::DEFAULT, "End called");
+    if (!AssessmentServiceUtils::CheckDeviceTypeSupported()) {
+        TAG_LOGE(AAFwkTag::ASSESSMENT, "assessment device not supported");
+        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_CAPABILITY_NOT_SUPPORT);
+        return ERR_OK;
+    }
 
     std::unique_lock<std::mutex> lock(this->mutexSa_);
     if (!isActive_) {
@@ -249,15 +242,42 @@ ErrCode AssessmentService::End(const sptr<IRemoteObject> &token, int32_t &errCod
     return ERR_OK;
 }
 
-ErrCode AssessmentService::IsActive(bool &isActive)
+ErrCode AssessmentService::IsActive(bool &isActive, int32_t &errCode)
 {
+    TAG_LOGI(AAFwkTag::ASSESSMENT, "IsActive called");
+    errCode = ERR_OK;
+    if (!AssessmentServiceUtils::VerifyCallingPermission(PERMISSION_ASSESSMENT_CONFIGURATION)) {
+        TAG_LOGE(AAFwkTag::ASSESSMENT, "no permission: ohos.permission.ASSESSMENT_CONFIGURATION");
+        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_PERMISSION_DENIED);
+        return ERR_OK;
+    }
+    if (!AssessmentServiceUtils::CheckDeviceTypeSupported()) {
+        TAG_LOGE(AAFwkTag::ASSESSMENT, "assessment device not supported");
+        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_CAPABILITY_NOT_SUPPORT);
+        return ERR_OK;
+    }
+
     std::unique_lock<std::mutex> lock(this->mutexSa_);
     isActive = isActive_;
     return ERR_OK;
 }
 
-ErrCode AssessmentService::GetConfiguration(uint32_t &duration, std::vector<std::string> &allowedApps)
+ErrCode AssessmentService::GetConfiguration(
+    uint32_t &duration, std::vector<std::string> &allowedApps, int32_t &errCode)
 {
+    TAG_LOGI(AAFwkTag::ASSESSMENT, "GetConfiguration called");
+    errCode = ERR_OK;
+    if (!AssessmentServiceUtils::VerifyCallingPermission(PERMISSION_ASSESSMENT_CONFIGURATION)) {
+        TAG_LOGE(AAFwkTag::ASSESSMENT, "no permission: ohos.permission.ASSESSMENT_CONFIGURATION");
+        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_PERMISSION_DENIED);
+        return ERR_OK;
+    }
+    if (!AssessmentServiceUtils::CheckDeviceTypeSupported()) {
+        TAG_LOGE(AAFwkTag::ASSESSMENT, "assessment device not supported");
+        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_CAPABILITY_NOT_SUPPORT);
+        return ERR_OK;
+    }
+
     std::unique_lock<std::mutex> lock(this->mutexSa_);
     duration = currentConfig_.duration;
     allowedApps = currentConfig_.allowedApps;

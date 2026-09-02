@@ -13,12 +13,25 @@
  * limitations under the License.
  */
 
-sequenceable OHOS.IRemoteObject;
+#ifndef OHOS_ASSESSMENT_UTILS_H
+#define OHOS_ASSESSMENT_UTILS_H
 
-interface OHOS.AAFwk.IAssessmentService {
-    void Begin([in] IRemoteObject token, [in] unsigned int duration, [in] String[] allowedApps,
-               [in] IRemoteObject assessmentCb, [out] int ret);
-    void End([in] IRemoteObject token, [out] int ret);
-    void IsActive([out] boolean isActive, [out] int ret);
-    void GetConfiguration([out] unsigned int duration, [out] String[] allowedApps, [out] int ret);
-}
+#include <string>
+
+namespace OHOS {
+namespace AAFwk {
+
+constexpr const char* PERMISSION_ASSESSMENT_CONFIGURATION = "ohos.permission.ASSESSMENT_CONFIGURATION";
+
+class AssessmentServiceUtils {
+public:
+    static std::string GenerateRandomString(size_t length);
+    static bool VerifyCallingPermission(
+        const std::string &permissionName, const uint32_t specifyTokenId = 0);
+    static bool CheckDeviceTypeSupported();
+};
+
+} // namespace AAFwk
+} // namespace OHOS
+#endif // OHOS_ASSESSMENT_UTILS_H
+

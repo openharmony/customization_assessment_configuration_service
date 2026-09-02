@@ -22,6 +22,7 @@ namespace OHOS {
 namespace AAFwk {
 enum class AAFwkLogTag : uint32_t {
     DEFAULT = 0xD003950,
+    ASSESSMENT = 0xD003951,
 };
 } // namespace AAFwk
 } // namespace OHOS

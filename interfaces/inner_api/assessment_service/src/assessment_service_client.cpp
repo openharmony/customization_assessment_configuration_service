@@ -75,8 +75,9 @@ ErrCode AssessmentServiceClient::IsActive(bool &isActive)
         isActive = false;
         return ERR_INVALID_VALUE;
     }
-
-    return assessmentService->IsActive(isActive);
+    int errCode = ERR_UNKNOWN_REASON;
+    assessmentService->IsActive(isActive, errCode);
+    return static_cast<ErrCode>(errCode);
 }
 
 ErrCode AssessmentServiceClient::GetConfiguration(uint32_t &duration, std::vector<std::string> &allowedApps)
@@ -88,8 +89,9 @@ ErrCode AssessmentServiceClient::GetConfiguration(uint32_t &duration, std::vecto
         allowedApps.clear();
         return ERR_INVALID_VALUE;
     }
-
-    return assessmentService->GetConfiguration(duration, allowedApps);
+    int errCode = ERR_UNKNOWN_REASON;
+    assessmentService->GetConfiguration(duration, allowedApps, errCode);
+    return static_cast<ErrCode>(errCode);
 }
 
 sptr<IAssessmentService> AssessmentServiceClient::GetAssessmentProxyWithCheck()
