@@ -144,11 +144,14 @@ void AssessmentService::EnableAndRestAnco()
 
 void AssessmentService::OnAncoStatusChanged(const int32_t status)
 {
-    TAG_LOGI(AAFwkTag::DEFAULT, "OnAncoStatusChanged called, status: %{public}d, isAncoWaittingActive_: %{public}s", status, isAncoWaittingActive_ ? "true" : "false");
+    TAG_LOGI(AAFwkTag::DEFAULT, "OnAncoStatusChanged called, status: %{public}d, isAncoWaittingActive_: %{public}s",
+        status, isAncoWaittingActive_ ? "true" : "false");
     if (isAncoWaittingActive_ && status == OHOS::LowpowerManager::ANCO_RUNNING) {
         isAncoWaittingActive_ = false;
         system::SetParameter(PARAM_ASSESSMENT_IS_ACTIVE, isActive_ ? "true" : "false");
-        TAG_LOGI(AAFwkTag::DEFAULT, "OnAncoStatusChanged called, sync anco state success, assessment status: %{public}s ",  isActive_ ? "true" : "false");
+        TAG_LOGI(AAFwkTag::DEFAULT,
+            "OnAncoStatusChanged called, sync anco state success, assessment status: %{public}s",
+            isActive_ ? "true" : "false");
         if (!isActive_) {
             Destroy();
         }
