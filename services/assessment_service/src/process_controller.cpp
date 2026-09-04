@@ -28,8 +28,13 @@ namespace AAFwk {
 void AssessmentTelephonyObserver::OnCallStateUpdated(
     int32_t slotId, int32_t callState, const std::u16string &phoneNumber)
 {
-    if (controller_ == nullptr || !controller_->IsActivated()) {
+    if (controller_ == nullptr) {
         TAG_LOGE(AAFwkTag::DEFAULT, "controller_ is null");
+        return;
+    }
+
+    if (!controller_->IsActivated()) {
+        TAG_LOGW(AAFwkTag::DEFAULT, "controller_ not activated, skip call state update");
         return;
     }
 
@@ -119,7 +124,7 @@ void ProcessController::RegisterCallObserver()
     if (ret != 0) {
         TAG_LOGE(AAFwkTag::DEFAULT, "AddStateObserver failed, ret : %{public}d", ret);
     } else {
-        callObserverRegistered_ = true
+        callObserverRegistered_ = true;
         TAG_LOGI(AAFwkTag::DEFAULT, "CallObserver registered");
     }
 }
@@ -129,7 +134,7 @@ void ProcessController::UnRegisterCallObserver()
     if (!callObserverRegistered_) {
         return;
     }
-    int32_t ret = Telephony::TelephonyObsereverClient::GetInstance().RemoveStateObserver(
+    int32_t ret = Telephony::TelephonyObserverClient::GetInstance().RemoveStateObserver(
         -1, Telephony::TelephonyObserverBroker::OBSERVER_MASK_CALL_STATE);
     if (ret != 0) {
         TAG_LOGE(AAFwkTag::DEFAULT, "RemoveTelephonyStateObserver failed, ret : %{public}d", ret);
@@ -145,7 +150,13 @@ void ProcessController::DisableScreenReader()
     TAG_LOGI(AAFwkTag::DEFAULT, "Disable ScreenReader");
     const std::string screenReaderName = "com.huawei.hmos.screenreader/AccessibilityExtAbility";
     auto ret = AccessibilityConfig::AccessibilityConfig::GetInstance().DisableAbility(screenReaderName);
-    if (ret != Accessibility::RetError::RET_OK) {
+    if (ret == Accessibility::RetError::RET_OK) {
+        TAG_LOGI(AAFwkTag::DEFAULT, "Screen reader disabled success");
+    } else if (ret == Accessibility::RetError::RET_ERR_NO_INJECTOR ||
+               ret == Accessibility::RetError::RET_ERR_NOT_INSTALLED ||
+               ret == Accessibility::RetError::RET_ERR_NOT_ENABLED) {
+        TAG_LOGI(AAFwkTag::DEFAULT, "Screen reader not active, skip diable, ret: %{public}d", ret);
+    } else {
         TAG_LOGE(AAFwkTag::DEFAULT, "diable screen reader failed, ret: %{public}d", ret);
     }
 }

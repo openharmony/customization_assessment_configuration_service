@@ -261,6 +261,7 @@ void AssessmentService::ConfigCurrentSession(const sptr<IRemoteObject> &token, u
 
 void AssessmentService::CleanupCurrentSession()
 {
+    processController_.Deactivate();
     if (callerToken_ != nullptr) {
         CallbackManager::GetInstance().UnregisterCallback(callerToken_);
     }
@@ -294,6 +295,13 @@ ErrCode AssessmentService::Begin(const sptr<IRemoteObject> &token, uint32_t dura
     if (isActive_) {
         TAG_LOGW(AAFwkTag::ASSESSMENT, "Assessment already active");
         errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_ASSESSMENT_ALREADY_ACTIVE);
+        return ERR_OK;
+    }
+
+    // Environment check before entering exam mode
+    if (!envChecker_.CheckAll(allowedApps)) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "Enviroment check failed, cannot start exam mode");
+        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_INVALID_OPERATION);
         return ERR_OK;
     }
 
@@ -624,6 +632,9 @@ void AssessmentService::ConfirmationBeginLockedUnsafe()
     CallbackManager::GetInstance().OnBegin(callerToken_,
         static_cast<int32_t>(AssessmentErrorCode::OK),
         AssessmentErrCodeToErrMsg(AssessmentErrorCode::OK));
+
+    // Activate process control: auto-reject calls, disable screen reader
+    processController_.Activate(currentConfig_.allowedApps);
 }
 
 void AssessmentService::CancelBeginLockedUnsafe()

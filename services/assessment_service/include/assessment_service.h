@@ -31,6 +31,8 @@
 #include "assessment_service_stub.h"
 #include "assessment_event_manager.h"
 #include "anco_status_subscriber.h"
+#include "env_checker.h"
+#include "process_controller.h"
 
 namespace OHOS {
 namespace AAFwk {
@@ -120,6 +122,8 @@ private:
     std::thread thread_;
 
     std::shared_ptr<AssessmentEventObserver> assessmentEventObserver_;
+    EnvChecker envChecker_;
+    ProcessController processController_;
 
     DISALLOW_COPY_AND_MOVE(AssessmentService);
     int32_t switchId_ = -1;

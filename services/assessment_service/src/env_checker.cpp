@@ -192,7 +192,7 @@ bool EnvChecker::IsPcDevice()
 
 bool EnvChecker::IsVirtualMachine()
 {
-    if (loader_->IsDegraded()) {
+    if (loader_->IsDegrade()) {
         TAG_LOGI(AAFwkTag::DEFAULT, "VM check degraded, skip (pass by default)");
         return false;
     }
