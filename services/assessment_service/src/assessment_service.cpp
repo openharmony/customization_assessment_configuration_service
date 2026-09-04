@@ -27,10 +27,12 @@
 #include "extension_manager_client.h"
 #include "assessment_utils.h"
 #include "assessment_api_error_code.h"
+#include "ipc_skeleton.h"
 
 namespace OHOS {
 namespace AAFwk {
 namespace {
+const bool FAST_CONFIRM_MODE = true;
 const char* const PARAM_ASSESSMENT_IS_ACTIVE = "persist.assessment.is_active";
 const char* const PARAM_ASSESSMENT_DURATION = "persist.assessment.duration";
 const char* const PARAM_ASSESSMENT_ALLOWED_APPS = "persist.assessment.allowed_apps";
@@ -140,13 +142,29 @@ void AssessmentService::ClearState()
     TAG_LOGD(AAFwkTag::DEFAULT, "State cleared");
 }
 
+void AssessmentService::ConfigCurrentSession(const sptr<IRemoteObject> &token, uint32_t duration,
+                                             const std::vector<std::string> &allowedApps,
+                                             const sptr<IRemoteObject> &callback)
+{
+    ticket_ = AssessmentServiceUtils::GenerateRandomString(TICKET_LEN);
+    callerToken_ = token;
+    CallbackManager::GetInstance().RegisterCallback(token, callback);
+    duration = std::min(duration, DEFAULT_MAX_DURATION);
+    currentConfig_.duration = (duration == 0) ? DEFAULT_MAX_DURATION : duration;
+    currentConfig_.allowedApps = allowedApps;
+
+    endpointCheckPoint_ = 0;
+    isActive_ = false;
+    examStatus_ = AssessmentExamStatus::CONFIRMING;
+}
+
 void AssessmentService::CleanupCurrentSession()
 {
     if (callerToken_ != nullptr) {
-        CallbackManager::GetInstance().OnEnd(callerToken_);
         CallbackManager::GetInstance().UnregisterCallback(callerToken_);
     }
     isActive_ = false;
+    examStatus_ = AssessmentExamStatus::IDLE;
     callerToken_ = nullptr;
     currentConfig_ = AssessmentConfig();
     endpointCheckPoint_ = 0;
@@ -167,46 +185,30 @@ ErrCode AssessmentService::Begin(const sptr<IRemoteObject> &token, uint32_t dura
 
     std::unique_lock<std::mutex> lock(this->mutexSa_);
     if (isActive_) {
-        TAG_LOGW(AAFwkTag::DEFAULT, "Assessment already active, cleanup and restart");
-        CleanupCurrentSession();
-    }
-
-    OHOS::AAFwk::Want want;
-    want.SetElementName(SCENEBOARD_BUNDLE_NAME, SCENEBOARD_ABILITY_NAME);
-
-    std::string ticket = AssessmentServiceUtils::GenerateRandomString(TICKET_LEN);
-    std::string parameters =
-        "{\"ability.want.params.uiExtensionType\":\"sysDialog/common\",\"ticket\":\"" + ticket + "\"}";
-    sptr<AssessmentAbilityConnection> connection = sptr<AssessmentAbilityConnection> (
-        new (std::nothrow)AssessmentAbilityConnection(
-            SYSTEM_UI_BUNDLE_NAME, SYSTEM_UI_ABILITY_NAME, parameters));
-    if (connection == nullptr) {
-        TAG_LOGW(AAFwkTag::DEFAULT, "connection is nullptr.");
-        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_INTERNAL_ERROR);
+        TAG_LOGW(AAFwkTag::ASSESSMENT, "Assessment already active");
+        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_ASSESSMENT_ALREADY_ACTIVE);
         return ERR_OK;
     }
 
-    constexpr int32_t DEFAULT_VALUE = -1;
-    auto ret = OHOS::AAFwk::ExtensionManagerClient::GetInstance().ConnectServiceExtensionAbility(
-        want, connection, nullptr, DEFAULT_VALUE);
-    TAG_LOGI(AAFwkTag::DEFAULT, "assessment ConnectServiceExtensionAbility ret is:%{public}d.", ret);
+    if (examStatus_ == AssessmentExamStatus::CONFIRMING) {
+        if (callerToken_ != nullptr) {
+            CallbackManager::GetInstance().OnInterrupted(
+                callerToken_, static_cast<int32_t>(AssessmentInterruptReason::SYSTEM_ERROR), "");
+            TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment app exam chance be occupied");
+        }
+    }
+    CleanupCurrentSession();
+    ConfigCurrentSession(token, duration, allowedApps, callback);
 
-    callerToken_ = token;
-    CallbackManager::GetInstance().RegisterCallback(token, callback);
-    duration = std::min(duration, DEFAULT_MAX_DURATION);
-    currentConfig_.duration = (duration == 0) ? DEFAULT_MAX_DURATION : duration;
-    currentConfig_.allowedApps = allowedApps;
+    if (!FAST_CONFIRM_MODE) {
+        errCode = ERR_OK;
+        ConfirmationBeginLockedUnsafe();
+        condSa_.notify_all();
+        return ERR_OK;
+    }
 
-    auto pt = std::chrono::system_clock::now() + std::chrono::milliseconds(duration);
-    endpointCheckPoint_ = std::chrono::duration_cast<std::chrono::milliseconds>(
-        pt.time_since_epoch()).count();
-    isActive_ = true;
-    errCode = ERR_OK;
-
-    SaveState();
-    CallbackManager::GetInstance().OnBegin(token, 0, "");
-    condSa_.notify_all();
-
+    errCode = InvokeSystemDialog();
+    TAG_LOGI(AAFwkTag::ASSESSMENT, "Begin over, invoke system dialog, ret: %{public}d", errCode);
     return ERR_OK;
 }
 
@@ -221,19 +223,18 @@ ErrCode AssessmentService::End(const sptr<IRemoteObject> &token, int32_t &errCod
 
     std::unique_lock<std::mutex> lock(this->mutexSa_);
     if (!isActive_) {
-        TAG_LOGW(AAFwkTag::DEFAULT, "Assessment not active");
-        errCode = ERR_INVALID_VALUE;
+        TAG_LOGW(AAFwkTag::ASSESSMENT, "Assessment not active");
+        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_ASSESSMENT_NOT_ACTIVED);
         return ERR_OK;
     }
 
     sptr<IRemoteObject> caller = callerToken_;
-    CleanupCurrentSession();
-    ClearState();
-    errCode = ERR_OK;
-
     if (caller != nullptr) {
         CallbackManager::GetInstance().OnEnd(caller);
     }
+    CleanupCurrentSession();
+    ClearState();
+    errCode = ERR_OK;
 
     auto sam = SystemAbilityManagerClient::GetInstance().GetSystemAbilityManager();
     if (sam != nullptr) {
@@ -358,18 +359,14 @@ void AssessmentService::CheckEndpointAndExecuteTaskLockedUnsafe()
     if (callerToken_ == nullptr) {
         return;
     }
-    if (currentConfig_.duration == 0) {
-        TAG_LOGD(AAFwkTag::DEFAULT, "assessment task no time limited");
-        return;
-    }
 
     uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
-
     TAG_LOGI(AAFwkTag::DEFAULT,
         "assessment task timeout, end: %{public}lu, point:%{public}lu", now, endpointCheckPoint_);
     if (now >= endpointCheckPoint_) {
-        this->CleanupCurrentSession();
+        this->TimeoutLockedUnsafe();
+
         auto sam = SystemAbilityManagerClient::GetInstance().GetSystemAbilityManager();
         if (sam != nullptr) {
             sam->UnloadSystemAbility(ASSESSMENT_SERVICE_ID);
@@ -417,13 +414,80 @@ void AssessmentService::UnsubscribeCommonEvent()
     this->assessmentEventObserver_->Unsubscribe();
 }
 
+int32_t AssessmentService::InvokeSystemDialog()
+{
+    int32_t errCode = 0;
+    OHOS::AAFwk::Want want;
+    want.SetElementName(SCENEBOARD_BUNDLE_NAME, SCENEBOARD_ABILITY_NAME);
+    std::string parameters =
+        "{\"ability.want.params.uiExtensionType\":\"sysDialog/common\",\"ticket\":\"" + ticket_ + "\"}";
+    sptr<AssessmentAbilityConnection> connection = sptr<AssessmentAbilityConnection>(
+        new (std::nothrow)AssessmentAbilityConnection(
+            SYSTEM_UI_BUNDLE_NAME, SYSTEM_UI_ABILITY_NAME, parameters));
+    if (connection == nullptr) {
+        TAG_LOGW(AAFwkTag::DEFAULT, "connection is nullptr.");
+        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_INTERNAL_ERROR);
+        return ERR_OK;
+    }
+    constexpr int32_t DEFAULT_VALUE = -1;
+    auto ret = OHOS::AAFwk::ExtensionManagerClient::GetInstance().ConnectServiceExtensionAbility(
+        want, connection, nullptr, DEFAULT_VALUE);
+    TAG_LOGI(AAFwkTag::DEFAULT, "assessment ConnectServiceExtensionAbility ret is:%{public}d.", ret);
+    return errCode;
+}
+
 void AssessmentService::HandleBegin(const std::string &ticket, uint32_t operation)
 {
     TAG_LOGI(AAFwkTag::DEFAULT, "assessment handle begin %{public}s, %{public}d", ticket.c_str(), operation);
-    if (operation == AssessmentConfirmationOperation::CANCEL) {
-    } else if (operation == AssessmentConfirmationOperation::CONFIRM) {
-    } else {
+    std::unique_lock<std::mutex> lock(this->mutexSa_);
+    if (this->examStatus_ != AssessmentExamStatus::CONFIRMING) {
+        TAG_LOGE(AAFwkTag::ASSESSMENT, "assessment is not confirmation state, ignore");
+        return;
     }
+    if (ticket_ != ticket) {
+        TAG_LOGE(AAFwkTag::ASSESSMENT, "assessment replay ticket: %{public}s, ignore", ticket.c_str());
+        return;
+    }
+
+    if (operation == AssessmentConfirmationOperation::CANCEL) {
+        CancelBeginLockedUnsafe();
+    } else if (operation == AssessmentConfirmationOperation::CONFIRM) {
+        ConfirmationBeginLockedUnsafe();
+        condSa_.notify_all();
+    } else {
+        TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment invalid operation: %{public}d, ignore", operation);
+    }
+}
+
+void AssessmentService::ConfirmationBeginLockedUnsafe()
+{
+    auto pt = std::chrono::system_clock::now() + std::chrono::milliseconds(currentConfig_.duration);
+    endpointCheckPoint_
+        = std::chrono::duration_cast<std::chrono::milliseconds>(pt.time_since_epoch()).count();
+    isActive_ = true;
+    examStatus_ = AssessmentExamStatus::ACTIVE;
+    SaveState();
+    CallbackManager::GetInstance().OnBegin(callerToken_, 0, "");
+}
+
+void AssessmentService::CancelBeginLockedUnsafe()
+{
+    if (callerToken_ != nullptr) {
+        CallbackManager::GetInstance().OnBegin(
+            callerToken_, static_cast<int32_t>(AssessmentApiErrCode::ERR_USER_CANCELLED), "");
+    }
+    CleanupCurrentSession();
+    ClearState();
+}
+
+void AssessmentService::TimeoutLockedUnsafe()
+{
+    if (callerToken_ != nullptr) {
+        CallbackManager::GetInstance().OnInterrupted(
+            callerToken_, static_cast<int32_t>(AssessmentInterruptReason::TIMEOUT), "");
+    }
+    CleanupCurrentSession();
+    ClearState();
 }
 
 void AssessmentService::DispatchEvent(const OHOS::EventFwk::CommonEventData& eventData)
