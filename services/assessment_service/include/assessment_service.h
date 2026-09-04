@@ -41,7 +41,7 @@ struct AssessmentConfig {
 };
 
 class AssessmentService : public AssessmentServiceStub,
-                          public std::enable_shared_from_this<AssessmentService>
+                          public std::enable_shared_from_this<AssessmentService>,
                           public LowpowerManager::AncoStatusSubscriber {
 public:
     AssessmentService();
@@ -70,7 +70,7 @@ public:
     void DoLoop();
     void DispatchEvent(const OHOS::EventFwk::CommonEventData& data);
 
-    void onAncoStatusChanged(const int32_t status) override;
+    void OnAncoStatusChanged(const int32_t status) override;
 
 private:
     void CleanupCurrentSession();

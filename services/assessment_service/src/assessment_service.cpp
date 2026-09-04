@@ -131,7 +131,7 @@ void AssessmentService::LoadState()
 void AssessmentService::EnableAndRestAnco()
 {
     std::string ancoState = system::GetParameter(PARAM_ANCO_STATE, "2");
-    if (anco_state != "0") {
+    if (ancoState != "0") {
         TAG_LOGI(AAFwkTag::DEFAULT, "EnableAndRestAnco called, ancoState: 2");
         isAncoWaittingActive_ = true;
         std::thread([]() {
@@ -140,13 +140,13 @@ void AssessmentService::EnableAndRestAnco()
     }
 }
 
-void AssessmentService::onAncoStatusChanged(const int32_t status)
+void AssessmentService::OnAncoStatusChanged(const int32_t status)
 {
-    TAG_LOGI(AAFwkTag::DEFAULT, "onAncoStatusChanged called, status: %{public}d, isAncoWaittingActive_: %{public}s", status, isAncoWaittingActive_ ? "true" : "false");
+    TAG_LOGI(AAFwkTag::DEFAULT, "OnAncoStatusChanged called, status: %{public}d, isAncoWaittingActive_: %{public}s", status, isAncoWaittingActive_ ? "true" : "false");
     if (isAncoWaittingActive_ && status == OHOS::LowpowerManager::ANCO_RUNNING) {
         isAncoWaittingActive_ = false;
         system::SetParameter(PARAM_ASSESSMENT_IS_ACTIVE, isActive_ ? "true" : "false");
-        TAG_LOGI(AAFwkTag::DEFAULT, "onAncoStatusChanged called, sync anco state success, assessment status: %{public}s ",  isActive_ ? "true" : "false");
+        TAG_LOGI(AAFwkTag::DEFAULT, "OnAncoStatusChanged called, sync anco state success, assessment status: %{public}s ",  isActive_ ? "true" : "false");
         if (!isActive_) {
             Destroy();
         }
@@ -426,7 +426,7 @@ void AssessmentService::Quit()
     }
 }
 
-boid AssessmentService::Destroy()
+void AssessmentService::Destroy()
 {
     auto sam = SystemAbilityManagerClient::GetInstance().GetSystemAbilityManager();
     if (sam != nullptr) {
