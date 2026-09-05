@@ -27,15 +27,22 @@ enum class AssessmentApiErrCode : int32_t {
     ERR_INVALID_PARAMS = 401,
     ERR_CAPABILITY_NOT_SUPPORT = 801,
 
-    ERR_INTERNAL_ERROR = 86600001,
-    ERR_ASSESSMENT_ALREADY_ACTIVE = 86600002,
-    ERR_INVALID_CONFIG = 86600003,
-    ERR_ENV_DETECTION_FAILED = 86600004,
-    ERR_ASSESSMENT_NOT_ACTIVED = 86600005,
-    ERR_USER_CANCELLED = 86600006,
+    ERR_INTERNAL_ERROR = 36700001,
+    ERR_ASSESSMENT_ALREADY_ACTIVE = 36700002,
+    ERR_ASSESSMENT_NOT_ACTIVE = 36700003,
+    ERR_INVALID_OPERATION = 36700004,
+};
+
+enum class AssessmentEventCode : int32_t {
+    OK = 0,
+    USER_CANCEL = 1,
+    TIMEOUT = 2,
+    SYSTEM_ERROR = 3,
+    SECURITY_BREACH = 4,
 };
 
 std::string AssessmentErrCodeToErrMsg(int32_t errCode);
+std::string AssessmentEventCodeToMsg(AssessmentEventCode eventCode);
 
 } // namespace AAFwk
 } // namespace OHOS

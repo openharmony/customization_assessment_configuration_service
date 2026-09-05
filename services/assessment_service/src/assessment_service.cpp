@@ -192,8 +192,9 @@ ErrCode AssessmentService::Begin(const sptr<IRemoteObject> &token, uint32_t dura
 
     if (examStatus_ == AssessmentExamStatus::CONFIRMING) {
         if (callerToken_ != nullptr) {
-            CallbackManager::GetInstance().OnInterrupted(
-                callerToken_, static_cast<int32_t>(AssessmentInterruptReason::SYSTEM_ERROR), "");
+            CallbackManager::GetInstance().OnBegin(
+                callerToken_, static_cast<int32_t>(AssessmentEventCode::SYSTEM_ERROR),
+                AssessmentEventCodeToMsg(AssessmentEventCode::SYSTEM_ERROR));
             TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment app exam chance be occupied");
         }
     }
@@ -224,7 +225,7 @@ ErrCode AssessmentService::End(const sptr<IRemoteObject> &token, int32_t &errCod
     std::unique_lock<std::mutex> lock(this->mutexSa_);
     if (!isActive_) {
         TAG_LOGW(AAFwkTag::ASSESSMENT, "Assessment not active");
-        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_ASSESSMENT_NOT_ACTIVED);
+        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_ASSESSMENT_NOT_ACTIVE);
         return ERR_OK;
     }
 
@@ -467,14 +468,17 @@ void AssessmentService::ConfirmationBeginLockedUnsafe()
     isActive_ = true;
     examStatus_ = AssessmentExamStatus::ACTIVE;
     SaveState();
-    CallbackManager::GetInstance().OnBegin(callerToken_, 0, "");
+    CallbackManager::GetInstance().OnBegin(callerToken_,
+        static_cast<int32_t>(AssessmentEventCode::OK),
+        AssessmentEventCodeToMsg(AssessmentEventCode::OK));
 }
 
 void AssessmentService::CancelBeginLockedUnsafe()
 {
     if (callerToken_ != nullptr) {
         CallbackManager::GetInstance().OnBegin(
-            callerToken_, static_cast<int32_t>(AssessmentApiErrCode::ERR_USER_CANCELLED), "");
+            callerToken_, static_cast<int32_t>(AssessmentEventCode::USER_CANCEL),
+            AssessmentEventCodeToMsg(AssessmentEventCode::USER_CANCEL));
     }
     CleanupCurrentSession();
     ClearState();
@@ -484,7 +488,8 @@ void AssessmentService::TimeoutLockedUnsafe()
 {
     if (callerToken_ != nullptr) {
         CallbackManager::GetInstance().OnInterrupted(
-            callerToken_, static_cast<int32_t>(AssessmentInterruptReason::TIMEOUT), "");
+            callerToken_, static_cast<int32_t>(AssessmentEventCode::TIMEOUT),
+            AssessmentEventCodeToMsg(AssessmentEventCode::TIMEOUT));
     }
     CleanupCurrentSession();
     ClearState();
