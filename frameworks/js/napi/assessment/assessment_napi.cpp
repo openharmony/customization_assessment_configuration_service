@@ -317,16 +317,53 @@ napi_value AssessmentNapiGetConfiguration(napi_env env, napi_callback_info info)
     return result;
 }
 
+void CreateAssessmentEventCode(napi_env env, napi_value value)
+{
+    napi_value nOk;
+    NAPI_CALL_RETURN_VOID(env,
+        napi_create_int32(env, static_cast<int32_t>(OHOS::AAFwk::AssessmentEventCode::OK), &nOk));
+    NAPI_CALL_RETURN_VOID(env, napi_set_named_property(env, value, "OK", nOk));
+
+    napi_value nUserCancel;
+    NAPI_CALL_RETURN_VOID(env,
+        napi_create_int32(env,
+            static_cast<int32_t>(OHOS::AAFwk::AssessmentEventCode::USER_CANCEL), &nUserCancel));
+    NAPI_CALL_RETURN_VOID(env, napi_set_named_property(env, value, "USER_CANCEL", nUserCancel));
+
+    napi_value nTimeout;
+    NAPI_CALL_RETURN_VOID(env,
+        napi_create_int32(env,
+            static_cast<int32_t>(OHOS::AAFwk::AssessmentEventCode::TIMEOUT), &nTimeout));
+    NAPI_CALL_RETURN_VOID(env, napi_set_named_property(env, value, "TIMEOUT", nTimeout));
+
+    napi_value nSystemError;
+    NAPI_CALL_RETURN_VOID(env,
+        napi_create_int32(env,
+            static_cast<int32_t>(OHOS::AAFwk::AssessmentEventCode::SYSTEM_ERROR), &nSystemError));
+    NAPI_CALL_RETURN_VOID(env, napi_set_named_property(env, value, "SYSTEM_ERROR", nSystemError));
+
+    napi_value nSecurityBreach;
+    NAPI_CALL_RETURN_VOID(env,
+        napi_create_int32(env,
+            static_cast<int32_t>(OHOS::AAFwk::AssessmentEventCode::SECURITY_BREACH), &nSecurityBreach));
+    NAPI_CALL_RETURN_VOID(env, napi_set_named_property(env, value, "SECURITY_BREACH", nSecurityBreach));
+}
+
 EXTERN_C_START
 static napi_value Export(napi_env env, napi_value exports)
 {
     TAG_LOGI(AAFwkTag::DEFAULT, "Export called");
+
+    napi_value eventCode = nullptr;
+    NAPI_CALL(env, napi_create_object(env, &eventCode));
+    CreateAssessmentEventCode(env, eventCode);
 
     napi_property_descriptor descriptors[] = {
         DECLARE_NAPI_FUNCTION("begin", AssessmentNapiBegin),
         DECLARE_NAPI_FUNCTION("end", AssessmentNapiEnd),
         DECLARE_NAPI_FUNCTION("isActive", AssessmentNapiIsActive),
         DECLARE_NAPI_FUNCTION("getConfiguration", AssessmentNapiGetConfiguration),
+        DECLARE_NAPI_PROPERTY("AssessmentEventCode", eventCode),
     };
 
     napi_define_properties(env, exports, sizeof(descriptors) / sizeof(descriptors[0]), descriptors);
