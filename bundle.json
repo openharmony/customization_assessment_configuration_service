@@ -32,7 +32,8 @@
                 "safwk",
                 "samgr",
                 "eventhandler",
-                "napi"
+                "napi",
+                "input"
             ],
             "third_party": []
         },

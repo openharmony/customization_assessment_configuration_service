@@ -123,6 +123,46 @@ static napi_value GetStringArrayFromJs(napi_env env, napi_value value, std::vect
     return value;
 }
 
+sptr<AAFwk::JsAssessmentCallback> CreateJsAssessmentCallback(napi_env env, napi_value callbackValue)
+{
+    sptr<AAFwk::JsAssessmentCallback> jsCallback = nullptr;
+    if (callbackValue == nullptr) {
+        return jsCallback;
+    }
+    napi_valuetype valueType = napi_valuetype::napi_undefined;
+    napi_typeof(env, callbackValue, &valueType);
+    if (valueType == napi_valuetype::napi_object) {
+        napi_ref onBeginRef = nullptr;
+        napi_ref onInterruptedRef = nullptr;
+        napi_ref onEndRef = nullptr;
+
+        napi_value onBeginValue = nullptr;
+        napi_get_named_property(env, callbackValue, "onBegin", &onBeginValue);
+        if (onBeginValue != nullptr && NapiIsCallable(env, onBeginValue)) {
+            napi_create_reference(env, onBeginValue, 1, &onBeginRef);
+        }
+
+        napi_value onInterruptedValue = nullptr;
+        napi_get_named_property(env, callbackValue, "onInterrupted", &onInterruptedValue);
+        if (onInterruptedValue != nullptr && NapiIsCallable(env, onInterruptedValue)) {
+            napi_create_reference(env, onInterruptedValue, 1, &onInterruptedRef);
+        }
+
+        napi_value onEndValue = nullptr;
+        napi_get_named_property(env, callbackValue, "onEnd", &onEndValue);
+        if (onEndValue != nullptr && NapiIsCallable(env, onEndValue)) {
+            napi_create_reference(env, onEndValue, 1, &onEndRef);
+        }
+
+        if (onBeginRef != nullptr || onInterruptedRef != nullptr || onEndRef != nullptr) {
+            jsCallback = new (std::nothrow) AAFwk::JsAssessmentCallback(
+                env, onBeginRef, onInterruptedRef, onEndRef);
+            TAG_LOGI(AAFwkTag::DEFAULT, "jsCallback created");
+        }
+    }
+    return jsCallback;
+}
+
 napi_value AssessmentNapiBegin(napi_env env, napi_callback_info info)
 {
     TAG_LOGI(AAFwkTag::DEFAULT, "AssessmentNapiBegin called");
@@ -168,41 +208,16 @@ napi_value AssessmentNapiBegin(napi_env env, napi_callback_info info)
     if (allowedAppsValue != nullptr) {
         GetStringArrayFromJs(env, allowedAppsValue, allowedApps);
     }
+    std::string bundleName = uiAbilityContext->GetBundleName();
+    TAG_LOGD(AAFwkTag::ASSESSMENT, "assessment bundleName: %{public}s", bundleName.c_str());
+    if (std::find(allowedApps.begin(), allowedApps.end(), bundleName) == allowedApps.end()) {
+        allowedApps.push_back(bundleName);
+    }
 
     napi_value callbackValue = argv[INDEX_TWO];
-    sptr<AAFwk::JsAssessmentCallback> jsCallback = nullptr;
-    if (callbackValue != nullptr) {
-        napi_valuetype valueType = napi_valuetype::napi_undefined;
-        napi_typeof(env, callbackValue, &valueType);
-        if (valueType == napi_valuetype::napi_object) {
-            napi_ref onBeginRef = nullptr;
-            napi_ref onInterruptedRef = nullptr;
-            napi_ref onEndRef = nullptr;
-
-            napi_value onBeginValue = nullptr;
-            napi_get_named_property(env, callbackValue, "onBegin", &onBeginValue);
-            if (onBeginValue != nullptr && NapiIsCallable(env, onBeginValue)) {
-                napi_create_reference(env, onBeginValue, 1, &onBeginRef);
-            }
-
-            napi_value onInterruptedValue = nullptr;
-            napi_get_named_property(env, callbackValue, "onInterrupted", &onInterruptedValue);
-            if (onInterruptedValue != nullptr && NapiIsCallable(env, onInterruptedValue)) {
-                napi_create_reference(env, onInterruptedValue, 1, &onInterruptedRef);
-            }
-
-            napi_value onEndValue = nullptr;
-            napi_get_named_property(env, callbackValue, "onEnd", &onEndValue);
-            if (onEndValue != nullptr && NapiIsCallable(env, onEndValue)) {
-                napi_create_reference(env, onEndValue, 1, &onEndRef);
-            }
-
-            if (onBeginRef != nullptr || onInterruptedRef != nullptr || onEndRef != nullptr) {
-                jsCallback = new (std::nothrow) AAFwk::JsAssessmentCallback(
-                    env, onBeginRef, onInterruptedRef, onEndRef);
-                TAG_LOGI(AAFwkTag::DEFAULT, "jsCallback created");
-            }
-        }
+    sptr<AAFwk::JsAssessmentCallback> jsCallback = CreateJsAssessmentCallback(env, callbackValue);
+    if (jsCallback == nullptr) {
+        return ThrowError(env, OHOS::AAFwk::AssessmentApiErrCode::ERR_INVALID_PARAMS);
     }
 
     TAG_LOGI(AAFwkTag::DEFAULT, "duration: %{public}d, allowedApps size: %{public}zu",
@@ -302,16 +317,53 @@ napi_value AssessmentNapiGetConfiguration(napi_env env, napi_callback_info info)
     return result;
 }
 
+void CreateAssessmentEventCode(napi_env env, napi_value value)
+{
+    napi_value nOk;
+    NAPI_CALL_RETURN_VOID(env,
+        napi_create_int32(env, static_cast<int32_t>(OHOS::AAFwk::AssessmentEventCode::OK), &nOk));
+    NAPI_CALL_RETURN_VOID(env, napi_set_named_property(env, value, "OK", nOk));
+
+    napi_value nUserCancel;
+    NAPI_CALL_RETURN_VOID(env,
+        napi_create_int32(env,
+            static_cast<int32_t>(OHOS::AAFwk::AssessmentEventCode::USER_CANCEL), &nUserCancel));
+    NAPI_CALL_RETURN_VOID(env, napi_set_named_property(env, value, "USER_CANCEL", nUserCancel));
+
+    napi_value nTimeout;
+    NAPI_CALL_RETURN_VOID(env,
+        napi_create_int32(env,
+            static_cast<int32_t>(OHOS::AAFwk::AssessmentEventCode::TIMEOUT), &nTimeout));
+    NAPI_CALL_RETURN_VOID(env, napi_set_named_property(env, value, "TIMEOUT", nTimeout));
+
+    napi_value nSystemError;
+    NAPI_CALL_RETURN_VOID(env,
+        napi_create_int32(env,
+            static_cast<int32_t>(OHOS::AAFwk::AssessmentEventCode::SYSTEM_ERROR), &nSystemError));
+    NAPI_CALL_RETURN_VOID(env, napi_set_named_property(env, value, "SYSTEM_ERROR", nSystemError));
+
+    napi_value nSecurityBreach;
+    NAPI_CALL_RETURN_VOID(env,
+        napi_create_int32(env,
+            static_cast<int32_t>(OHOS::AAFwk::AssessmentEventCode::SECURITY_BREACH), &nSecurityBreach));
+    NAPI_CALL_RETURN_VOID(env, napi_set_named_property(env, value, "SECURITY_BREACH", nSecurityBreach));
+}
+
 EXTERN_C_START
 static napi_value Export(napi_env env, napi_value exports)
 {
     TAG_LOGI(AAFwkTag::DEFAULT, "Export called");
+
+    napi_value eventCode = nullptr;
+    NAPI_CALL(env, napi_create_object(env, &eventCode));
+    CreateAssessmentEventCode(env, eventCode);
 
     napi_property_descriptor descriptors[] = {
         DECLARE_NAPI_FUNCTION("begin", AssessmentNapiBegin),
         DECLARE_NAPI_FUNCTION("end", AssessmentNapiEnd),
         DECLARE_NAPI_FUNCTION("isActive", AssessmentNapiIsActive),
         DECLARE_NAPI_FUNCTION("getConfiguration", AssessmentNapiGetConfiguration),
+        DECLARE_NAPI_PROPERTY("AssessmentEventCode", eventCode),
     };
 
     napi_define_properties(env, exports, sizeof(descriptors) / sizeof(descriptors[0]), descriptors);

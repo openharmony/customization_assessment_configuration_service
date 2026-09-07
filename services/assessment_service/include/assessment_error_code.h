@@ -22,13 +22,6 @@ namespace AAFwk {
 enum class AssessmentErrCode {
 };
 
-enum class AssessmentInterruptReason {
-    USER_EXIT = 1,
-    TIMEOUT = 2,
-    SYSTEM_ERROR = 3,
-    SECURITY_BREACH = 4,
-};
-
 } // namespace AAFwk
 } // namespace OHOS
 #endif // OHOS_AAFWK_ASSESSMENT_ERROR_CODE_H

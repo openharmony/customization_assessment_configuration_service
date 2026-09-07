@@ -39,6 +39,12 @@ struct AssessmentConfig {
     std::vector<std::string> allowedApps;
 };
 
+enum class AssessmentExamStatus : uint32_t {
+    IDLE = 0,
+    CONFIRMING = 1,
+    ACTIVE = 2,
+};
+
 class AssessmentService : public AssessmentServiceStub,
                           public std::enable_shared_from_this<AssessmentService> {
 public:
@@ -69,8 +75,13 @@ public:
     void DispatchEvent(const OHOS::EventFwk::CommonEventData& data);
 
 private:
+    void ConfigCurrentSession(const sptr<IRemoteObject> &token, uint32_t duration,
+                              const std::vector<std::string> &allowedApps,
+                              const sptr<IRemoteObject> &callback);
     void CleanupCurrentSession();
+    bool InitSubsystems();
 
+    int32_t InvokeSystemDialog();
     int32_t ComputeNextTaskTimeoutLockedUnsafe();
     void CheckEndpointAndExecuteTaskLockedUnsafe();
     void Quit();
@@ -78,6 +89,9 @@ private:
     bool SubscribeCommonEvent();
     void UnsubscribeCommonEvent();
     void HandleBegin(const std::string &ticket, uint32_t operation);
+    void ConfirmationBeginLockedUnsafe();
+    void CancelBeginLockedUnsafe();
+    void TimeoutLockedUnsafe();
 
     static std::mutex mutex_;
     static sptr<AssessmentService> instance_;
@@ -88,6 +102,8 @@ private:
     sptr<IRemoteObject> callerToken_;
     AssessmentConfig currentConfig_;
     uint64_t endpointCheckPoint_ = 0;
+    AssessmentExamStatus examStatus_ = AssessmentExamStatus::IDLE;
+    std::string ticket_;
 
     std::mutex mutexSa_;
     std::condition_variable condSa_;
@@ -97,6 +113,7 @@ private:
     std::shared_ptr<AssessmentEventObserver> assessmentEventObserver_;
 
     DISALLOW_COPY_AND_MOVE(AssessmentService);
+    int32_t switchId_ = -1;
 };
 } // namespace AAFwk
 } // namespace OHOS
