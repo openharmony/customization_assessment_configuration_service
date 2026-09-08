@@ -235,8 +235,8 @@ ErrCode AssessmentService::Begin(const sptr<IRemoteObject> &token, uint32_t dura
     if (examStatus_ == AssessmentExamStatus::CONFIRMING) {
         if (callerToken_ != nullptr) {
             CallbackManager::GetInstance().OnBegin(
-                callerToken_, static_cast<int32_t>(AssessmentEventCode::SYSTEM_ERROR),
-                AssessmentEventCodeToMsg(AssessmentEventCode::SYSTEM_ERROR));
+                callerToken_, static_cast<int32_t>(AssessmentErrorCode::SYSTEM_ERROR),
+                AssessmentErrCodeToErrMsg(AssessmentErrorCode::SYSTEM_ERROR));
             TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment app exam chance be occupied");
         }
     }
@@ -518,16 +518,16 @@ void AssessmentService::ConfirmationBeginLockedUnsafe()
     examStatus_ = AssessmentExamStatus::ACTIVE;
     SaveState();
     CallbackManager::GetInstance().OnBegin(callerToken_,
-        static_cast<int32_t>(AssessmentEventCode::OK),
-        AssessmentEventCodeToMsg(AssessmentEventCode::OK));
+        static_cast<int32_t>(AssessmentErrorCode::OK),
+        AssessmentErrCodeToErrMsg(AssessmentErrorCode::OK));
 }
 
 void AssessmentService::CancelBeginLockedUnsafe()
 {
     if (callerToken_ != nullptr) {
         CallbackManager::GetInstance().OnBegin(
-            callerToken_, static_cast<int32_t>(AssessmentEventCode::USER_CANCEL),
-            AssessmentEventCodeToMsg(AssessmentEventCode::USER_CANCEL));
+            callerToken_, static_cast<int32_t>(AssessmentErrorCode::USER_CANCEL),
+            AssessmentErrCodeToErrMsg(AssessmentErrorCode::USER_CANCEL));
     }
     CleanupCurrentSession();
     ClearState();
@@ -537,8 +537,8 @@ void AssessmentService::TimeoutLockedUnsafe()
 {
     if (callerToken_ != nullptr) {
         CallbackManager::GetInstance().OnInterrupted(
-            callerToken_, static_cast<int32_t>(AssessmentEventCode::TIMEOUT),
-            AssessmentEventCodeToMsg(AssessmentEventCode::TIMEOUT));
+            callerToken_, static_cast<int32_t>(AssessmentErrorCode::TIMEOUT),
+            AssessmentErrCodeToErrMsg(AssessmentErrorCode::TIMEOUT));
     }
     CleanupCurrentSession();
     ClearState();
