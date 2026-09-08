@@ -138,8 +138,6 @@ bool AssessmentService::InitSubsystems()
         TAG_LOGE(AAFwkTag::DEFAULT, "InputManager get instance failed");
         return false;
     }
-
-
     switchId_ = inputManager->SubscribeSwitchEvent([this](std::shared_ptr<OHOS::MMI::SwitchEvent> event) {
         if (event == nullptr) {
             TAG_LOGE(AAFwkTag::DEFAULT, "SwitchEvent is null");
@@ -336,8 +334,6 @@ ErrCode AssessmentService::End(const sptr<IRemoteObject> &token, int32_t &errCod
     CleanupCurrentSession();
     ClearState();
     errCode = ERR_OK;
-
-
     auto sam = SystemAbilityManagerClient::GetInstance().GetSystemAbilityManager();
     if (sam != nullptr) {
         sam->UnloadSystemAbility(ASSESSMENT_SERVICE_ID);
@@ -471,7 +467,6 @@ void AssessmentService::CheckEndpointAndExecuteTaskLockedUnsafe()
         "assessment task timeout, end: %{public}lu, point:%{public}lu", now, endpointCheckPoint_);
     if (now >= endpointCheckPoint_) {
         this->TimeoutLockedUnsafe();
-
         auto sam = SystemAbilityManagerClient::GetInstance().GetSystemAbilityManager();
         if (sam != nullptr) {
             sam->UnloadSystemAbility(ASSESSMENT_SERVICE_ID);

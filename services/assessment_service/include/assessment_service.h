@@ -85,9 +85,6 @@ private:
 
     void OnAncoStatusChanged(const int32_t status) override;
     void EnableAndRestAnco();
-    
-
-
     int32_t InvokeSystemDialog();
     int32_t ComputeNextTaskTimeoutLockedUnsafe();
     void CheckEndpointAndExecuteTaskLockedUnsafe();
