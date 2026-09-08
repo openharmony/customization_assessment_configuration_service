@@ -230,11 +230,11 @@ void JsAssessmentCallback::CallJsOnBegin(int32_t code, const std::string &messag
     CallJsCallback(onBeginRef_, argv, 1, ON_BEGIN);
 }
 
-void JsAssessmentCallback::CallJsOnInterrupted(int32_t reason, const std::string &message)
+void JsAssessmentCallback::CallJsOnInterrupted(int32_t code, const std::string &message)
 {
     napi_value infoObj = nullptr;
     napi_create_object(env_, &infoObj);
-    napi_set_named_property(env_, infoObj, "reason", CreateJsValue(env_, reason));
+    napi_set_named_property(env_, infoObj, "code", CreateJsValue(env_, code));
     napi_set_named_property(env_, infoObj, "message", CreateJsValue(env_, message));
     napi_value argv[] = { infoObj };
     CallJsCallback(onInterruptedRef_, argv, 1, ON_INTERRUPTED);

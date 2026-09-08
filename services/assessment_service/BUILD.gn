@@ -40,6 +40,7 @@ assessment_sources = [
   "src/assessment_service_ability.cpp",
   "src/assessment_utils.cpp",
   "src/callback_manager.cpp",
+  "src/assessment_service_app_state_cb.cpp"
 ]
 
 ohos_shared_library("assessmentsvcs") {
@@ -80,7 +81,9 @@ ohos_shared_library("assessmentsvcs") {
     "init:libbegetutil",
     "ipc:ipc_single",
     "safwk:system_ability_fwk",
-    "samgr:samgr_proxy"
+    "samgr:samgr_proxy",
+    "input:libmmi-client",
+    "ability_runtime:app_manager"
   ]
 
   subsystem_name = "customization"

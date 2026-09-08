@@ -14,7 +14,8 @@
  */
 
 #include "assessment_event_manager.h"
-
+#include "common_event_manager.h"
+#include "common_event_support.h"
 #include "hilog_tag_wrapper.h"
 
 namespace OHOS {
@@ -67,6 +68,7 @@ void AssessmentEventObserver::OnReceiveEvent(const OHOS::EventFwk::CommonEventDa
     if (receiver_ != nullptr) {
         receiver_(eventData);
     }
+    std::string action = eventData.GetWant().GetAction();
 }
 
 void AssessmentAbilityConnection::OnAbilityConnectDone(

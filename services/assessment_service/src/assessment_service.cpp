@@ -14,10 +14,8 @@
  */
 
 #include "assessment_service.h"
-
 #include <sstream>
 #include <sys/time.h>
-
 #include "callback_manager.h"
 #include "hilog_tag_wrapper.h"
 #include "if_system_ability_manager.h"
@@ -27,6 +25,16 @@
 #include "extension_manager_client.h"
 #include "assessment_utils.h"
 #include "assessment_api_error_code.h"
+#include "common_event_subscriber.h"
+#include "common_event_subscribe_info.h"
+#include "common_event_manager.h"
+#include "common_event_support.h"
+#include "assessment_service_app_state_cb.h"
+#include "app_mgr_client.h"
+#include "app_mgr_interface.h"
+#include "singleton.h"
+#include "app_mgr_util.h"
+#include <input_manager.h>
 #include "lowpower_manager_client.h"
 #include "ipc_skeleton.h"
 
@@ -101,6 +109,54 @@ bool AssessmentService::Init()
     this->thread_ = std::thread([this]() {
         this->DoLoop();
     });
+    InitSubsystems();
+    return true;
+}
+
+bool AssessmentService::InitSubsystems()
+{
+    sptr<AAFWK::AssessmentServiceAppStateCb> appStateObserver_ = nullptr;
+    appStateObserver_ = new (std::nothrow) AAFWK::AssessmentServiceAppStateCb();
+    if (appStateObserver_ == nullptr) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "AssessmentServiceAppStateCb allocation failed");
+        return false;
+    }
+    auto appMgrClient = DelayedSingleton<OHOS::AppExecFwk::AppMgrClient>::GetInstance();
+    if (appMgrClient == nullptr) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "AppMgrClient get instance failed");
+        return false;
+    }
+
+    int32_t regResult = appMgrClient->RegisterApplicationStateObserver(appStateObserver_);
+    if (regResult != 0) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "RegisterApplicationStateObserver failed, result = %{public}d", regResult);
+        return false;
+    }
+
+    auto inputManager = MMI::InputManager::GetInstance();
+    if (inputManager == nullptr) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "InputManager get instance failed");
+        return false;
+    }
+    switchId_ = inputManager->SubscribeSwitchEvent([this](std::shared_ptr<OHOS::MMI::SwitchEvent> event) {
+        if (event == nullptr) {
+            TAG_LOGE(AAFwkTag::DEFAULT, "SwitchEvent is null");
+            return;
+        }
+        if (event -> GetSwitchType() != OHOS::MMI::SwitchEvent::SWITCH_LID) {
+            TAG_LOGE(AAFwkTag::DEFAULT, "Not LID Event");
+            return;
+        }
+        int32_t switchValue = event->GetSwitchValue();
+        if (switchValue == OHOS::MMI::SwitchEvent::SWITCH_ON) {
+            TAG_LOGE(AAFwkTag::DEFAULT, "Lid_Open");
+        } else {
+            TAG_LOGE(AAFwkTag::DEFAULT, "Lid_Close");
+        }
+    }, OHOS::MMI::SwitchEvent::SWITCH_LID);
+    if (switchId_ < 0) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "SubscribeSwitchEvent failed, switchId = %{public}d", switchId_);
+    }
     return true;
 }
 
@@ -234,8 +290,9 @@ ErrCode AssessmentService::Begin(const sptr<IRemoteObject> &token, uint32_t dura
 
     if (examStatus_ == AssessmentExamStatus::CONFIRMING) {
         if (callerToken_ != nullptr) {
-            CallbackManager::GetInstance().OnInterrupted(
-                callerToken_, static_cast<int32_t>(AssessmentInterruptReason::SYSTEM_ERROR), "");
+            CallbackManager::GetInstance().OnBegin(
+                callerToken_, static_cast<int32_t>(AssessmentEventCode::SYSTEM_ERROR),
+                AssessmentEventCodeToMsg(AssessmentEventCode::SYSTEM_ERROR));
             TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment app exam chance be occupied");
         }
     }
@@ -266,7 +323,7 @@ ErrCode AssessmentService::End(const sptr<IRemoteObject> &token, int32_t &errCod
     std::unique_lock<std::mutex> lock(this->mutexSa_);
     if (!isActive_) {
         TAG_LOGW(AAFwkTag::ASSESSMENT, "Assessment not active");
-        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_ASSESSMENT_NOT_ACTIVED);
+        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_ASSESSMENT_NOT_ACTIVE);
         return ERR_OK;
     }
 
@@ -277,7 +334,10 @@ ErrCode AssessmentService::End(const sptr<IRemoteObject> &token, int32_t &errCod
     CleanupCurrentSession();
     ClearState();
     errCode = ERR_OK;
-
+    auto sam = SystemAbilityManagerClient::GetInstance().GetSystemAbilityManager();
+    if (sam != nullptr) {
+        sam->UnloadSystemAbility(ASSESSMENT_SERVICE_ID);
+    }
     if (!isAncoWaittingActive_) {
         Destroy();
     }
@@ -407,7 +467,6 @@ void AssessmentService::CheckEndpointAndExecuteTaskLockedUnsafe()
         "assessment task timeout, end: %{public}lu, point:%{public}lu", now, endpointCheckPoint_);
     if (now >= endpointCheckPoint_) {
         this->TimeoutLockedUnsafe();
-
         auto sam = SystemAbilityManagerClient::GetInstance().GetSystemAbilityManager();
         if (sam != nullptr) {
             sam->UnloadSystemAbility(ASSESSMENT_SERVICE_ID);
@@ -438,6 +497,11 @@ bool AssessmentService::SubscribeCommonEvent()
 {
     OHOS::EventFwk::MatchingSkills matchingSkills;
     matchingSkills.AddEvent(ASSESSMENT_COMMON_EVENT_CONFIRMATION);
+    matchingSkills.AddEvent(OHOS::EventFwk::CommonEventSupport::COMMON_EVENT_ENTER_HIBERNATE);
+    matchingSkills.AddEvent(OHOS::EventFwk::CommonEventSupport::COMMON_EVENT_EXIT_HIBERNATE);
+    matchingSkills.AddEvent(OHOS::EventFwk::CommonEventSupport::COMMON_EVENT_SHUTDOWN);
+    matchingSkills.AddEvent(OHOS::EventFwk::CommonEventSupport::COMMON_EVENT_POWER_SAVE_MODE_CHANGED);
+    matchingSkills.AddEvent(OHOS::EventFwk::CommonEventSupport::COMMON_EVENT_BOOT_COMPLETED);
     OHOS::EventFwk::CommonEventSubscribeInfo subscribeInfo(matchingSkills);
 
     this->assessmentEventObserver_ = AssessmentEventObserver::Create(subscribeInfo,
@@ -516,14 +580,17 @@ void AssessmentService::ConfirmationBeginLockedUnsafe()
     isActive_ = true;
     examStatus_ = AssessmentExamStatus::ACTIVE;
     SaveState();
-    CallbackManager::GetInstance().OnBegin(callerToken_, 0, "");
+    CallbackManager::GetInstance().OnBegin(callerToken_,
+        static_cast<int32_t>(AssessmentEventCode::OK),
+        AssessmentEventCodeToMsg(AssessmentEventCode::OK));
 }
 
 void AssessmentService::CancelBeginLockedUnsafe()
 {
     if (callerToken_ != nullptr) {
         CallbackManager::GetInstance().OnBegin(
-            callerToken_, static_cast<int32_t>(AssessmentApiErrCode::ERR_USER_CANCELLED), "");
+            callerToken_, static_cast<int32_t>(AssessmentEventCode::USER_CANCEL),
+            AssessmentEventCodeToMsg(AssessmentEventCode::USER_CANCEL));
     }
     CleanupCurrentSession();
     ClearState();
@@ -533,7 +600,8 @@ void AssessmentService::TimeoutLockedUnsafe()
 {
     if (callerToken_ != nullptr) {
         CallbackManager::GetInstance().OnInterrupted(
-            callerToken_, static_cast<int32_t>(AssessmentInterruptReason::TIMEOUT), "");
+            callerToken_, static_cast<int32_t>(AssessmentEventCode::TIMEOUT),
+            AssessmentEventCodeToMsg(AssessmentEventCode::TIMEOUT));
     }
     CleanupCurrentSession();
     ClearState();
@@ -556,6 +624,16 @@ void AssessmentService::DispatchEvent(const OHOS::EventFwk::CommonEventData& eve
         if ((is >> ticket >> operation)) {
             HandleBegin(ticket, operation);
         }
+    } else if (action == OHOS::EventFwk::CommonEventSupport::COMMON_EVENT_ENTER_HIBERNATE) {
+        TAG_LOGI(AAFwkTag::DEFAULT, "System entered HIBERNATE");
+    } else if (action == OHOS::EventFwk::CommonEventSupport::COMMON_EVENT_EXIT_HIBERNATE) {
+        TAG_LOGI(AAFwkTag::DEFAULT, "System exited HIBERNATE");
+    } else if (action == OHOS::EventFwk::CommonEventSupport::COMMON_EVENT_SHUTDOWN) {
+        TAG_LOGI(AAFwkTag::DEFAULT, "System shutdown");
+    } else if (action == OHOS::EventFwk::CommonEventSupport::COMMON_EVENT_POWER_SAVE_MODE_CHANGED) {
+        TAG_LOGI(AAFwkTag::DEFAULT, "System exited POWER_SAVE_MODE_CHANGED");
+    } else if (action == OHOS::EventFwk::CommonEventSupport::COMMON_EVENT_BOOT_COMPLETED) {
+        TAG_LOGI(AAFwkTag::DEFAULT, "System BOOT_COMPLETED");
     }
 }
 }  // namespace AAFwk
