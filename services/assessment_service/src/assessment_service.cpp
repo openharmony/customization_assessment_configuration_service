@@ -115,7 +115,7 @@ bool AssessmentService::InitSubsystems()
         return false;
     }
 
-    int32_t regResult = appMgrClient->RegisterApplicationStateObserver(appStateObserver_ );
+    int32_t regResult = appMgrClient->RegisterApplicationStateObserver(appStateObserver_);
     if (regResult != 0) {
         TAG_LOGE(AAFwkTag::DEFAULT, "RegisterApplicationStateObserver failed, result = %{public}d", regResult);
         return false;
@@ -137,9 +137,7 @@ bool AssessmentService::InitSubsystems()
             TAG_LOGE(AAFwkTag::DEFAULT, "Not LID Event");
             return;
         }
-
         int32_t switchValue = event->GetSwitchValue();
-
         if (switchValue == OHOS::MMI::SwitchEvent::SWITCH_ON) {
             TAG_LOGE(AAFwkTag::DEFAULT, "Lid_Open");
         } else {

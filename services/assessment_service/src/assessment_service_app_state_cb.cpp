@@ -10,16 +10,16 @@ AssessmentServiceAppStateCb::~AssessmentServiceAppStateCb()
 {
 }
 
-    void AssessmentServiceAppStateCb::OnForegroundApplicationChanged(const AppExecFwk::AppStateData& appStateData){
+    void AssessmentServiceAppStateCb::OnForegroundApplicationChanged(const AppExecFwk::AppStateData& appStateData
+    {};
 
-    };
-    void AssessmentServiceAppStateCb::OnApplicationStateChanged(const AppExecFwk::AppStateData& appStateData){
+    void AssessmentServiceAppStateCb::OnApplicationStateChanged(const AppExecFwk::AppStateData& appStateData)
+    {};
 
-    };
-    void AssessmentServiceAppStateCb::OnProcessDied(const AppExecFwk::ProcessData &processData) {
+    void AssessmentServiceAppStateCb::OnProcessDied(const AppExecFwk::ProcessData &processData)
+    {
         TAG_LOGE(AAFwkTag::DEFAULT, "==== APP Process Died ====");
         TAG_LOGE(AAFwkTag::DEFAULT, "bundleName: %{public}s", processData.bundleName.c_str());
-
     };
 }
 }
