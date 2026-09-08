@@ -30,6 +30,7 @@
 #include "assessment_error_code.h"
 #include "assessment_service_stub.h"
 #include "assessment_event_manager.h"
+#include "anco_status_subscriber.h"
 
 namespace OHOS {
 namespace AAFwk {
@@ -46,10 +47,11 @@ enum class AssessmentExamStatus : uint32_t {
 };
 
 class AssessmentService : public AssessmentServiceStub,
-                          public std::enable_shared_from_this<AssessmentService> {
+                          public std::enable_shared_from_this<AssessmentService>,
+                          public LowpowerManager::AncoStatusSubscriber {
 public:
-    AssessmentService() = default;
-    virtual ~AssessmentService() = default;
+    AssessmentService();
+    virtual ~AssessmentService();
 
     static sptr<AssessmentService> GetInstance();
 
@@ -74,16 +76,20 @@ public:
     void DoLoop();
     void DispatchEvent(const OHOS::EventFwk::CommonEventData& data);
 
+    void OnAncoStatusChanged(const int32_t status) override;
+
 private:
     void ConfigCurrentSession(const sptr<IRemoteObject> &token, uint32_t duration,
                               const std::vector<std::string> &allowedApps,
                               const sptr<IRemoteObject> &callback);
     void CleanupCurrentSession();
+    void EnableAndRestAnco();
 
     int32_t InvokeSystemDialog();
     int32_t ComputeNextTaskTimeoutLockedUnsafe();
     void CheckEndpointAndExecuteTaskLockedUnsafe();
     void Quit();
+    void Destroy();
 
     bool SubscribeCommonEvent();
     void UnsubscribeCommonEvent();
@@ -98,6 +104,7 @@ private:
     std::shared_ptr<AppExecFwk::EventHandler> eventHandler_;
 
     bool isActive_ = false;
+    bool isAncoWaittingActive_ = false;
     sptr<IRemoteObject> callerToken_;
     AssessmentConfig currentConfig_;
     uint64_t endpointCheckPoint_ = 0;

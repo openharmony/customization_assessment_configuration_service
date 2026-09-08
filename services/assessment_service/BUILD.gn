@@ -81,6 +81,7 @@ ohos_shared_library("assessmentsvcs") {
     "ipc:ipc_single",
     "safwk:system_ability_fwk",
     "samgr:samgr_proxy",
+    "efficiency_manager_ext:lowpower_manager_client"
   ]
 
   subsystem_name = "customization"
