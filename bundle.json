@@ -33,6 +33,7 @@
                 "samgr",
                 "eventhandler",
                 "napi",
+                "input",
                 "efficiency_manager_ext"
             ],
             "third_party": []

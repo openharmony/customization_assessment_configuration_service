@@ -76,15 +76,15 @@ public:
     void DoLoop();
     void DispatchEvent(const OHOS::EventFwk::CommonEventData& data);
 
-    void OnAncoStatusChanged(const int32_t status) override;
-
 private:
     void ConfigCurrentSession(const sptr<IRemoteObject> &token, uint32_t duration,
                               const std::vector<std::string> &allowedApps,
                               const sptr<IRemoteObject> &callback);
     void CleanupCurrentSession();
-    void EnableAndRestAnco();
+    bool InitSubsystems();
 
+    void OnAncoStatusChanged(const int32_t status) override;
+    void EnableAndRestAnco();
     int32_t InvokeSystemDialog();
     int32_t ComputeNextTaskTimeoutLockedUnsafe();
     void CheckEndpointAndExecuteTaskLockedUnsafe();
@@ -119,6 +119,7 @@ private:
     std::shared_ptr<AssessmentEventObserver> assessmentEventObserver_;
 
     DISALLOW_COPY_AND_MOVE(AssessmentService);
+    int32_t switchId_ = -1;
 };
 } // namespace AAFwk
 } // namespace OHOS
