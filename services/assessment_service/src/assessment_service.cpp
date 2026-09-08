@@ -35,6 +35,7 @@
 #include "singleton.h"
 #include "app_mgr_util.h"
 #include <input_manager.h>
+#include "lowpower_manager_client.h"
 #include "ipc_skeleton.h"
 
 namespace OHOS {
@@ -44,6 +45,7 @@ const bool FAST_CONFIRM_MODE = true;
 const char* const PARAM_ASSESSMENT_IS_ACTIVE = "persist.assessment.is_active";
 const char* const PARAM_ASSESSMENT_DURATION = "persist.assessment.duration";
 const char* const PARAM_ASSESSMENT_ALLOWED_APPS = "persist.assessment.allowed_apps";
+const char* const PARAM_ANCO_STATE = "anco_state";
 const char APP_DELIMITER = '|';
 const uint64_t MILLISECONDS_UNIT = 1000;
 const uint64_t DEFAULT_TIME_SLICE_INTERVAL = 5 * MILLISECONDS_UNIT;
@@ -64,6 +66,16 @@ enum AssessmentConfirmationOperation : uint32_t {
 
 std::mutex AssessmentService::mutex_;
 sptr<AssessmentService> AssessmentService::instance_;
+
+AssessmentService::AssessmentService()
+{
+    OHOS::LowpowerManager::LowpowerManagerClient::GetInstance().SubscribeAncoStatus(*this);
+}
+
+AssessmentService::~AssessmentService()
+{
+    OHOS::LowpowerManager::LowpowerManagerClient::GetInstance().UnSubscribeAncoStatus(*this);
+}
 
 sptr<AssessmentService> AssessmentService::GetInstance()
 {
@@ -176,6 +188,34 @@ void AssessmentService::LoadState()
     }
 }
 
+void AssessmentService::EnableAndRestAnco()
+{
+    std::string ancoState = system::GetParameter(PARAM_ANCO_STATE, "2");
+    if (ancoState != "0") {
+        TAG_LOGI(AAFwkTag::DEFAULT, "EnableAndRestAnco called, ancoState: 2");
+        isAncoWaittingActive_ = true;
+        std::thread([]() {
+            OHOS::LowpowerManager::LowpowerManagerClient::GetInstance().RequestAncoRunning("AssessmentRequest");
+        }).detach();
+    }
+}
+
+void AssessmentService::OnAncoStatusChanged(const int32_t status)
+{
+    TAG_LOGI(AAFwkTag::DEFAULT, "OnAncoStatusChanged called, status: %{public}d, isAncoWaittingActive_: %{public}s",
+        status, isAncoWaittingActive_ ? "true" : "false");
+    if (isAncoWaittingActive_ && status == OHOS::LowpowerManager::ANCO_RUNNING) {
+        isAncoWaittingActive_ = false;
+        system::SetParameter(PARAM_ASSESSMENT_IS_ACTIVE, isActive_ ? "true" : "false");
+        TAG_LOGI(AAFwkTag::DEFAULT,
+            "OnAncoStatusChanged called, sync anco state success, assessment status: %{public}s",
+            isActive_ ? "true" : "false");
+        if (!isActive_) {
+            Destroy();
+        }
+    }
+}
+
 void AssessmentService::SaveState()
 {
     system::SetParameter(PARAM_ASSESSMENT_IS_ACTIVE, isActive_ ? "true" : "false");
@@ -189,6 +229,7 @@ void AssessmentService::SaveState()
         ss << currentConfig_.allowedApps[i];
     }
     system::SetParameter(PARAM_ASSESSMENT_ALLOWED_APPS, ss.str());
+    EnableAndRestAnco();
     TAG_LOGD(AAFwkTag::DEFAULT, "State saved");
 }
 
@@ -197,6 +238,7 @@ void AssessmentService::ClearState()
     system::SetParameter(PARAM_ASSESSMENT_IS_ACTIVE, "false");
     system::SetParameter(PARAM_ASSESSMENT_DURATION, "0");
     system::SetParameter(PARAM_ASSESSMENT_ALLOWED_APPS, "");
+    EnableAndRestAnco();
     TAG_LOGD(AAFwkTag::DEFAULT, "State cleared");
 }
 
@@ -295,9 +337,13 @@ ErrCode AssessmentService::End(const sptr<IRemoteObject> &token, int32_t &errCod
     ClearState();
     errCode = ERR_OK;
 
+
     auto sam = SystemAbilityManagerClient::GetInstance().GetSystemAbilityManager();
     if (sam != nullptr) {
         sam->UnloadSystemAbility(ASSESSMENT_SERVICE_ID);
+    }
+    if (!isAncoWaittingActive_) {
+        Destroy();
     }
     return ERR_OK;
 }
@@ -441,6 +487,14 @@ void AssessmentService::Quit()
         if (thread_.joinable()) {
             thread_.join();
         }
+    }
+}
+
+void AssessmentService::Destroy()
+{
+    auto sam = SystemAbilityManagerClient::GetInstance().GetSystemAbilityManager();
+    if (sam != nullptr) {
+        sam->UnloadSystemAbility(ASSESSMENT_SERVICE_ID);
     }
 }
 
