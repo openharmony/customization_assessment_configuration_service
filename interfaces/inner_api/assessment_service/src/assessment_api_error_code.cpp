@@ -42,16 +42,16 @@ const std::unordered_map<int32_t, std::string> ERR_CODE_TO_MSG_MAP = {
     { static_cast<int32_t>(AssessmentApiErrCode::ERR_INVALID_OPERATION), ERR_INVALID_OPERATION_DESC },
 };
 
-const std::unordered_map<AssessmentEventCode, std::string> EVENT_CODE_TO_MSG_MAP = {
-    { AssessmentEventCode::OK, ASSESSMENT_EVENT_CODE_OK_DESC },
-    { AssessmentEventCode::USER_CANCEL, ASSESSMENT_EVENT_CODE_USER_CANCEL_DESC },
-    { AssessmentEventCode::TIMEOUT, ASSESSMENT_EVENT_CODE_TIMEOUT_DESC },
-    { AssessmentEventCode::SYSTEM_ERROR, ASSESSMENT_EVENT_CODE_SYSTEM_ERROR_DESC },
-    { AssessmentEventCode::SECURITY_BREACH, ASSESSMENT_EVENT_CODE_SECURITY_BREACH_DESC },
+const std::unordered_map<AssessmentErrorCode, std::string> EVENT_CODE_TO_MSG_MAP = {
+    { AssessmentErrorCode::OK, ASSESSMENT_EVENT_CODE_OK_DESC },
+    { AssessmentErrorCode::USER_CANCEL, ASSESSMENT_EVENT_CODE_USER_CANCEL_DESC },
+    { AssessmentErrorCode::TIMEOUT, ASSESSMENT_EVENT_CODE_TIMEOUT_DESC },
+    { AssessmentErrorCode::SYSTEM_ERROR, ASSESSMENT_EVENT_CODE_SYSTEM_ERROR_DESC },
+    { AssessmentErrorCode::SECURITY_BREACH, ASSESSMENT_EVENT_CODE_SECURITY_BREACH_DESC },
 };
 }
 
-std::string AssessmentErrCodeToErrMsg(int32_t errCode)
+std::string AssessmentApiErrCodeToErrMsg(int32_t errCode)
 {
     auto it = ERR_CODE_TO_MSG_MAP.find(errCode);
     if (it != ERR_CODE_TO_MSG_MAP.end()) {
@@ -60,7 +60,7 @@ std::string AssessmentErrCodeToErrMsg(int32_t errCode)
     return ERR_INTERNAL_ERROR_DESC;
 }
 
-std::string AssessmentEventCodeToMsg(AssessmentEventCode eventCode)
+std::string AssessmentErrCodeToErrMsg(AssessmentErrorCode eventCode)
 {
     auto it = EVENT_CODE_TO_MSG_MAP.find(eventCode);
     if (it != EVENT_CODE_TO_MSG_MAP.end()) {

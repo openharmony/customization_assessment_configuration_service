@@ -33,7 +33,7 @@ enum class AssessmentApiErrCode : int32_t {
     ERR_INVALID_OPERATION = 36700004,
 };
 
-enum class AssessmentEventCode : int32_t {
+enum class AssessmentErrorCode : int32_t {
     OK = 0,
     USER_CANCEL = 1,
     TIMEOUT = 2,
@@ -41,8 +41,8 @@ enum class AssessmentEventCode : int32_t {
     SECURITY_BREACH = 4,
 };
 
-std::string AssessmentErrCodeToErrMsg(int32_t errCode);
-std::string AssessmentEventCodeToMsg(AssessmentEventCode eventCode);
+std::string AssessmentApiErrCodeToErrMsg(int32_t errCode);
+std::string AssessmentErrCodeToErrMsg(AssessmentErrorCode eventCode);
 
 } // namespace AAFwk
 } // namespace OHOS

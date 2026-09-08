@@ -65,7 +65,7 @@ static napi_value ThrowError(napi_env env, int32_t err, const std::string &msg)
 static napi_value ThrowError(napi_env env, OHOS::AAFwk::AssessmentApiErrCode errCode)
 {
     return ThrowError(env, static_cast<int32_t>(errCode),
-        OHOS::AAFwk::AssessmentErrCodeToErrMsg(static_cast<int32_t>(errCode)));
+        OHOS::AAFwk::AssessmentApiErrCodeToErrMsg(static_cast<int32_t>(errCode)));
 }
 
 static bool NapiIsCallable(napi_env env, napi_value value)
@@ -232,7 +232,7 @@ napi_value AssessmentNapiBegin(napi_env env, napi_callback_info info)
     sptr<IRemoteObject> callbackObj = jsCallback;
     ErrCode ret = OHOS::AAFwk::AssessmentServiceClient::GetInstance()->Begin(token, duration, allowedApps, callbackObj);
     if (ret != ERR_OK) {
-        return ThrowError(env, ret, OHOS::AAFwk::AssessmentErrCodeToErrMsg(ret));
+        return ThrowError(env, ret, OHOS::AAFwk::AssessmentApiErrCodeToErrMsg(ret));
     }
 
     return GetNapiUndefined(env);
@@ -265,7 +265,7 @@ napi_value AssessmentNapiEnd(napi_env env, napi_callback_info info)
 
     ErrCode ret = OHOS::AAFwk::AssessmentServiceClient::GetInstance()->End(token);
     if (ret != ERR_OK) {
-        return ThrowError(env, ret, OHOS::AAFwk::AssessmentErrCodeToErrMsg(ret));
+        return ThrowError(env, ret, OHOS::AAFwk::AssessmentApiErrCodeToErrMsg(ret));
     }
 
     return GetNapiUndefined(env);
@@ -282,7 +282,7 @@ napi_value AssessmentNapiIsActive(napi_env env, napi_callback_info info)
     bool isActive = false;
     ErrCode ret = OHOS::AAFwk::AssessmentServiceClient::GetInstance()->IsActive(isActive);
     if (ret != ERR_OK) {
-        return ThrowError(env, ret, OHOS::AAFwk::AssessmentErrCodeToErrMsg(ret));
+        return ThrowError(env, ret, OHOS::AAFwk::AssessmentApiErrCodeToErrMsg(ret));
     }
 
     TAG_LOGI(AAFwkTag::DEFAULT, "IsActive result: %{public}d", isActive);
@@ -303,7 +303,7 @@ napi_value AssessmentNapiGetConfiguration(napi_env env, napi_callback_info info)
     std::vector<std::string> allowedApps;
     ErrCode ret = OHOS::AAFwk::AssessmentServiceClient::GetInstance()->GetConfiguration(duration, allowedApps);
     if (ret != ERR_OK) {
-        return ThrowError(env, ret, OHOS::AAFwk::AssessmentErrCodeToErrMsg(ret));
+        return ThrowError(env, ret, OHOS::AAFwk::AssessmentApiErrCodeToErrMsg(ret));
     }
     napi_set_named_property(env, result, "duration", CreateJsValue(env, duration));
 
@@ -317,35 +317,35 @@ napi_value AssessmentNapiGetConfiguration(napi_env env, napi_callback_info info)
     return result;
 }
 
-void CreateAssessmentEventCode(napi_env env, napi_value value)
+void CreateAssessmentErrorCode(napi_env env, napi_value value)
 {
     napi_value nOk;
     NAPI_CALL_RETURN_VOID(env,
-        napi_create_int32(env, static_cast<int32_t>(OHOS::AAFwk::AssessmentEventCode::OK), &nOk));
+        napi_create_int32(env, static_cast<int32_t>(OHOS::AAFwk::AssessmentErrorCode::OK), &nOk));
     NAPI_CALL_RETURN_VOID(env, napi_set_named_property(env, value, "OK", nOk));
 
     napi_value nUserCancel;
     NAPI_CALL_RETURN_VOID(env,
         napi_create_int32(env,
-            static_cast<int32_t>(OHOS::AAFwk::AssessmentEventCode::USER_CANCEL), &nUserCancel));
+            static_cast<int32_t>(OHOS::AAFwk::AssessmentErrorCode::USER_CANCEL), &nUserCancel));
     NAPI_CALL_RETURN_VOID(env, napi_set_named_property(env, value, "USER_CANCEL", nUserCancel));
 
     napi_value nTimeout;
     NAPI_CALL_RETURN_VOID(env,
         napi_create_int32(env,
-            static_cast<int32_t>(OHOS::AAFwk::AssessmentEventCode::TIMEOUT), &nTimeout));
+            static_cast<int32_t>(OHOS::AAFwk::AssessmentErrorCode::TIMEOUT), &nTimeout));
     NAPI_CALL_RETURN_VOID(env, napi_set_named_property(env, value, "TIMEOUT", nTimeout));
 
     napi_value nSystemError;
     NAPI_CALL_RETURN_VOID(env,
         napi_create_int32(env,
-            static_cast<int32_t>(OHOS::AAFwk::AssessmentEventCode::SYSTEM_ERROR), &nSystemError));
+            static_cast<int32_t>(OHOS::AAFwk::AssessmentErrorCode::SYSTEM_ERROR), &nSystemError));
     NAPI_CALL_RETURN_VOID(env, napi_set_named_property(env, value, "SYSTEM_ERROR", nSystemError));
 
     napi_value nSecurityBreach;
     NAPI_CALL_RETURN_VOID(env,
         napi_create_int32(env,
-            static_cast<int32_t>(OHOS::AAFwk::AssessmentEventCode::SECURITY_BREACH), &nSecurityBreach));
+            static_cast<int32_t>(OHOS::AAFwk::AssessmentErrorCode::SECURITY_BREACH), &nSecurityBreach));
     NAPI_CALL_RETURN_VOID(env, napi_set_named_property(env, value, "SECURITY_BREACH", nSecurityBreach));
 }
 
@@ -356,14 +356,14 @@ static napi_value Export(napi_env env, napi_value exports)
 
     napi_value eventCode = nullptr;
     NAPI_CALL(env, napi_create_object(env, &eventCode));
-    CreateAssessmentEventCode(env, eventCode);
+    CreateAssessmentErrorCode(env, eventCode);
 
     napi_property_descriptor descriptors[] = {
         DECLARE_NAPI_FUNCTION("begin", AssessmentNapiBegin),
         DECLARE_NAPI_FUNCTION("end", AssessmentNapiEnd),
         DECLARE_NAPI_FUNCTION("isActive", AssessmentNapiIsActive),
         DECLARE_NAPI_FUNCTION("getConfiguration", AssessmentNapiGetConfiguration),
-        DECLARE_NAPI_PROPERTY("AssessmentEventCode", eventCode),
+        DECLARE_NAPI_PROPERTY("AssessmentErrorCode", eventCode),
     };
 
     napi_define_properties(env, exports, sizeof(descriptors) / sizeof(descriptors[0]), descriptors);
