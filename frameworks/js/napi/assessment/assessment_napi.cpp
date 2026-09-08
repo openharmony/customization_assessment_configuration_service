@@ -210,9 +210,11 @@ napi_value AssessmentNapiBegin(napi_env env, napi_callback_info info)
     }
     std::string bundleName = uiAbilityContext->GetBundleName();
     TAG_LOGD(AAFwkTag::ASSESSMENT, "assessment bundleName: %{public}s", bundleName.c_str());
-    if (std::find(allowedApps.begin(), allowedApps.end(), bundleName) == allowedApps.end()) {
-        allowedApps.push_back(bundleName);
+    auto it = std::find(allowedApps.begin(), allowedApps.end(), bundleName);
+    if (it != allowedApps.end()) {
+        allowedApps.erase(it);
     }
+    allowedApps.push_back(bundleName);
 
     napi_value callbackValue = argv[INDEX_TWO];
     sptr<AAFwk::JsAssessmentCallback> jsCallback = CreateJsAssessmentCallback(env, callbackValue);

@@ -97,6 +97,8 @@ private:
     void ConfirmationBeginLockedUnsafe();
     void CancelBeginLockedUnsafe();
     void TimeoutLockedUnsafe();
+    ErrCode ExitKioskModeLockedUnsafe();
+    void AppDieHandle(const std::string &bundleName);
 
     static std::mutex mutex_;
     static sptr<AssessmentService> instance_;
@@ -110,6 +112,7 @@ private:
     uint64_t endpointCheckPoint_ = 0;
     AssessmentExamStatus examStatus_ = AssessmentExamStatus::IDLE;
     std::string ticket_;
+    std::string bundleName_;
 
     std::mutex mutexSa_;
     std::condition_variable condSa_;
