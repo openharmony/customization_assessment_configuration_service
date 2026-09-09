@@ -81,7 +81,6 @@ private:
     void CleanupCurrentSession();
     bool InitSubsystems();
 
-    void EnableAndRestAnco();
     int32_t InvokeSystemDialog();
     int32_t ComputeNextTaskTimeoutLockedUnsafe();
     void CheckEndpointAndExecuteTaskLockedUnsafe();
@@ -101,7 +100,6 @@ private:
     std::shared_ptr<AppExecFwk::EventHandler> eventHandler_;
 
     bool isActive_ = false;
-    bool isAncoWaittingActive_ = false;
     sptr<IRemoteObject> callerToken_;
     AssessmentConfig currentConfig_;
     uint64_t endpointCheckPoint_ = 0;
