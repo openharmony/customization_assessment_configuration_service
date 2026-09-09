@@ -68,7 +68,6 @@ sptr<AssessmentService> AssessmentService::instance_;
 AssessmentService::AssessmentService()
 {
     TAG_LOGE(AAFwkTag::DEFAULT, "assessment service created");
-
 }
 
 AssessmentService::~AssessmentService()
