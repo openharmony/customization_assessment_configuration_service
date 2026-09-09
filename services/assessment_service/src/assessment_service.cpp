@@ -35,7 +35,6 @@
 #include "singleton.h"
 #include "app_mgr_util.h"
 #include <input_manager.h>
-#include "lowpower_manager_client.h"
 #include "ipc_skeleton.h"
 
 namespace OHOS {
@@ -191,26 +190,6 @@ void AssessmentService::EnableAndRestAnco()
     std::string ancoState = system::GetParameter(PARAM_ANCO_STATE, "2");
     if (ancoState != "0") {
         TAG_LOGI(AAFwkTag::DEFAULT, "EnableAndRestAnco called, ancoState: 2");
-        isAncoWaittingActive_ = true;
-        std::thread([]() {
-            OHOS::LowpowerManager::LowpowerManagerClient::GetInstance().RequestAncoRunning("AssessmentRequest");
-        }).detach();
-    }
-}
-
-void AssessmentService::OnAncoStatusChanged(const int32_t status)
-{
-    TAG_LOGI(AAFwkTag::DEFAULT, "OnAncoStatusChanged called, status: %{public}d, isAncoWaittingActive_: %{public}s",
-        status, isAncoWaittingActive_ ? "true" : "false");
-    if (isAncoWaittingActive_ && status == OHOS::LowpowerManager::ANCO_RUNNING) {
-        isAncoWaittingActive_ = false;
-        system::SetParameter(PARAM_ASSESSMENT_IS_ACTIVE, isActive_ ? "true" : "false");
-        TAG_LOGI(AAFwkTag::DEFAULT,
-            "OnAncoStatusChanged called, sync anco state success, assessment status: %{public}s",
-            isActive_ ? "true" : "false");
-        if (!isActive_) {
-            Destroy();
-        }
     }
 }
 
