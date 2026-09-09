@@ -443,11 +443,8 @@ void AssessmentService::CheckEndpointAndExecuteTaskLockedUnsafe()
     if (callerToken_ == nullptr) {
         return;
     }
-
     uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
-    TAG_LOGI(AAFwkTag::DEFAULT,
-        "assessment task timeout, end: %{public}lu, point:%{public}lu", now, endpointCheckPoint_);
     if (now >= endpointCheckPoint_) {
         this->TimeoutLockedUnsafe();
         auto sam = SystemAbilityManagerClient::GetInstance().GetSystemAbilityManager();
