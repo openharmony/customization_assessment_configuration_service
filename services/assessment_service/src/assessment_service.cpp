@@ -555,28 +555,28 @@ void AssessmentService::HandleBegin(const std::string &ticket, uint32_t operatio
 
 void AssessmentService::ConfirmationBeginLockedUnsafe()
 {
-    auto cleanUp = [this]() {
-        CallbackManager::GetInstance().OnBegin(callerToken_,
-            static_cast<int32_t>(AssessmentErrorCode::SYSTEM_ERROR),
-            AssessmentErrCodeToErrMsg(AssessmentErrorCode::SYSTEM_ERROR));
-        CleanupCurrentSession();
-    };
+    // auto cleanUp = [this]() {
+    //     CallbackManager::GetInstance().OnBegin(callerToken_,
+    //         static_cast<int32_t>(AssessmentErrorCode::SYSTEM_ERROR),
+    //         AssessmentErrCodeToErrMsg(AssessmentErrorCode::SYSTEM_ERROR));
+    //     CleanupCurrentSession();
+    // };
 
-    std::shared_ptr<OHOS::AAFwk::AbilityManagerClient> abilityManagerClient
-        = OHOS::AAFwk::AbilityManagerClient::GetInstance();
-    ErrCode retSetAppList = abilityManagerClient->SetKioskApplicationList(currentConfig_.allowedApps);
-    if (retSetAppList != ERR_OK) {
-        TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment set application list fail, %{public}d", retSetAppList);
-        cleanUp();
-        return;
-    }
-    TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment set application list succcessfully");
-    ErrCode retEnterKioskMode = abilityManagerClient->EnterKioskMode(callerToken_, 1);
-    if (retEnterKioskMode != ERR_OK) {
-        TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment EnterKioskMode fail, %{public}d", retEnterKioskMode);
-        cleanUp();
-        return;
-    }
+    // std::shared_ptr<OHOS::AAFwk::AbilityManagerClient> abilityManagerClient
+    //     = OHOS::AAFwk::AbilityManagerClient::GetInstance();
+    // ErrCode retSetAppList = abilityManagerClient->SetKioskApplicationList(currentConfig_.allowedApps);
+    // if (retSetAppList != ERR_OK) {
+    //     TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment set application list fail, %{public}d", retSetAppList);
+    //     cleanUp();
+    //     return;
+    // }
+    // TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment set application list succcessfully");
+    // ErrCode retEnterKioskMode = abilityManagerClient->EnterKioskMode(callerToken_, 1);
+    // if (retEnterKioskMode != ERR_OK) {
+    //     TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment EnterKioskMode fail, %{public}d", retEnterKioskMode);
+    //     cleanUp();
+    //     return;
+    // }
     TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment EnterKioskMode succcessfully");
 
     auto pt = std::chrono::system_clock::now() + std::chrono::milliseconds(currentConfig_.duration);
@@ -620,18 +620,18 @@ void AssessmentService::TimeoutLockedUnsafe()
 
 ErrCode AssessmentService::ExitKioskModeLockedUnsafe()
 {
-    std::shared_ptr<OHOS::AAFwk::AbilityManagerClient> abilityManagerClient
-        = OHOS::AAFwk::AbilityManagerClient::GetInstance();
-    ErrCode retExitKioskMode = abilityManagerClient->ExitKioskMode(callerToken_);
-    if (retExitKioskMode != ERR_OK) {
-        TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment exitKioskMode failed, %{public}d", retExitKioskMode);
-        return retExitKioskMode;
-    }
-    TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment exitKioskMode successfully");
-    ErrCode retDelAppList = abilityManagerClient->DeleteKioskApplicationList(currentConfig_.allowedApps);
-    if (retDelAppList != ERR_OK) {
-        TAG_LOGW(AAFwkTag::ASSESSMENT, "assement deleteKioskApplicationList failed, %{public}d", retDelAppList);
-    }
+    // std::shared_ptr<OHOS::AAFwk::AbilityManagerClient> abilityManagerClient
+    //     = OHOS::AAFwk::AbilityManagerClient::GetInstance();
+    // ErrCode retExitKioskMode = abilityManagerClient->ExitKioskMode(callerToken_);
+    // if (retExitKioskMode != ERR_OK) {
+    //     TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment exitKioskMode failed, %{public}d", retExitKioskMode);
+    //     return retExitKioskMode;
+    // }
+    // TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment exitKioskMode successfully");
+    // ErrCode retDelAppList = abilityManagerClient->DeleteKioskApplicationList(currentConfig_.allowedApps);
+    // if (retDelAppList != ERR_OK) {
+    //     TAG_LOGW(AAFwkTag::ASSESSMENT, "assement deleteKioskApplicationList failed, %{public}d", retDelAppList);
+    // }
     return ERR_OK;
 }
 
