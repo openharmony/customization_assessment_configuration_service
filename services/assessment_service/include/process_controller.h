@@ -16,6 +16,8 @@
 #ifndef OHOS_AAFWK_ASSESSMENT_PROCESS_CONTROLLER_H
 #define OHOS_AAFWK_ASSESSMENT_PROCESS_CONTROLLER_H
 
+#include <atomic>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -56,20 +58,38 @@ public:
     ProcessController() = default;
     ~ProcessController() = default;
 
-    void Activate(const std::vector<std::string> &allowedApps);
+    /**
+     * @brief Initialize the CallManager dependency. Intended to be called once
+     *        at service startup rather than on each Activate().
+     * @return true if CallManager initialized successfully.
+     */
+    bool Init();
+
+    /**
+     * @brief Lock down the device for an assessment.
+     *
+     * Registers the telephony observer and disables the screen reader. If the
+     * screen reader cannot be disabled (a real error, not merely "not active"),
+     * the activation is rolled back (the observer is unregistered) and false is
+     * returned so the caller can interrupt the assessment.
+     * @return true if process control was fully activated.
+     */
+    bool Activate(const std::vector<std::string> &allowedApps);
     void Deactivate();
 
     bool IsActivated() const;
 
-
-private:
-    void InitCallManager();
+ private:
+    bool InitCallManager();
     void RegisterCallObserver();
     void UnRegisterCallObserver();
-    void DisableScreenReader();
+    bool DisableScreenReader();
 
-
-    bool activated_ = false;
+    // Serializes Activate()/Deactivate(): they may run on different threads
+    // (activation from the common-event thread without the service lock,
+    // deactivation from IPC/DoLoop threads under the service lock).
+    std::mutex mutex_;
+    std::atomic<bool> activated_ = false;
     bool callManagerInited_ = false;
     bool callObserverRegistered_ = false;
     sptr<AssessmentTelephonyObserver> telephonyObserver_;

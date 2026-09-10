@@ -25,73 +25,81 @@ namespace AAFwk {
 
 ExtensionLoader::ExtensionLoader(const std::string &soPath) : soPath_(soPath) {}
 
-ExtensionLoader::~ExtensionLoader() 
+ExtensionLoader::~ExtensionLoader()
 {
     std::lock_guard<std::mutex> lock(mutex_);
     if (handle_ != nullptr) {
         dlclose(handle_);
         handle_ = nullptr;
-        TAG_LOGI(AAFwkTag::DEFAULT, "dlclose %{public}s", soPath_.c_str());
+        TAG_LOGI(AAFwkTag::DEFAULT, "dlclose %{private}s", soPath_.c_str());
     }
 }
 
-void ExtensionLoader::InitExtensionLoader()
+bool ExtensionLoader::InitExtensionLoader()
 {
     std::lock_guard<std::mutex> lock(mutex_);
     if (handle_ != nullptr) {
-        return;
+        return checkAllFunc_ != nullptr;
     }
 
     int32_t attempt = 0;
-    while (attempt <= retryPolicy_.maxRetries) {
+    while (attempt < retryPolicy_.maxRetries) {
         if (LoadInternal()) {
             break;
         }
-        if (attempt < retryPolicy_.maxRetries) {
-            TAG_LOGI(AAFwkTag::DEFAULT, "Load %{public}s retry %{public}d/%{public}d after %{public}d ms",
+        if (attempt + 1 < retryPolicy_.maxRetries) {
+            TAG_LOGI(AAFwkTag::DEFAULT, "Load %{private}s retry %{public}d/%{public}d after %{public}d ms",
                 soPath_.c_str(), attempt + 1, retryPolicy_.maxRetries, retryPolicy_.retryIntervalMs);
             std::this_thread::sleep_for(std::chrono::milliseconds(retryPolicy_.retryIntervalMs));
         }
         attempt++;
     }
-    
+
     if (handle_ == nullptr) {
-        TAG_LOGE(AAFwkTag::DEFAULT, "Load %{public}s failed after %{public}d attempts",
+        TAG_LOGE(AAFwkTag::DEFAULT, "Load %{private}s failed after %{public}d attempts",
             soPath_.c_str(), attempt);
-        return;
+        return false;
     }
 
-    checkAllFunc_ = (CHECK_ALL_FUNC)dlsym(handle_, "CheckAll");
+    checkAllFunc_ = reinterpret_cast<CHECK_ALL_FUNC>(dlsym(handle_, "CheckAll"));
     if (checkAllFunc_ == nullptr) {
-        TAG_LOGE(AAFwkTag::DEFAULT, "dlsym CheckAll failed: %{public}s", dlerror());
+        TAG_LOGE(AAFwkTag::DEFAULT, "dlsym CheckAll failed: %{private}s", dlerror());
+        return false;
     }
 
     TAG_LOGI(AAFwkTag::DEFAULT, "extension loader init success");
+    return true;
 }
 
 bool ExtensionLoader::LoadInternal()
 {
     handle_ = dlopen(soPath_.c_str(), RTLD_NOW);
     if (handle_ == nullptr) {
-        TAG_LOGE(AAFwkTag::DEFAULT, "dlopen %{public}s failed: %{public}s",
+        TAG_LOGE(AAFwkTag::DEFAULT, "dlopen %{private}s failed: %{private}s",
             soPath_.c_str(), dlerror());
         return false;
     }
-    TAG_LOGI(AAFwkTag::DEFAULT, "dlopen %{public}s success", soPath_.c_str());
+    TAG_LOGI(AAFwkTag::DEFAULT, "dlopen %{private}s success", soPath_.c_str());
     return true;
 }
 
 bool ExtensionLoader::InvokeCheckAll(const std::vector<std::string> &allowedApps)
 {
-    std::lock_guard<std::mutex> lock(mutex_);
-    if (checkAllFunc_ == nullptr) {
-        TAG_LOGW(AAFwkTag::DEFAULT, "CheckAll func is null, degrade");
-        if (degradedCallback_) {
-            degradedCallback_(soPath_, "CheckAll");
-        }
-        return true; // defalut pass
+    CHECK_ALL_FUNC checkFunc = nullptr;
+    DegradedCallback degradedCb = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        checkFunc = checkAllFunc_;
+        degradedCb = degradedCallback_;
     }
-    return checkAllFunc_(allowedApps);
+    if (checkFunc == nullptr) {
+        TAG_LOGW(AAFwkTag::DEFAULT, "CheckAll func is null, degrade");
+        if (degradedCb) {
+            degradedCb(soPath_, "CheckAll");
+        }
+        return true; // default pass
+    }
+    return checkFunc(allowedApps);
 }
 
 bool ExtensionLoader::IsDegrade() const

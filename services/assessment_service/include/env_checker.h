@@ -16,12 +16,9 @@
 #ifndef OHOS_AAFWK_ASSESSMENT_ENV_CHECKER_H
 #define OHOS_AAFWK_ASSESSMENT_ENV_CHECKER_H
 
+#include <atomic>
 #include <memory>
-#include <set>
-#include <string>
-#include <vector>
 
-#include "call_manager_client.h"
 #include "device_manager_callback.h"
 #include "extension_loader.h"
 
@@ -30,7 +27,7 @@ namespace AAFwk {
 
 class AssessmentDmInitCallback : public DistributedHardware::DmInitCallback {
 public:
-    void OnRemoteDied() override;    
+    void OnRemoteDied() override;
 };
 
 /**
@@ -40,7 +37,7 @@ public:
  * EnvChecker verifies whether the current device environment is safe before
  * starting an assessment. It performs a series of checks including screen
  * recording/casting detection, multi-screen detection, in-call detection,
- * PC virtual-machine detection, and foreground application whitelist validation.
+ * and PC virtual-machine detection.
  *
  * The check logic is organized as follows:
  * 1. IsScreenRecording  - Detects screen capture via DisplayManager.
@@ -49,13 +46,14 @@ public:
  * 4. IsInCall           - Detects active phone call via CallManagerClient.
  * 5. IsPcDevice         - Checks if the device type is "2in1" (PC form factor).
  *    └─ IsVirtualMachine - Delegates to ExtensionLoader for closed-source VM check.
- * 6. HasOtherAppRunning - Ensures no non-whitelisted foreground apps are running.
  *
  * All checks must pass (return true from CheckAll) for the assessment to proceed.
  * Any single failure causes CheckAll to return false immediately.
  *
- * @note The preset whitelist always includes "com.ohos.sceneboard". Callers can
- *       supply additional allowed bundle names via the allowedApps parameter.
+ * @note Heavyweight dependencies (extension loader, DeviceManager, CallManager)
+ *       are initialized once via Init() at service startup rather than lazily on
+ *       each check. If a dependency fails to initialize, the corresponding check
+ *       is skipped (fails open) and a warning is logged.
  */
 class EnvChecker {
 public:
@@ -63,11 +61,19 @@ public:
     ~EnvChecker() = default;
 
     /**
+     * @brief Initialize heavyweight dependencies: the closed-source extension
+     *        loader, DeviceManager, and CallManager. Intended to be called once
+     *        at service startup.
+     * @return true if DeviceManager and CallManager both initialized; false if
+     *         either failed (extension-loader degradation is non-fatal).
+     */
+    bool Init();
+
+    /**
      * @brief Run all environment checks sequentially.
-     * @param allowedApps Additional bundle names allowed to run in the foreground.
      * @return true if all checks pass, false if any check fails.
      */
-    bool CheckAll(const std::vector<std::string> &allowedApps);
+    bool CheckAll();
 
 private:
     bool InitDeviceManager();
@@ -78,17 +84,14 @@ private:
     bool IsInCall();
     bool IsPcDevice();
     bool IsVirtualMachine();
-    bool HasOtherAppRunning(const std::vector<std::string> &allowedApps);
 
-    bool deviceManagerInited_ = false;
-    bool callManagerInited_ = false;
+    // Atomic because Init() runs on the service startup thread while the
+    // check methods may run concurrently on IPC threads.
+    std::atomic<bool> deviceManagerInited_ = false;
+    std::atomic<bool> callManagerInited_ = false;
 
     std::shared_ptr<AssessmentDmInitCallback> dmInitCallback_;
     std::unique_ptr<ExtensionLoader> loader_;
-
-    const std::set<std::string> presetAllowedApps_ = {
-        "com.ohos.sceneboard",
-    };
 };
 
 } // namespace AAFwk

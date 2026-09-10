@@ -15,15 +15,13 @@
 
 #include "env_checker.h"
 
-#include <algorithm>
 #include <cinttypes>
 
-#include "appmgr/app_mgr_client.h"
+#include "assessment_utils.h"
 #include "call_manager_client.h"
 #include "device_manager.h"
 #include "display_manager.h"
 #include "hilog_tag_wrapper.h"
-#include "parameters.h"
 #include "screen_manager.h"
 #include "singleton.h"
 #include "system_ability_definition.h"
@@ -42,7 +40,16 @@ EnvChecker::EnvChecker()
 {
     dmInitCallback_ = std::make_shared<AssessmentDmInitCallback>();
     loader_ = std::make_unique<ExtensionLoader>(EXTENSION_SO_PATH);
-    loader_->InitExtensionLoader();
+}
+
+bool EnvChecker::Init()
+{
+    if (!loader_->InitExtensionLoader()) {
+        TAG_LOGW(AAFwkTag::DEFAULT, "Extension loader degraded, VM check will pass by default");
+    }
+    bool dmOk = InitDeviceManager();
+    bool cmOk = InitCallManager();
+    return dmOk && cmOk;
 }
 
 bool EnvChecker::InitDeviceManager()
@@ -62,7 +69,7 @@ bool EnvChecker::InitDeviceManager()
     return true;
 }
 
-bool EnvChecker::CheckAll(const std::vector<std::string> &allowedApps)
+bool EnvChecker::CheckAll()
 {
     if (IsScreenRecording()) {
         TAG_LOGE(AAFwkTag::DEFAULT, "Screen recording detected");
@@ -72,30 +79,25 @@ bool EnvChecker::CheckAll(const std::vector<std::string> &allowedApps)
     if (IsScreenCasting()) {
         TAG_LOGE(AAFwkTag::DEFAULT, "Screen casting detected");
         return false;
-    }    
-    
+    }
+
     if (IsMultiScreen()) {
         TAG_LOGE(AAFwkTag::DEFAULT, "Multi-screen detected");
         return false;
-    }    
-    
+    }
+
     if (IsInCall()) {
         TAG_LOGE(AAFwkTag::DEFAULT, "In call detected");
         return false;
-    }    
-    
+    }
+
     if (IsPcDevice()) {
         if (IsVirtualMachine()) {
             TAG_LOGE(AAFwkTag::DEFAULT, "Virtual machine running detected");
             return false;
-        }  
-    }    
-    
-    if (HasOtherAppRunning(allowedApps)) {
-        TAG_LOGE(AAFwkTag::DEFAULT, "Other app running detected");
-        return false;
-    }    
-    
+        }
+    }
+
     return true;
 }
 
@@ -111,7 +113,7 @@ bool EnvChecker::IsScreenRecording()
 
 bool EnvChecker::IsScreenCasting()
 {
-    if (!InitDeviceManager()) {
+    if (!deviceManagerInited_) {
         TAG_LOGW(AAFwkTag::DEFAULT, "DeviceManager not init, skip screen casting check");
         return false;
     }
@@ -167,11 +169,15 @@ bool EnvChecker::InitCallManager()
 
 bool EnvChecker::IsInCall()
 {
-    if (!InitCallManager()) {
+    if (!callManagerInited_) {
         TAG_LOGW(AAFwkTag::DEFAULT, "CallManager not initialized, skip in-call check");
         return false;
     }
     auto callClient = DelayedSingleton<Telephony::CallManagerClient>::GetInstance();
+    if (callClient == nullptr) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "CallManagerClient instance is null");
+        return false;
+    }
     bool hasCall = callClient->HasCall(true);
     if (hasCall) {
         TAG_LOGE(AAFwkTag::DEFAULT, "has call detected");
@@ -182,7 +188,7 @@ bool EnvChecker::IsInCall()
 
 bool EnvChecker::IsPcDevice()
 {
-    std::string deviceType = OHOS::system::GetParameter("const.product.devicetype", "");
+    const std::string& deviceType = AssessmentServiceUtils::GetDeviceType();
     if (deviceType == "2in1") {
         TAG_LOGI(AAFwkTag::DEFAULT, "PC device detected, deviceType: %{public}s", deviceType.c_str());
         return true;
@@ -197,36 +203,6 @@ bool EnvChecker::IsVirtualMachine()
         return false;
     }
     return !loader_->InvokeCheckAll(std::vector<std::string>{});
-}
-
-bool EnvChecker::HasOtherAppRunning(const std::vector<std::string> &allowedApps)
-{
-    AppExecFwk::AppMgrClient appMgrClient;
-    std::vector<AppExecFwk::RunningProcessInfo> runningProcesses;
-    auto ret = appMgrClient.GetAllRunningProcesses(runningProcesses);
-    if (ret != AppExecFwk::AppMgrResultCode::RESULT_OK) {
-        TAG_LOGW(AAFwkTag::DEFAULT, "GetAllRunningProcesses failed, ret: %{public}d", static_cast<int32_t>(ret));
-        return false;
-    }
-
-    std::set<std::string> allowedSet = presetAllowedApps_;
-    for (const auto &app : allowedApps) {
-        allowedSet.insert(app);
-    }
-
-    for (const auto &processInfo : runningProcesses) {
-        if (processInfo.state_ != AppExecFwk::AppProcessState::APP_STATE_FOREGROUND) {
-            continue;
-        }
-        for (const auto &name : processInfo.bundleNames) {
-            if (allowedSet.find(name) == allowedSet.end()) {
-                TAG_LOGE(AAFwkTag::DEFAULT, "Other foreground app running detected, bundleName, %{public}s",
-                    name.c_str());
-                return true;
-            }
-        }
-    }
-    return false;
 }
 
 } // namespace AAFwk

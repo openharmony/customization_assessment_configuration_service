@@ -42,7 +42,7 @@ void AssessmentTelephonyObserver::OnCallStateUpdated(
 
     if (callState != static_cast<int32_t>(Telephony::TelCallState::CALL_STATUS_INCOMING) &&
         callState != static_cast<int32_t>(Telephony::TelCallState::CALL_STATUS_WAITING)) {
-            return;
+        return;
     }
 
     auto callClient = DelayedSingleton<Telephony::CallManagerClient>::GetInstance();
@@ -61,20 +61,35 @@ void AssessmentTelephonyObserver::OnCallStateUpdated(
     }
 }
 
-void ProcessController::Activate(const std::vector<std::string> &allowedApps)
+bool ProcessController::Init()
+{
+    return InitCallManager();
+}
+
+bool ProcessController::Activate(const std::vector<std::string> &allowedApps)
 {
     TAG_LOGI(AAFwkTag::DEFAULT, "Activate called, allowedApps size: %{public}zu", allowedApps.size());
+    std::lock_guard<std::mutex> lock(mutex_);
 
-    InitCallManager();
-    RegisterCallObserver();
-    DisableScreenReader();
-
+    // Mark activated before registering the observer so that an incoming-call
+    // callback arriving during activation already sees the active state.
     activated_ = true;
+    RegisterCallObserver();
+
+    if (!DisableScreenReader()) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "DisableScreenReader failed, rollback activation");
+        UnRegisterCallObserver();
+        activated_ = false;
+        return false;
+    }
+
+    return true;
 }
 
 void ProcessController::Deactivate()
 {
     TAG_LOGI(AAFwkTag::DEFAULT, "Deactivate called");
+    std::lock_guard<std::mutex> lock(mutex_);
 
     if (!activated_) {
         TAG_LOGW(AAFwkTag::DEFAULT, "ProcessController not activated");
@@ -84,7 +99,6 @@ void ProcessController::Deactivate()
     UnRegisterCallObserver();
 
     activated_ = false;
-    callManagerInited_ = false;
 }
 
 bool ProcessController::IsActivated() const
@@ -92,19 +106,20 @@ bool ProcessController::IsActivated() const
     return activated_;
 }
 
-void ProcessController::InitCallManager()
+bool ProcessController::InitCallManager()
 {
     if (callManagerInited_) {
-        return;
+        return true;
     }
     auto callClient = DelayedSingleton<Telephony::CallManagerClient>::GetInstance();
     if (callClient == nullptr) {
         TAG_LOGE(AAFwkTag::DEFAULT, "CallManagerClient instance is null");
-        return;
+        return false;
     }
     callClient->Init(TELEPHONY_CALL_MANAGER_SYS_ABILITY_ID);
     callManagerInited_ = true;
     TAG_LOGI(AAFwkTag::DEFAULT, "CallManagerClient init done");
+    return true;
 }
 
 void ProcessController::RegisterCallObserver()
@@ -113,11 +128,7 @@ void ProcessController::RegisterCallObserver()
         return;
     }
     if (telephonyObserver_ == nullptr) {
-        telephonyObserver_ = std::make_unique<AssessmentTelephonyObserver>(this).release();
-    }
-    if (telephonyObserver_ == nullptr) {
-        TAG_LOGE(AAFwkTag::DEFAULT, "create AssessmentTelephonyObserver failed");
-        return;
+        telephonyObserver_ = new AssessmentTelephonyObserver(this);
     }
     int32_t ret = Telephony::TelephonyObserverClient::GetInstance().AddStateObserver(
         telephonyObserver_, -1, Telephony::TelephonyObserverBroker::OBSERVER_MASK_CALL_STATE, true);
@@ -145,19 +156,22 @@ void ProcessController::UnRegisterCallObserver()
     }
 }
 
-void ProcessController::DisableScreenReader()
+bool ProcessController::DisableScreenReader()
 {
     TAG_LOGI(AAFwkTag::DEFAULT, "Disable ScreenReader");
     const std::string screenReaderName = "com.huawei.hmos.screenreader/AccessibilityExtAbility";
     auto ret = AccessibilityConfig::AccessibilityConfig::GetInstance().DisableAbility(screenReaderName);
     if (ret == Accessibility::RetError::RET_OK) {
         TAG_LOGI(AAFwkTag::DEFAULT, "Screen reader disabled success");
+        return true;
     } else if (ret == Accessibility::RetError::RET_ERR_NO_INJECTOR ||
                ret == Accessibility::RetError::RET_ERR_NOT_INSTALLED ||
                ret == Accessibility::RetError::RET_ERR_NOT_ENABLED) {
-        TAG_LOGI(AAFwkTag::DEFAULT, "Screen reader not active, skip diable, ret: %{public}d", ret);
+        TAG_LOGI(AAFwkTag::DEFAULT, "Screen reader not active, skip disable, ret: %{public}d", ret);
+        return true;
     } else {
-        TAG_LOGE(AAFwkTag::DEFAULT, "diable screen reader failed, ret: %{public}d", ret);
+        TAG_LOGE(AAFwkTag::DEFAULT, "disable screen reader failed, ret: %{public}d", ret);
+        return false;
     }
 }
 

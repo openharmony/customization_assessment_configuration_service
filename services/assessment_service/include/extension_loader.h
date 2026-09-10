@@ -70,8 +70,12 @@ public:
    * Retries according to the configured RetryPolicy if dlopen fails.
    * Safe to call multiple times; subsequent calls after a successful load
    * are no-ops.
+   * @return true if the library is loaded and the "CheckAll" symbol is
+   *         resolved; false if the loader is in a degraded state (load or
+   *         symbol resolution failed), in which case InvokeCheckAll passes
+   *         by default.
    */
-  void InitExtensionLoader();
+  bool InitExtensionLoader();
 
   /**
    * @brief Invoke the closed-source CheckAll function.
@@ -91,17 +95,18 @@ public:
    * @param soPath  Path of the shared library.
    * @param symbol  Name of the unresolved symbol.
    */
-  using DegradedCallback = std::function<void(const std::string &soPath,const std::string &symbol)>;
+  using DegradedCallback = std::function<void(const std::string &soPath, const std::string &symbol)>;
   void SetDegradedCallback(DegradedCallback callback);
 
   /**
-   * @brief Retry configuration for dlopen attempts.
+   * @brief Retry configuration for dlopen attempts. maxRetries is the maximum
+   *        number of load attempts (1 = single attempt, no retry).
    */
-  struct RetryPolicy{
-    int32_t maxRetries = 0;
+  struct RetryPolicy {
+    int32_t maxRetries = 1;
     int32_t retryIntervalMs = 1000;
   };
-  void SetRetryPolicy(const RetryPolicy & policy);
+  void SetRetryPolicy(const RetryPolicy &policy);
 
 private:
   bool LoadInternal();
