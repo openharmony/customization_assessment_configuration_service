@@ -1,0 +1,418 @@
+# Copyright (c) 2026 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import("//build/test.gni")
+import("//base/customization/assessment_configuration_service/assessment.gni")
+
+module_output_path = "assessment_configuration_service/assessment_configuration_service"
+
+config("module_private_config") {
+  visibility = [ ":*" ]
+  include_dirs = [
+    "./include",
+    "${assessment_services_path}/assessment_service/include",
+    "${assessment_innerkits_path}/assessment_service/include",
+    "${target_gen_dir}",
+  ]
+}
+
+ohos_unittest("AssessmentServiceTest") {
+  module_out_path = module_output_path
+
+  include_dirs = [
+    "./include",
+    "./mock/include",
+    "${assessment_services_path}/assessment_service/include",
+    "${assessment_innerkits_path}/assessment_service/include",
+  ]
+
+  sources = [
+    "${assessment_services_path}/assessment_service/src/assessment_event_manager.cpp",
+    "${assessment_services_path}/assessment_service/src/assessment_service_app_state_cb.cpp",
+    "${assessment_services_path}/assessment_service/src/assessment_service.cpp",
+    "${assessment_services_path}/assessment_service/src/assessment_service_ability.cpp",
+    "${assessment_services_path}/assessment_service/src/callback_manager.cpp",
+    "./mock/src/mock_assessment_utils.cpp",
+    "./src/assessment_service_test.cpp",
+  ]
+
+  configs = [
+    ":module_private_config",
+  ]
+
+  deps = [
+    "${assessment_innerkits_path}/assessment_service:assessment_manager",
+    "${assessment_services_path}/assessment_service/sa_profile:assessment_service_sa_profile",
+  ]
+
+  external_deps = [
+    "ability_base:want",
+    "ability_runtime:ability_context_native",
+    "ability_runtime:ability_connect_callback_stub",
+    "ability_runtime:app_manager",
+    "ability_runtime:extension_manager",
+    "ability_runtime:ability_manager",
+    "access_token:libaccesstoken_sdk",
+    "bundle_framework:appexecfwk_base",
+    "bundle_framework:appexecfwk_core",
+    "c_utils:utils",
+    "eventhandler:libeventhandler",
+    "hilog:libhilog",
+    "hitrace:hitrace_meter",
+    "init:libbegetutil",
+    "ipc:ipc_single",
+    "safwk:system_ability_fwk",
+    "samgr:samgr_proxy",
+    "input:libmmi-client"
+  ]
+
+  sanitize = {
+    boundary_sanitize = true
+    cfi = true
+    cfi_cross_dso = true
+    debug = false
+    integer_overflow = true
+    ubsan = true
+  }
+  branch_protector_ret = "pac_ret"
+  subsystem_name = "customization"
+  part_name = "assessment_configuration_service"
+}
+
+ohos_unittest("AssessmentUtilsTest") {
+  module_out_path = module_output_path
+
+  include_dirs = [
+    "./include",
+    "./mock/include",
+    "${assessment_services_path}/assessment_service/include",
+    "${assessment_innerkits_path}/assessment_service/include",
+  ]
+
+  sources = [
+    "${assessment_services_path}/assessment_service/src/assessment_utils.cpp",
+    "${assessment_services_path}/assessment_service/src/assessment_event_manager.cpp",
+    "${assessment_services_path}/assessment_service/src/assessment_service_app_state_cb.cpp",
+    "${assessment_services_path}/assessment_service/src/assessment_service.cpp",
+    "${assessment_services_path}/assessment_service/src/assessment_service_ability.cpp",
+    "${assessment_services_path}/assessment_service/src/callback_manager.cpp",
+    "./src/assessment_utils_test.cpp",
+  ]
+
+  configs = [
+    ":module_private_config",
+  ]
+
+  deps = [
+    "${assessment_innerkits_path}/assessment_service:assessment_manager",
+    "${assessment_services_path}/assessment_service/sa_profile:assessment_service_sa_profile",
+  ]
+
+  external_deps = [
+    "ability_base:want",
+    "ability_runtime:ability_context_native",
+    "ability_runtime:ability_connect_callback_stub",
+    "ability_runtime:app_manager",
+    "ability_runtime:extension_manager",
+    "ability_runtime:ability_manager",
+    "access_token:libaccesstoken_sdk",
+    "bundle_framework:appexecfwk_base",
+    "bundle_framework:appexecfwk_core",
+    "c_utils:utils",
+    "eventhandler:libeventhandler",
+    "hilog:libhilog",
+    "hitrace:hitrace_meter",
+    "init:libbegetutil",
+    "ipc:ipc_single",
+    "safwk:system_ability_fwk",
+    "samgr:samgr_proxy",
+    "input:libmmi-client"
+  ]
+
+  sanitize = {
+    boundary_sanitize = true
+    cfi = true
+    cfi_cross_dso = true
+    debug = false
+    integer_overflow = true
+    ubsan = true
+  }
+  branch_protector_ret = "pac_ret"
+  subsystem_name = "customization"
+  part_name = "assessment_configuration_service"
+}
+
+ohos_unittest("AssessmentCallbackManagerTest") {
+  module_out_path = module_output_path
+
+  include_dirs = [
+    "./include",
+    "./mock/include",
+    "${assessment_services_path}/assessment_service/include",
+    "${assessment_innerkits_path}/assessment_service/include",
+  ]
+
+  sources = [
+    "${assessment_services_path}/assessment_service/src/assessment_utils.cpp",
+    "${assessment_services_path}/assessment_service/src/assessment_event_manager.cpp",
+    "${assessment_services_path}/assessment_service/src/assessment_service_app_state_cb.cpp",
+    "${assessment_services_path}/assessment_service/src/assessment_service.cpp",
+    "${assessment_services_path}/assessment_service/src/assessment_service_ability.cpp",
+    "${assessment_services_path}/assessment_service/src/callback_manager.cpp",
+    "./src/assessment_callback_manager_test.cpp",
+  ]
+
+  configs = [
+    ":module_private_config",
+  ]
+
+  deps = [
+    "${assessment_innerkits_path}/assessment_service:assessment_manager",
+    "${assessment_services_path}/assessment_service/sa_profile:assessment_service_sa_profile",
+  ]
+
+  external_deps = [
+    "ability_base:want",
+    "ability_runtime:ability_context_native",
+    "ability_runtime:ability_connect_callback_stub",
+    "ability_runtime:app_manager",
+    "ability_runtime:extension_manager",
+    "ability_runtime:ability_manager",
+    "access_token:libaccesstoken_sdk",
+    "bundle_framework:appexecfwk_base",
+    "bundle_framework:appexecfwk_core",
+    "c_utils:utils",
+    "eventhandler:libeventhandler",
+    "hilog:libhilog",
+    "hitrace:hitrace_meter",
+    "init:libbegetutil",
+    "ipc:ipc_single",
+    "safwk:system_ability_fwk",
+    "samgr:samgr_proxy",
+    "input:libmmi-client"
+  ]
+
+  sanitize = {
+    boundary_sanitize = true
+    cfi = true
+    cfi_cross_dso = true
+    debug = false
+    integer_overflow = true
+    ubsan = true
+  }
+  branch_protector_ret = "pac_ret"
+  subsystem_name = "customization"
+  part_name = "assessment_configuration_service"
+}
+
+ohos_unittest("AssessmentEventManagerTest") {
+  module_out_path = module_output_path
+
+  include_dirs = [
+    "./include",
+    "./mock/include",
+    "${assessment_services_path}/assessment_service/include",
+    "${assessment_innerkits_path}/assessment_service/include",
+  ]
+
+  sources = [
+    "${assessment_services_path}/assessment_service/src/assessment_utils.cpp",
+    "${assessment_services_path}/assessment_service/src/assessment_event_manager.cpp",
+    "${assessment_services_path}/assessment_service/src/assessment_service_app_state_cb.cpp",
+    "${assessment_services_path}/assessment_service/src/assessment_service.cpp",
+    "${assessment_services_path}/assessment_service/src/assessment_service_ability.cpp",
+    "${assessment_services_path}/assessment_service/src/callback_manager.cpp",
+    "./src/assessment_event_manager_test.cpp",
+  ]
+
+  configs = [
+    ":module_private_config",
+  ]
+
+  deps = [
+    "${assessment_innerkits_path}/assessment_service:assessment_manager",
+    "${assessment_services_path}/assessment_service/sa_profile:assessment_service_sa_profile",
+  ]
+
+  external_deps = [
+    "ability_base:want",
+    "ability_runtime:ability_context_native",
+    "ability_runtime:ability_connect_callback_stub",
+    "ability_runtime:app_manager",
+    "ability_runtime:extension_manager",
+    "ability_runtime:ability_manager",
+    "access_token:libaccesstoken_sdk",
+    "bundle_framework:appexecfwk_base",
+    "bundle_framework:appexecfwk_core",
+    "c_utils:utils",
+    "eventhandler:libeventhandler",
+    "hilog:libhilog",
+    "hitrace:hitrace_meter",
+    "init:libbegetutil",
+    "ipc:ipc_single",
+    "safwk:system_ability_fwk",
+    "samgr:samgr_proxy",
+    "input:libmmi-client"
+  ]
+
+  sanitize = {
+    boundary_sanitize = true
+    cfi = true
+    cfi_cross_dso = true
+    debug = false
+    integer_overflow = true
+    ubsan = true
+  }
+  branch_protector_ret = "pac_ret"
+  subsystem_name = "customization"
+  part_name = "assessment_configuration_service"
+}
+
+ohos_unittest("AssessmentServiceAbilityTest") {
+  module_out_path = module_output_path
+
+  include_dirs = [
+    "./include",
+    "./mock/include",
+    "${assessment_services_path}/assessment_service/include",
+    "${assessment_innerkits_path}/assessment_service/include",
+  ]
+
+  sources = [
+    "${assessment_services_path}/assessment_service/src/assessment_utils.cpp",
+    "${assessment_services_path}/assessment_service/src/assessment_event_manager.cpp",
+    "${assessment_services_path}/assessment_service/src/assessment_service_app_state_cb.cpp",
+    "${assessment_services_path}/assessment_service/src/assessment_service.cpp",
+    "${assessment_services_path}/assessment_service/src/assessment_service_ability.cpp",
+    "${assessment_services_path}/assessment_service/src/callback_manager.cpp",
+    "./src/assessment_service_ability_test.cpp",
+  ]
+
+  configs = [
+    ":module_private_config",
+  ]
+
+  deps = [
+    "${assessment_innerkits_path}/assessment_service:assessment_manager",
+    "${assessment_services_path}/assessment_service/sa_profile:assessment_service_sa_profile",
+  ]
+
+  external_deps = [
+    "ability_base:want",
+    "ability_runtime:ability_context_native",
+    "ability_runtime:ability_connect_callback_stub",
+    "ability_runtime:app_manager",
+    "ability_runtime:extension_manager",
+    "ability_runtime:ability_manager",
+    "access_token:libaccesstoken_sdk",
+    "bundle_framework:appexecfwk_base",
+    "bundle_framework:appexecfwk_core",
+    "c_utils:utils",
+    "eventhandler:libeventhandler",
+    "hilog:libhilog",
+    "hitrace:hitrace_meter",
+    "init:libbegetutil",
+    "ipc:ipc_single",
+    "safwk:system_ability_fwk",
+    "samgr:samgr_proxy",
+    "input:libmmi-client"
+  ]
+
+  sanitize = {
+    boundary_sanitize = true
+    cfi = true
+    cfi_cross_dso = true
+    debug = false
+    integer_overflow = true
+    ubsan = true
+  }
+  branch_protector_ret = "pac_ret"
+  subsystem_name = "customization"
+  part_name = "assessment_configuration_service"
+}
+
+ohos_unittest("AssessmentServiceAppStateCBTest") {
+  module_out_path = module_output_path
+
+  include_dirs = [
+    "./include",
+    "./mock/include",
+    "${assessment_services_path}/assessment_service/include",
+    "${assessment_innerkits_path}/assessment_service/include",
+  ]
+
+  sources = [
+    "${assessment_services_path}/assessment_service/src/assessment_utils.cpp",
+    "${assessment_services_path}/assessment_service/src/assessment_event_manager.cpp",
+    "${assessment_services_path}/assessment_service/src/assessment_service_app_state_cb.cpp",
+    "${assessment_services_path}/assessment_service/src/assessment_service.cpp",
+    "${assessment_services_path}/assessment_service/src/assessment_service_ability.cpp",
+    "${assessment_services_path}/assessment_service/src/callback_manager.cpp",
+    "./src/assessment_service_app_state_cb_test.cpp",
+  ]
+
+  configs = [
+    ":module_private_config",
+  ]
+
+  deps = [
+    "${assessment_innerkits_path}/assessment_service:assessment_manager",
+    "${assessment_services_path}/assessment_service/sa_profile:assessment_service_sa_profile",
+  ]
+
+  external_deps = [
+    "ability_base:want",
+    "ability_runtime:ability_context_native",
+    "ability_runtime:ability_connect_callback_stub",
+    "ability_runtime:app_manager",
+    "ability_runtime:extension_manager",
+    "ability_runtime:ability_manager",
+    "access_token:libaccesstoken_sdk",
+    "bundle_framework:appexecfwk_base",
+    "bundle_framework:appexecfwk_core",
+    "c_utils:utils",
+    "eventhandler:libeventhandler",
+    "hilog:libhilog",
+    "hitrace:hitrace_meter",
+    "init:libbegetutil",
+    "ipc:ipc_single",
+    "safwk:system_ability_fwk",
+    "samgr:samgr_proxy",
+    "input:libmmi-client"
+  ]
+
+  sanitize = {
+    boundary_sanitize = true
+    cfi = true
+    cfi_cross_dso = true
+    debug = false
+    integer_overflow = true
+    ubsan = true
+  }
+  branch_protector_ret = "pac_ret"
+  subsystem_name = "customization"
+  part_name = "assessment_configuration_service"
+}
+
+group("unittest") {
+  testonly = true
+
+  deps = [
+    ":AssessmentServiceTest",
+    ":AssessmentUtilsTest",
+    ":AssessmentCallbackManagerTest",
+    ":AssessmentEventManagerTest",
+    ":AssessmentServiceAbilityTest",
+    ":AssessmentServiceAppStateCBTest",
+  ]
+}

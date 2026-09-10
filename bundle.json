@@ -47,6 +47,9 @@
                 "//base/customization/assessment_configuration_service/services/assessment_service/etc/param:assessment.para.dac",
                 "//base/customization/assessment_configuration_service/interfaces/inner_api/assessment_service:assessment_manager",
                 "//base/customization/assessment_configuration_service/frameworks/js/napi:assessment_napi"
+            ],
+            "test": [
+                "//base/customization/assessment_configuration_service/test/unittest:unittest"
             ]
         }
     }
