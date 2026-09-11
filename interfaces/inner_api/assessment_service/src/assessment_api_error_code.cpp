@@ -22,33 +22,51 @@ namespace {
 const std::string ERR_INVALID_PARAMS_DESC = "Invalid parameter";
 const std::string ERR_PERMISSION_DENIED_DESC = "Permission denied";
 const std::string ERR_CAPABILITY_NOT_SUPPORT_DESC = "Capability not supported";
-const std::string ERR_INTERNAL_ERROR_DESC = "Internal error";
-const std::string ERR_ASSESSMENT_ALREADY_ACTIVE_DESC = "Assessment already active";
-const std::string ERR_INVALID_CONFIGURATION_DESC = "Invalid configuration";
-const std::string ERR_ENV_DETECTION_FAILED_DESC = "Environment check failed";
-const std::string ERR_ASSESSMENT_NOT_ACTIVED_DESC = "Assessment not actived";
+const std::string ERR_INTERNAL_ERROR_DESC = "Assessment Internal error";
+const std::string ERR_ASSESSMENT_ALREADY_ACTIVE_DESC = "Assessment configuration service is already active";
+const std::string ERR_ASSESSMENT_NOT_ACTIVE_DESC = "Assessment configuration service is not active";
+const std::string ERR_INVALID_OPERATION_DESC = "Invalid operation";
+
+const std::string ASSESSMENT_EVENT_CODE_OK_DESC = "OK";
+const std::string ASSESSMENT_EVENT_CODE_USER_CANCEL_DESC = "User Cancel";
+const std::string ASSESSMENT_EVENT_CODE_TIMEOUT_DESC = "Timeout";
+const std::string ASSESSMENT_EVENT_CODE_SYSTEM_ERROR_DESC = "System error";
+const std::string ASSESSMENT_EVENT_CODE_SECURITY_BREACH_DESC = "Security breach";
+
+const std::unordered_map<int32_t, std::string> ERR_CODE_TO_MSG_MAP = {
+    { static_cast<int32_t>(AssessmentApiErrCode::ERR_PERMISSION_DENIED), ERR_PERMISSION_DENIED_DESC },
+    { static_cast<int32_t>(AssessmentApiErrCode::ERR_INVALID_PARAMS), ERR_INVALID_PARAMS_DESC },
+    { static_cast<int32_t>(AssessmentApiErrCode::ERR_CAPABILITY_NOT_SUPPORT), ERR_CAPABILITY_NOT_SUPPORT_DESC },
+    { static_cast<int32_t>(AssessmentApiErrCode::ERR_ASSESSMENT_ALREADY_ACTIVE), ERR_ASSESSMENT_ALREADY_ACTIVE_DESC },
+    { static_cast<int32_t>(AssessmentApiErrCode::ERR_ASSESSMENT_NOT_ACTIVE), ERR_ASSESSMENT_NOT_ACTIVE_DESC },
+    { static_cast<int32_t>(AssessmentApiErrCode::ERR_INVALID_OPERATION), ERR_INVALID_OPERATION_DESC },
+};
+
+const std::unordered_map<AssessmentErrorCode, std::string> EVENT_CODE_TO_MSG_MAP = {
+    { AssessmentErrorCode::OK, ASSESSMENT_EVENT_CODE_OK_DESC },
+    { AssessmentErrorCode::USER_CANCEL, ASSESSMENT_EVENT_CODE_USER_CANCEL_DESC },
+    { AssessmentErrorCode::TIMEOUT, ASSESSMENT_EVENT_CODE_TIMEOUT_DESC },
+    { AssessmentErrorCode::SYSTEM_ERROR, ASSESSMENT_EVENT_CODE_SYSTEM_ERROR_DESC },
+    { AssessmentErrorCode::SECURITY_BREACH, ASSESSMENT_EVENT_CODE_SECURITY_BREACH_DESC },
+};
 }
 
-std::string AssessmentErrCodeToErrMsg(int32_t errCode)
+std::string AssessmentApiErrCodeToErrMsg(int32_t errCode)
 {
-    switch (errCode) {
-        case static_cast<int32_t>(AssessmentApiErrCode::ERR_PERMISSION_DENIED):
-            return ERR_PERMISSION_DENIED_DESC;
-        case static_cast<int32_t>(AssessmentApiErrCode::ERR_INVALID_PARAMS):
-            return ERR_INVALID_PARAMS_DESC;
-        case static_cast<int32_t>(AssessmentApiErrCode::ERR_CAPABILITY_NOT_SUPPORT):
-            return ERR_CAPABILITY_NOT_SUPPORT_DESC;
-        case static_cast<int32_t>(AssessmentApiErrCode::ERR_ASSESSMENT_ALREADY_ACTIVE):
-            return ERR_ASSESSMENT_ALREADY_ACTIVE_DESC;
-        case static_cast<int32_t>(AssessmentApiErrCode::ERR_INVALID_CONFIG):
-            return ERR_INVALID_CONFIGURATION_DESC;
-        case static_cast<int32_t>(AssessmentApiErrCode::ERR_ENV_DETECTION_FAILED):
-            return ERR_ENV_DETECTION_FAILED_DESC;
-        case static_cast<int32_t>(AssessmentApiErrCode::ERR_ASSESSMENT_NOT_ACTIVED):
-            return ERR_ASSESSMENT_NOT_ACTIVED_DESC;
-        default:
-            return ERR_INTERNAL_ERROR_DESC;
+    auto it = ERR_CODE_TO_MSG_MAP.find(errCode);
+    if (it != ERR_CODE_TO_MSG_MAP.end()) {
+        return it->second;
     }
+    return ERR_INTERNAL_ERROR_DESC;
+}
+
+std::string AssessmentErrCodeToErrMsg(AssessmentErrorCode eventCode)
+{
+    auto it = EVENT_CODE_TO_MSG_MAP.find(eventCode);
+    if (it != EVENT_CODE_TO_MSG_MAP.end()) {
+        return it->second;
+    }
+    return ASSESSMENT_EVENT_CODE_SYSTEM_ERROR_DESC;
 }
 } // namespace AAFwk
 } // namespace OHOS

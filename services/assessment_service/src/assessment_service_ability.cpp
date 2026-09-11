@@ -50,8 +50,6 @@ void AssessmentServiceAbility::OnStart()
         return;
     }
 
-    service_->LoadState();
-
     if (!Publish(service_)) {
         TAG_LOGE(AAFwkTag::DEFAULT, "Publish failed");
         return;

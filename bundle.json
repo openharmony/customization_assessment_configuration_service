@@ -32,7 +32,9 @@
                 "safwk",
                 "samgr",
                 "eventhandler",
-                "napi"
+                "napi",
+                "input",
+                "efficiency_manager_ext"
             ],
             "third_party": []
         },

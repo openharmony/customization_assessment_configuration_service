@@ -13,15 +13,25 @@
  * limitations under the License.
  */
 
-#ifndef OHOS_AAFWK_ASSESSMENT_ERROR_CODE_H
-#define OHOS_AAFWK_ASSESSMENT_ERROR_CODE_H
+#include "assessment_service_app_state_cb.h"
+#include "hilog_tag_wrapper.h"
 
 namespace OHOS {
 namespace AAFwk {
 
-enum class AssessmentErrCode {
-};
+void AssessmentServiceAppStateCb::OnForegroundApplicationChanged(const AppExecFwk::AppStateData& appStateData)
+{
+}
 
-} // namespace AAFwk
-} // namespace OHOS
-#endif // OHOS_AAFWK_ASSESSMENT_ERROR_CODE_H
+void AssessmentServiceAppStateCb::OnApplicationStateChanged(const AppExecFwk::AppStateData& appStateData)
+{
+}
+
+void AssessmentServiceAppStateCb::OnProcessDied(const AppExecFwk::ProcessData &processData)
+{
+    TAG_LOGD(AAFwkTag::DEFAULT, "==== APP Process Died ====");
+    TAG_LOGD(AAFwkTag::DEFAULT, "bundleName: %{public}s", processData.bundleName.c_str());
+    this->func_(processData.bundleName);
+}
+}
+}
