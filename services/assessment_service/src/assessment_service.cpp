@@ -104,10 +104,10 @@ bool AssessmentService::Init()
         return false;
     }
 
+    InitSubsystems();
     this->thread_ = std::thread([this]() {
         this->DoLoop();
     });
-    InitSubsystems();
     return true;
 }
 
@@ -247,14 +247,20 @@ ErrCode AssessmentService::Begin(const sptr<IRemoteObject> &token, uint32_t dura
     TAG_LOGI(AAFwkTag::DEFAULT, "Begin called, duration: %{public}d, allowedApps size: %{public}zu",
         duration, allowedApps.size());
 
+    if (token == nullptr || callback == nullptr || allowedApps.empty()) {
+        TAG_LOGE(AAFwkTag::ASSESSMENT, "assessment invalid params");
+        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_INVALID_PARAMS);
+        return ERR_OK;
+    }
+
     if (!AssessmentServiceUtils::CheckDeviceTypeSupported()) {
         TAG_LOGE(AAFwkTag::ASSESSMENT, "assessment device not supported");
         errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_CAPABILITY_NOT_SUPPORT);
         return ERR_OK;
     }
-    if (token == nullptr || callback == nullptr || allowedApps.empty()) {
-        TAG_LOGE(AAFwkTag::ASSESSMENT, "assessment invalid params");
-        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_INVALID_PARAMS);
+    if (!AssessmentServiceUtils::VerifyCallingPermission(PERMISSION_ASSESSMENT_CONFIGURATION)) {
+        TAG_LOGE(AAFwkTag::ASSESSMENT, "no permission: ohos.permission.ASSESSMENT_CONFIGURATION");
+        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_PERMISSION_DENIED);
         return ERR_OK;
     }
 
@@ -276,24 +282,29 @@ ErrCode AssessmentService::Begin(const sptr<IRemoteObject> &token, uint32_t dura
     CleanupCurrentSession();
     ConfigCurrentSession(token, duration, allowedApps, callback);
 
-    errCode = InvokeSystemDialog();
-    if (errCode != ERR_OK) {
-        errCode = ERR_OK;
-        ConfirmationBeginLockedUnsafe();
-        condSa_.notify_all();
-        return ERR_OK;
-    }
-
-    TAG_LOGI(AAFwkTag::ASSESSMENT, "Begin over, invoke system dialog, ret: %{public}d", errCode);
+    errCode = ERR_OK;
+    ConfirmationBeginLockedUnsafe();
+    condSa_.notify_all();
     return ERR_OK;
 }
 
 ErrCode AssessmentService::End(const sptr<IRemoteObject> &token, int32_t &errCode)
 {
     TAG_LOGI(AAFwkTag::DEFAULT, "End called");
+    if (token == nullptr) {
+        TAG_LOGE(AAFwkTag::ASSESSMENT, "assessment invalid params");
+        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_INVALID_PARAMS);
+        return ERR_OK;
+    }
+    
     if (!AssessmentServiceUtils::CheckDeviceTypeSupported()) {
         TAG_LOGE(AAFwkTag::ASSESSMENT, "assessment device not supported");
         errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_CAPABILITY_NOT_SUPPORT);
+        return ERR_OK;
+    }
+    if (!AssessmentServiceUtils::VerifyCallingPermission(PERMISSION_ASSESSMENT_CONFIGURATION)) {
+        TAG_LOGE(AAFwkTag::ASSESSMENT, "no permission: ohos.permission.ASSESSMENT_CONFIGURATION");
+        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_PERMISSION_DENIED);
         return ERR_OK;
     }
 
@@ -331,14 +342,14 @@ ErrCode AssessmentService::IsActive(bool &isActive, int32_t &errCode)
 {
     TAG_LOGI(AAFwkTag::ASSESSMENT, "IsActive called");
     errCode = ERR_OK;
-    if (!AssessmentServiceUtils::VerifyCallingPermission(PERMISSION_ASSESSMENT_CONFIGURATION)) {
-        TAG_LOGE(AAFwkTag::ASSESSMENT, "no permission: ohos.permission.ASSESSMENT_CONFIGURATION");
-        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_PERMISSION_DENIED);
-        return ERR_OK;
-    }
     if (!AssessmentServiceUtils::CheckDeviceTypeSupported()) {
         TAG_LOGE(AAFwkTag::ASSESSMENT, "assessment device not supported");
         errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_CAPABILITY_NOT_SUPPORT);
+        return ERR_OK;
+    }
+    if (!AssessmentServiceUtils::VerifyCallingPermission(PERMISSION_ASSESSMENT_CONFIGURATION)) {
+        TAG_LOGE(AAFwkTag::ASSESSMENT, "no permission: ohos.permission.ASSESSMENT_CONFIGURATION");
+        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_PERMISSION_DENIED);
         return ERR_OK;
     }
 
@@ -352,14 +363,14 @@ ErrCode AssessmentService::GetConfiguration(
 {
     TAG_LOGI(AAFwkTag::ASSESSMENT, "GetConfiguration called");
     errCode = ERR_OK;
-    if (!AssessmentServiceUtils::VerifyCallingPermission(PERMISSION_ASSESSMENT_CONFIGURATION)) {
-        TAG_LOGE(AAFwkTag::ASSESSMENT, "no permission: ohos.permission.ASSESSMENT_CONFIGURATION");
-        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_PERMISSION_DENIED);
-        return ERR_OK;
-    }
     if (!AssessmentServiceUtils::CheckDeviceTypeSupported()) {
         TAG_LOGE(AAFwkTag::ASSESSMENT, "assessment device not supported");
         errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_CAPABILITY_NOT_SUPPORT);
+        return ERR_OK;
+    }
+    if (!AssessmentServiceUtils::VerifyCallingPermission(PERMISSION_ASSESSMENT_CONFIGURATION)) {
+        TAG_LOGE(AAFwkTag::ASSESSMENT, "no permission: ohos.permission.ASSESSMENT_CONFIGURATION");
+        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_PERMISSION_DENIED);
         return ERR_OK;
     }
 
@@ -555,6 +566,28 @@ void AssessmentService::HandleBegin(const std::string &ticket, uint32_t operatio
 
 void AssessmentService::ConfirmationBeginLockedUnsafe()
 {
+    auto cleanUp = [this]() {
+        CallbackManager::GetInstance().OnBegin(callerToken_,
+            static_cast<int32_t>(AssessmentErrorCode::SYSTEM_ERROR),
+            AssessmentErrCodeToErrMsg(AssessmentErrorCode::SYSTEM_ERROR));
+        CleanupCurrentSession();
+    };
+ 
+    std::shared_ptr<OHOS::AAFwk::AbilityManagerClient> abilityManagerClient
+        = OHOS::AAFwk::AbilityManagerClient::GetInstance();
+    ErrCode retSetAppList = abilityManagerClient->AddKioskApplicationList(currentConfig_.allowedApps);
+    if (retSetAppList != ERR_OK) {
+        TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment set application list fail, %{public}d", retSetAppList);
+        cleanUp();
+        return;
+    }
+    TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment set application list succcessfully");
+    ErrCode retEnterKioskMode = abilityManagerClient->EnterKioskMode(callerToken_, 1);
+    if (retEnterKioskMode != ERR_OK) {
+        TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment EnterKioskMode fail, %{public}d", retEnterKioskMode);
+        cleanUp();
+        return;
+    }
     TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment EnterKioskMode succcessfully");
 
     auto pt = std::chrono::system_clock::now() + std::chrono::milliseconds(currentConfig_.duration);
@@ -598,6 +631,18 @@ void AssessmentService::TimeoutLockedUnsafe()
 
 ErrCode AssessmentService::ExitKioskModeLockedUnsafe()
 {
+    std::shared_ptr<OHOS::AAFwk::AbilityManagerClient> abilityManagerClient
+        = OHOS::AAFwk::AbilityManagerClient::GetInstance();
+    ErrCode retExitKioskMode = abilityManagerClient->ExitKioskMode(callerToken_);
+    if (retExitKioskMode != ERR_OK) {
+        TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment exitKioskMode failed, %{public}d", retExitKioskMode);
+        return retExitKioskMode;
+    }
+    TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment exitKioskMode successfully");
+    ErrCode retDelAppList = abilityManagerClient->DeleteKioskApplicationList(currentConfig_.allowedApps);
+    if (retDelAppList != ERR_OK) {
+        TAG_LOGW(AAFwkTag::ASSESSMENT, "assement deleteKioskApplicationList failed, %{public}d", retDelAppList);
+    }
     return ERR_OK;
 }
 
