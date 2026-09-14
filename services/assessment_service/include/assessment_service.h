@@ -30,6 +30,9 @@
 #include "assessment_error_code.h"
 #include "assessment_service_stub.h"
 #include "assessment_event_manager.h"
+#include "anco_status_subscriber.h"
+#include "env_checker.h"
+#include "process_controller.h"
 
 namespace OHOS {
 namespace AAFwk {
@@ -62,7 +65,7 @@ public:
     ErrCode IsActive(bool &isActive, int32_t &errCode) override;
     ErrCode GetConfiguration(
         uint32_t &duration, std::vector<std::string> &allowedApps, int32_t &errCode) override;
-    
+
     void NotifyBegin(int32_t code, const std::string &message);
     void NotifyInterrupted(int32_t reason, const std::string &message);
     void NotifyEnd();
@@ -90,6 +93,10 @@ private:
     bool SubscribeCommonEvent();
     void UnsubscribeCommonEvent();
     void HandleBegin(const std::string &ticket, uint32_t operation);
+    // Activates process control and handles failure/races. Must be called
+    // without mutexSa_ held: it may block on external services and re-acquires
+    // the lock internally. allowedApps must be a copy taken under the lock.
+    void ActivateProcessControl(const std::vector<std::string> &allowedApps);
     void ConfirmationBeginLockedUnsafe();
     void CancelBeginLockedUnsafe();
     void TimeoutLockedUnsafe();
@@ -115,6 +122,8 @@ private:
     std::thread thread_;
 
     std::shared_ptr<AssessmentEventObserver> assessmentEventObserver_;
+    EnvChecker envChecker_;
+    ProcessController processController_;
 
     DISALLOW_COPY_AND_MOVE(AssessmentService);
     int32_t switchId_ = -1;

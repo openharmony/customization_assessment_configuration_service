@@ -32,6 +32,13 @@
                 "safwk",
                 "samgr",
                 "eventhandler",
+                "accessibility",
+                "call_manager",
+                "core_service",
+                "state_registry",
+                "device_manager",
+                "graphic_2d",
+                "window_manager",
                 "napi",
                 "input"
             ],
@@ -46,6 +53,21 @@
                 "//base/customization/assessment_configuration_service/services/assessment_service/etc/param:assessment.para.dac",
                 "//base/customization/assessment_configuration_service/interfaces/inner_api/assessment_service:assessment_manager",
                 "//base/customization/assessment_configuration_service/frameworks/js/napi:assessment_napi"
+            ],
+            "inner_kits":[
+                {
+                    "type": "so",
+                    "name": "//base/customization/assessment_configuration_service/interfaces/inner_api/assessment_service:assessment_manager",
+                    "header": {
+                        "header_files": [
+                            "assessment_service.h",
+                            "assessment_callback_code.h",
+                            "hilog_tag_wrapper.h",
+                            "assessment_error_code.h"
+                        ],
+                        "header_base": "//base/customization/assessment_configuration_service/interfaces/inner_api/assessment_service/include"
+                    }
+                }
             ]
         }
     }
