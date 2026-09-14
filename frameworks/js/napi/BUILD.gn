@@ -42,7 +42,7 @@ ohos_shared_library("assessment_napi") {
     "napi:ace_napi",
   ]
 
-  relative_install_dir = "module"
+  relative_install_dir = "module/customization"
   subsystem_name = "customization"
   part_name = "assessment_configuration_service"
 }
