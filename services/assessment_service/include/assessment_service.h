@@ -30,7 +30,6 @@
 #include "assessment_error_code.h"
 #include "assessment_service_stub.h"
 #include "assessment_event_manager.h"
-#include "anco_status_subscriber.h"
 
 namespace OHOS {
 namespace AAFwk {
@@ -47,8 +46,7 @@ enum class AssessmentExamStatus : uint32_t {
 };
 
 class AssessmentService : public AssessmentServiceStub,
-                          public std::enable_shared_from_this<AssessmentService>,
-                          public LowpowerManager::AncoStatusSubscriber {
+                          public std::enable_shared_from_this<AssessmentService> {
 public:
     AssessmentService();
     virtual ~AssessmentService();
@@ -83,8 +81,6 @@ private:
     void CleanupCurrentSession();
     bool InitSubsystems();
 
-    void OnAncoStatusChanged(const int32_t status) override;
-    void EnableAndRestAnco();
     int32_t InvokeSystemDialog();
     int32_t ComputeNextTaskTimeoutLockedUnsafe();
     void CheckEndpointAndExecuteTaskLockedUnsafe();
@@ -106,7 +102,6 @@ private:
     std::shared_ptr<AppExecFwk::EventHandler> eventHandler_;
 
     bool isActive_ = false;
-    bool isAncoWaittingActive_ = false;
     sptr<IRemoteObject> callerToken_;
     AssessmentConfig currentConfig_;
     uint64_t endpointCheckPoint_ = 0;

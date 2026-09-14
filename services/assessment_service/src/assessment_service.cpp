@@ -35,7 +35,6 @@
 #include "singleton.h"
 #include "app_mgr_util.h"
 #include <input_manager.h>
-#include "lowpower_manager_client.h"
 #include "ipc_skeleton.h"
 #include "ability_manager_client.h"
 
@@ -45,7 +44,6 @@ namespace {
 const char* const PARAM_ASSESSMENT_IS_ACTIVE = "persist.assessment.is_active";
 const char* const PARAM_ASSESSMENT_DURATION = "persist.assessment.duration";
 const char* const PARAM_ASSESSMENT_ALLOWED_APPS = "persist.assessment.allowed_apps";
-const char* const PARAM_ANCO_STATE = "anco_state";
 const char APP_DELIMITER = '|';
 const uint64_t MILLISECONDS_UNIT = 1000;
 const uint64_t DEFAULT_TIME_SLICE_INTERVAL = 5 * MILLISECONDS_UNIT;
@@ -69,12 +67,12 @@ sptr<AssessmentService> AssessmentService::instance_;
 
 AssessmentService::AssessmentService()
 {
-    OHOS::LowpowerManager::LowpowerManagerClient::GetInstance().SubscribeAncoStatus(*this);
+    TAG_LOGE(AAFwkTag::DEFAULT, "assessment service created");
 }
 
 AssessmentService::~AssessmentService()
 {
-    OHOS::LowpowerManager::LowpowerManagerClient::GetInstance().UnSubscribeAncoStatus(*this);
+    TAG_LOGE(AAFwkTag::DEFAULT, "assessment service destroy");
 }
 
 sptr<AssessmentService> AssessmentService::GetInstance()
@@ -189,34 +187,6 @@ void AssessmentService::LoadState()
     }
 }
 
-void AssessmentService::EnableAndRestAnco()
-{
-    std::string ancoState = system::GetParameter(PARAM_ANCO_STATE, "2");
-    if (ancoState != "0") {
-        TAG_LOGI(AAFwkTag::DEFAULT, "EnableAndRestAnco called, ancoState: 2");
-        isAncoWaittingActive_ = true;
-        std::thread([]() {
-            OHOS::LowpowerManager::LowpowerManagerClient::GetInstance().RequestAncoRunning("AssessmentRequest");
-        }).detach();
-    }
-}
-
-void AssessmentService::OnAncoStatusChanged(const int32_t status)
-{
-    TAG_LOGI(AAFwkTag::DEFAULT, "OnAncoStatusChanged called, status: %{public}d, isAncoWaittingActive_: %{public}s",
-        status, isAncoWaittingActive_ ? "true" : "false");
-    if (isAncoWaittingActive_ && status == OHOS::LowpowerManager::ANCO_RUNNING) {
-        isAncoWaittingActive_ = false;
-        system::SetParameter(PARAM_ASSESSMENT_IS_ACTIVE, isActive_ ? "true" : "false");
-        TAG_LOGI(AAFwkTag::DEFAULT,
-            "OnAncoStatusChanged called, sync anco state success, assessment status: %{public}s",
-            isActive_ ? "true" : "false");
-        if (!isActive_) {
-            Destroy();
-        }
-    }
-}
-
 void AssessmentService::SaveState()
 {
     system::SetParameter(PARAM_ASSESSMENT_IS_ACTIVE, isActive_ ? "true" : "false");
@@ -230,7 +200,6 @@ void AssessmentService::SaveState()
         ss << currentConfig_.allowedApps[i];
     }
     system::SetParameter(PARAM_ASSESSMENT_ALLOWED_APPS, ss.str());
-    EnableAndRestAnco();
     TAG_LOGD(AAFwkTag::DEFAULT, "State saved");
 }
 
@@ -239,7 +208,6 @@ void AssessmentService::ClearState()
     system::SetParameter(PARAM_ASSESSMENT_IS_ACTIVE, "false");
     system::SetParameter(PARAM_ASSESSMENT_DURATION, "0");
     system::SetParameter(PARAM_ASSESSMENT_ALLOWED_APPS, "");
-    EnableAndRestAnco();
     TAG_LOGD(AAFwkTag::DEFAULT, "State cleared");
 }
 
@@ -354,9 +322,8 @@ ErrCode AssessmentService::End(const sptr<IRemoteObject> &token, int32_t &errCod
     if (sam != nullptr) {
         sam->UnloadSystemAbility(ASSESSMENT_SERVICE_ID);
     }
-    if (!isAncoWaittingActive_) {
-        Destroy();
-    }
+    Destroy();
+
     return ERR_OK;
 }
 
@@ -476,11 +443,8 @@ void AssessmentService::CheckEndpointAndExecuteTaskLockedUnsafe()
     if (callerToken_ == nullptr) {
         return;
     }
-
     uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
-    TAG_LOGI(AAFwkTag::DEFAULT,
-        "assessment task timeout, end: %{public}lu, point:%{public}lu", now, endpointCheckPoint_);
     if (now >= endpointCheckPoint_) {
         this->TimeoutLockedUnsafe();
         auto sam = SystemAbilityManagerClient::GetInstance().GetSystemAbilityManager();
@@ -591,28 +555,6 @@ void AssessmentService::HandleBegin(const std::string &ticket, uint32_t operatio
 
 void AssessmentService::ConfirmationBeginLockedUnsafe()
 {
-    auto cleanUp = [this]() {
-        CallbackManager::GetInstance().OnBegin(callerToken_,
-            static_cast<int32_t>(AssessmentErrorCode::SYSTEM_ERROR),
-            AssessmentErrCodeToErrMsg(AssessmentErrorCode::SYSTEM_ERROR));
-        CleanupCurrentSession();
-    };
-
-    std::shared_ptr<OHOS::AAFwk::AbilityManagerClient> abilityManagerClient
-        = OHOS::AAFwk::AbilityManagerClient::GetInstance();
-    ErrCode retSetAppList = abilityManagerClient->SetKioskApplicationList(currentConfig_.allowedApps);
-    if (retSetAppList != ERR_OK) {
-        TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment set application list fail, %{public}d", retSetAppList);
-        cleanUp();
-        return;
-    }
-    TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment set application list succcessfully");
-    ErrCode retEnterKioskMode = abilityManagerClient->EnterKioskMode(callerToken_, 1);
-    if (retEnterKioskMode != ERR_OK) {
-        TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment EnterKioskMode fail, %{public}d", retEnterKioskMode);
-        cleanUp();
-        return;
-    }
     TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment EnterKioskMode succcessfully");
 
     auto pt = std::chrono::system_clock::now() + std::chrono::milliseconds(currentConfig_.duration);
@@ -656,18 +598,6 @@ void AssessmentService::TimeoutLockedUnsafe()
 
 ErrCode AssessmentService::ExitKioskModeLockedUnsafe()
 {
-    std::shared_ptr<OHOS::AAFwk::AbilityManagerClient> abilityManagerClient
-        = OHOS::AAFwk::AbilityManagerClient::GetInstance();
-    ErrCode retExitKioskMode = abilityManagerClient->ExitKioskMode(callerToken_);
-    if (retExitKioskMode != ERR_OK) {
-        TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment exitKioskMode failed, %{public}d", retExitKioskMode);
-        return retExitKioskMode;
-    }
-    TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment exitKioskMode successfully");
-    ErrCode retDelAppList = abilityManagerClient->DeleteKioskApplicationList(currentConfig_.allowedApps);
-    if (retDelAppList != ERR_OK) {
-        TAG_LOGW(AAFwkTag::ASSESSMENT, "assement deleteKioskApplicationList failed, %{public}d", retDelAppList);
-    }
     return ERR_OK;
 }
 
