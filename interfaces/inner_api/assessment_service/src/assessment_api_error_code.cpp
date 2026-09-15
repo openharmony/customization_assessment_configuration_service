@@ -31,7 +31,7 @@ const std::string ASSESSMENT_EVENT_CODE_OK_DESC = "OK";
 const std::string ASSESSMENT_EVENT_CODE_USER_CANCEL_DESC = "User Cancel";
 const std::string ASSESSMENT_EVENT_CODE_TIMEOUT_DESC = "Timeout";
 const std::string ASSESSMENT_EVENT_CODE_SYSTEM_ERROR_DESC = "System error";
-const std::string ASSESSMENT_EVENT_CODE_SECURITY_BREACH_DESC = "Security breach";
+const std::string ASSESSMENT_EVENT_CODE_ENV_ANOMALY_DESC = "Environment Anomaly";
 
 const std::unordered_map<int32_t, std::string> ERR_CODE_TO_MSG_MAP = {
     { static_cast<int32_t>(AssessmentApiErrCode::ERR_PERMISSION_DENIED), ERR_PERMISSION_DENIED_DESC },
@@ -47,7 +47,7 @@ const std::unordered_map<AssessmentErrorCode, std::string> EVENT_CODE_TO_MSG_MAP
     { AssessmentErrorCode::USER_CANCEL, ASSESSMENT_EVENT_CODE_USER_CANCEL_DESC },
     { AssessmentErrorCode::TIMEOUT, ASSESSMENT_EVENT_CODE_TIMEOUT_DESC },
     { AssessmentErrorCode::SYSTEM_ERROR, ASSESSMENT_EVENT_CODE_SYSTEM_ERROR_DESC },
-    { AssessmentErrorCode::SECURITY_BREACH, ASSESSMENT_EVENT_CODE_SECURITY_BREACH_DESC },
+    { AssessmentErrorCode::ENV_ANOMALY, ASSESSMENT_EVENT_CODE_ENV_ANOMALY_DESC },
 };
 }
 
