@@ -38,7 +38,7 @@ enum class AssessmentErrorCode : int32_t {
     USER_CANCEL = 1,
     TIMEOUT = 2,
     SYSTEM_ERROR = 3,
-    SECURITY_BREACH = 4,
+    ENV_ANOMALY = 4,
 };
 
 std::string AssessmentApiErrCodeToErrMsg(int32_t errCode);

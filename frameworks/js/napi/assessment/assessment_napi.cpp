@@ -344,11 +344,11 @@ void CreateAssessmentErrorCode(napi_env env, napi_value value)
             static_cast<int32_t>(OHOS::AAFwk::AssessmentErrorCode::SYSTEM_ERROR), &nSystemError));
     NAPI_CALL_RETURN_VOID(env, napi_set_named_property(env, value, "SYSTEM_ERROR", nSystemError));
 
-    napi_value nSecurityBreach;
+    napi_value nEnvAnomaly;
     NAPI_CALL_RETURN_VOID(env,
         napi_create_int32(env,
-            static_cast<int32_t>(OHOS::AAFwk::AssessmentErrorCode::SECURITY_BREACH), &nSecurityBreach));
-    NAPI_CALL_RETURN_VOID(env, napi_set_named_property(env, value, "SECURITY_BREACH", nSecurityBreach));
+            static_cast<int32_t>(OHOS::AAFwk::AssessmentErrorCode::ENV_ANOMALY), &nEnvAnomaly));
+    NAPI_CALL_RETURN_VOID(env, napi_set_named_property(env, value, "ENV_ANOMALY", nEnvAnomaly));
 }
 
 EXTERN_C_START
