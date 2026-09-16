@@ -64,6 +64,10 @@ public:
 
   typedef bool (*CHECK_ALL_FUNC)(const std::vector<std::string> &allowedApps);
 
+  typedef bool (*IS_AWAKE_ANCO_FUNC)(std::string ancoState);
+
+  typedef void (*RESTRICT_ANCO_APP_FUNC)();
+  
   /**
    * @brief Load the shared library and resolve the "CheckAll" symbol.
    *
@@ -83,6 +87,18 @@ public:
    * @return Result of CheckAll, or true (pass) if in degraded mode.
    */
   bool InvokeCheckAll(const std::vector<std::string> &allowedApps);
+
+  /**
+   * @brief Invoke the closed-source IsAwakeAnco function.
+   * @param ancoState check the anco state.
+   * @return Result of IsAwakeAnco, or true (pass) if anco freeze.
+   */
+  bool InvokeIsAwakeAnco(std::string ancoState);
+
+  /**
+   * @brief Invoke the closed-source RestrictAncoApp function.
+   */
+  void InvokeRestrictAncoApp();
 
   /**
    * @brief Check whether the loader is in degraded mode.
@@ -117,6 +133,8 @@ private:
   DegradedCallback degradedCallback_;
   RetryPolicy retryPolicy_;
   CHECK_ALL_FUNC checkAllFunc_ = nullptr;
+  IS_AWAKE_ANCO_FUNC isAwakeAncoFunc_ = nullptr;
+  RESTRICT_ANCO_APP_FUNC restrictAncoAppFunc = nullptr;
 };
 
 } // namespace AAFwk

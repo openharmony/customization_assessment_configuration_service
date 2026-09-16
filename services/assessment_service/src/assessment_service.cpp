@@ -20,6 +20,7 @@
 #include "hilog_tag_wrapper.h"
 #include "if_system_ability_manager.h"
 #include "iservice_registry.h"
+#include "syspara/parameter.h"
 #include "syspara/parameters.h"
 #include "system_ability_definition.h"
 #include "extension_manager_client.h"
@@ -44,6 +45,7 @@ namespace {
 const char* const PARAM_ASSESSMENT_IS_ACTIVE = "persist.assessment.is_active";
 const char* const PARAM_ASSESSMENT_DURATION = "persist.assessment.duration";
 const char* const PARAM_ASSESSMENT_ALLOWED_APPS = "persist.assessment.allowed_apps";
+const char* const PARAM_ANCO_STATE = "anco_state";
 const char APP_DELIMITER = '|';
 const uint64_t MILLISECONDS_UNIT = 1000;
 const uint64_t DEFAULT_TIME_SLICE_INTERVAL = 5 * MILLISECONDS_UNIT;
@@ -118,6 +120,10 @@ bool AssessmentService::Init()
         }
         this->DoLoop();
     });
+    WatchParameter(
+        PARAM_ANCO_STATE,
+        AncoStateChangeCallback,
+        this);
     return true;
 }
 
@@ -210,6 +216,12 @@ void AssessmentService::SaveState()
         ss << currentConfig_.allowedApps[i];
     }
     system::SetParameter(PARAM_ASSESSMENT_ALLOWED_APPS, ss.str());
+
+    std::string ancoState = system::GetParameter(PARAM_ANCO_STATE, "2");
+    isWaittingAncoActive_ = envChecker_.IsAwakeAnco(ancoState);
+    if (isActive_) {
+        envChecker_.RestrictAncoApp();
+    }
     TAG_LOGD(AAFwkTag::DEFAULT, "State saved");
 }
 
@@ -218,6 +230,8 @@ void AssessmentService::ClearState()
     system::SetParameter(PARAM_ASSESSMENT_IS_ACTIVE, "false");
     system::SetParameter(PARAM_ASSESSMENT_DURATION, "0");
     system::SetParameter(PARAM_ASSESSMENT_ALLOWED_APPS, "");
+    std::string ancoState = system::GetParameter(PARAM_ANCO_STATE, "2");
+    isWaittingAncoActive_ = envChecker_.IsAwakeAnco(ancoState);
     TAG_LOGD(AAFwkTag::DEFAULT, "State cleared");
 }
 
@@ -358,12 +372,11 @@ ErrCode AssessmentService::End(const sptr<IRemoteObject> &token, int32_t &errCod
     CleanupCurrentSession();
     ClearState();
     errCode = ERR_OK;
-    auto sam = SystemAbilityManagerClient::GetInstance().GetSystemAbilityManager();
-    if (sam != nullptr) {
-        sam->UnloadSystemAbility(ASSESSMENT_SERVICE_ID);
-    }
-    Destroy();
 
+    if (!isWaittingAncoActive_) {
+        Destroy();
+    }
+    
     return ERR_OK;
 }
 
@@ -485,8 +498,6 @@ void AssessmentService::CheckEndpointAndExecuteTaskLockedUnsafe()
     }
     uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
-    TAG_LOGI(AAFwkTag::DEFAULT,
-        "assessment task timeout, end: %{public}llu, point:%{public}llu", now, endpointCheckPoint_);
     if (now >= endpointCheckPoint_) {
         this->TimeoutLockedUnsafe();
         auto sam = SystemAbilityManagerClient::GetInstance().GetSystemAbilityManager();
@@ -771,6 +782,27 @@ void AssessmentService::DispatchEvent(const OHOS::EventFwk::CommonEventData& eve
         TAG_LOGI(AAFwkTag::DEFAULT, "System exited POWER_SAVE_MODE_CHANGED");
     } else if (action == OHOS::EventFwk::CommonEventSupport::COMMON_EVENT_BOOT_COMPLETED) {
         TAG_LOGI(AAFwkTag::DEFAULT, "System BOOT_COMPLETED");
+    }
+}
+
+void AssessmentService::AncoStateChangeCallback(const char *key, const char *value, void *context)
+{
+    TAG_LOGI(AAFwkTag::DEFAULT, "AncoStateChangeCallback called, key: %{public}s, value: %{public}s", key, value);
+    AssessmentService* service = reinterpret_cast<AssessmentService*>(context);
+    if (service == nullptr) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "AncoStateChangeCallback called, invalid service");
+        return;
+    }
+    TAG_LOGI(AAFwkTag::DEFAULT, "AncoStateChangeCallback called, isWaittingAncoActive_: %{public}s", service->isWaittingAncoActive_ ? "true" : "false");
+    bool isAncoStateKey = (strcmp(key, PARAM_ANCO_STATE) == 0);
+    bool isAncoActive = (strcmp(value, "0") == 0);
+    if (service->isWaittingAncoActive_ && isAncoStateKey && isAncoActive) {
+        system::SetParameter(PARAM_ASSESSMENT_IS_ACTIVE, service->isActive_ ? "true" : "false");
+        TAG_LOGI(AAFwkTag::DEFAULT, "AncoStateChangeCallback called, sync anco state success, assessment status: %{public}s", service->isActive_ ? "true" : "fasle");
+        if (!service->isActive_) {
+            service->Destroy();
+        }
+        service->isWaittingAncoActive_ = false;
     }
 }
 }  // namespace AAFwk

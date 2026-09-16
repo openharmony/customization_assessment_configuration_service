@@ -101,6 +101,16 @@ bool EnvChecker::CheckAll()
     return true;
 }
 
+bool EnvChecker::IsAwakeAnco(std::string ancoState)
+{
+    return loader_->InvokeIsAwakeAnco(ancoState);
+}
+
+void EnvChecker::RestrictAncoApp()
+{
+    return loader_->InvokeRestrictAncoApp();
+}
+
 bool EnvChecker::IsScreenRecording()
 {
     bool isCaptured = Rosen::DisplayManager::GetInstance().IsCaptured();
@@ -204,6 +214,8 @@ bool EnvChecker::IsVirtualMachine()
     }
     return !loader_->InvokeCheckAll(std::vector<std::string>{});
 }
+
+
 
 } // namespace AAFwk
 } // namespace OHOS

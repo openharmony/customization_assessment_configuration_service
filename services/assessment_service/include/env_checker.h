@@ -75,6 +75,17 @@ public:
      */
     bool CheckAll();
 
+    /**
+     * @brief Check anco state.
+     * @return true if anco freeze, false if anco active.
+     */
+    bool IsAwakeAnco(std::string ancoState);
+
+    /**
+     * @brief Restrict anco app.
+     */
+    void RestrictAncoApp();
+
 private:
     bool InitDeviceManager();
     bool InitCallManager();

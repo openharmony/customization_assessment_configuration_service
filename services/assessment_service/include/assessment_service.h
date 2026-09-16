@@ -30,7 +30,6 @@
 #include "assessment_error_code.h"
 #include "assessment_service_stub.h"
 #include "assessment_event_manager.h"
-#include "anco_status_subscriber.h"
 #include "env_checker.h"
 #include "process_controller.h"
 
@@ -127,6 +126,10 @@ private:
 
     DISALLOW_COPY_AND_MOVE(AssessmentService);
     int32_t switchId_ = -1;
+
+    bool isWaittingAncoActive_ = false;
+    void RestrictAncoApp();
+    static void AncoStateChangeCallback(const char *key, const char *value, void *context);
 };
 } // namespace AAFwk
 } // namespace OHOS

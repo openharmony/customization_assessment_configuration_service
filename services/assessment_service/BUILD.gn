@@ -89,12 +89,12 @@ ohos_shared_library("assessmentsvcs") {
     "hilog:libhilog",
     "hitrace:hitrace_meter",
     "init:libbegetutil",
+    "init:libbeget_proxy",
     "ipc:ipc_single",
     "safwk:system_ability_fwk",
     "samgr:samgr_proxy",
     "input:libmmi-client",
     "ability_runtime:app_manager",
-    "efficiency_manager_ext:lowpower_manager_client",
     "window_manager:libdm"
   ]
 
