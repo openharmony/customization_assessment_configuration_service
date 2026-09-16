@@ -52,7 +52,6 @@ void AssessmentTelephonyObserver::OnCallStateUpdated(
     }
 
     TAG_LOGI(AAFwkTag::DEFAULT, "Incoming call detected, auto-rejecting");
-    // TODO: replace after merges new api
     int32_t ret = callClient->RejectCall(0, false, u"");
     if (ret != 0) {
         TAG_LOGE(AAFwkTag::DEFAULT, "RejectCall failed, ret: %{public}d", ret);

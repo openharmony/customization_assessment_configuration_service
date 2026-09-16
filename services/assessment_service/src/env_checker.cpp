@@ -58,8 +58,7 @@ bool EnvChecker::InitDeviceManager()
         return true;
     }
     int32_t ret = DistributedHardware::DeviceManager::GetInstance().InitDeviceManager(
-        "assessment_service", dmInitCallback_
-    );
+        "assessment_service", dmInitCallback_);
     if (ret != 0) {
         TAG_LOGE(AAFwkTag::DEFAULT, "InitDeviceManager failed, ret: %{public}d", ret);
         return false;
@@ -129,8 +128,7 @@ bool EnvChecker::IsScreenCasting()
     }
     std::vector<DistributedHardware::DmDeviceBasicInfo> devList;
     int32_t ret = DistributedHardware::DeviceManager::GetInstance().GetAvailableDeviceList(
-        "assessment_service", devList
-    );
+        "assessment_service", devList);
     if (ret != 0) {
         TAG_LOGW(AAFwkTag::DEFAULT, "GetAvailableDeviceList failed, ret: %{public}d", ret);
         return false;
@@ -214,8 +212,5 @@ bool EnvChecker::IsVirtualMachine()
     }
     return !loader_->InvokeCheckAll(std::vector<std::string>{});
 }
-
-
-
 } // namespace AAFwk
 } // namespace OHOS

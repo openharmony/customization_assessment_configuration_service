@@ -135,7 +135,7 @@ void ExtensionLoader::InvokeRestrictAncoApp()
         if (degradedCallback_) {
             degradedCallback_(soPath_, "RestrictAncoApp");
         }
-    }else {
+    } else {
         restrictAncoAppFunc();
     }
 }
