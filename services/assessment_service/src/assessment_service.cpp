@@ -329,10 +329,6 @@ ErrCode AssessmentService::End(const sptr<IRemoteObject> &token, int32_t &errCod
     CleanupCurrentSession();
     ClearState();
     errCode = ERR_OK;
-    auto sam = SystemAbilityManagerClient::GetInstance().GetSystemAbilityManager();
-    if (sam != nullptr) {
-        sam->UnloadSystemAbility(ASSESSMENT_SERVICE_ID);
-    }
     Destroy();
 
     return ERR_OK;

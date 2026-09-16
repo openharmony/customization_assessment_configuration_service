@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <gtest/gtest.h>
 
+#include "assessment_api_error_code.h"
 #include "common_event_support.h"
 
 #define private public
@@ -317,6 +318,181 @@ HWTEST_F(AssessmentServiceTest, HandleBegin, TestSize.Level1)
     EXPECT_NO_FATAL_FAILURE(service.HandleBegin(ticket, 2));
 
     EXPECT_NO_FATAL_FAILURE(service.HandleBegin(ticket, 0));
+}
+
+/**
+ * @tc.name: BeginInvalidParams
+ * @tc.desc: Test AssessmentService::Begin.
+ * @tc.type: FUNC
+ */
+HWTEST_F(AssessmentServiceTest, BeginInvalidParams, TestSize.Level1)
+{
+    AssessmentService service;
+    sptr<IRemoteObject> callerToken = nullptr;
+    uint32_t duration = 0;
+    std::vector<std::string> allowedApps;
+    sptr<IRemoteObject> callback = nullptr;
+    int32_t errCode = 0;
+
+    service.Begin(callerToken, duration, allowedApps, callback, errCode);
+    EXPECT_EQ(errCode, static_cast<int32_t>(AssessmentApiErrCode::ERR_INVALID_PARAMS));
+
+    callerToken = CreateMockToken();
+    service.Begin(callerToken, duration, allowedApps, callback, errCode);
+    EXPECT_EQ(errCode, static_cast<int32_t>(AssessmentApiErrCode::ERR_INVALID_PARAMS));
+
+    callback = CreateMockToken();
+    service.Begin(callerToken, duration, allowedApps, callback, errCode);
+    EXPECT_EQ(errCode, static_cast<int32_t>(AssessmentApiErrCode::ERR_INVALID_PARAMS));
+
+    allowedApps.push_back("com.exam.demo");
+    service.Begin(callerToken, duration, allowedApps, callback, errCode);
+    EXPECT_NE(errCode, static_cast<int32_t>(AssessmentApiErrCode::ERR_INVALID_PARAMS));
+}
+
+/**
+ * @tc.name: BeginInvalidDeviceType
+ * @tc.desc: Test AssessmentService::Begin.
+ * @tc.type: FUNC
+ */
+HWTEST_F(AssessmentServiceTest, BeginInvalidDeviceType, TestSize.Level1)
+{
+    AssessmentService service;
+    sptr<IRemoteObject> callerToken = CreateMockToken();
+    uint32_t duration = 0;
+    std::vector<std::string> allowedApps = {"com.exam.demo"};
+    sptr<IRemoteObject> callback = CreateMockToken();
+    int32_t errCode = 0;
+
+    AssessmentTestConstants::GetInstance().CheckDeviceTypeSupported = false;
+    service.Begin(callerToken, duration, allowedApps, callback, errCode);
+    EXPECT_EQ(errCode, static_cast<int32_t>(AssessmentApiErrCode::ERR_CAPABILITY_NOT_SUPPORT));
+}
+
+/**
+ * @tc.name: BeginInvalidPermission
+ * @tc.desc: Test AssessmentService::Begin.
+ * @tc.type: FUNC
+ */
+HWTEST_F(AssessmentServiceTest, BeginInvalidPermission, TestSize.Level1)
+{
+    AssessmentService service;
+    sptr<IRemoteObject> callerToken = CreateMockToken();
+    uint32_t duration = 0;
+    std::vector<std::string> allowedApps = {"com.exam.demo"};
+    sptr<IRemoteObject> callback = CreateMockToken();
+    int32_t errCode = 0;
+
+    AssessmentTestConstants::GetInstance().CheckDeviceTypeSupported = true;
+    AssessmentTestConstants::GetInstance().VerifyCallingPermissionReturn = false;
+    service.Begin(callerToken, duration, allowedApps, callback, errCode);
+    EXPECT_EQ(errCode, static_cast<int32_t>(AssessmentApiErrCode::ERR_PERMISSION_DENIED));
+}
+
+/**
+ * @tc.name: BeginAlreadyActived
+ * @tc.desc: Test AssessmentService::Begin.
+ * @tc.type: FUNC
+ */
+HWTEST_F(AssessmentServiceTest, BeginAlreadyActived, TestSize.Level1)
+{
+    AssessmentService service;
+    sptr<IRemoteObject> callerToken = CreateMockToken();
+    uint32_t duration = 0;
+    std::vector<std::string> allowedApps = {"com.exam.demo"};
+    sptr<IRemoteObject> callback = CreateMockToken();
+    int32_t errCode = 0;
+
+    AssessmentTestConstants::GetInstance().CheckDeviceTypeSupported = true;
+    AssessmentTestConstants::GetInstance().VerifyCallingPermissionReturn = true;
+
+    service.isActive_ = true;
+    service.Begin(callerToken, duration, allowedApps, callback, errCode);
+    EXPECT_EQ(errCode, static_cast<int32_t>(AssessmentApiErrCode::ERR_ASSESSMENT_ALREADY_ACTIVE));
+}
+
+/**
+ * @tc.name: EndInvalidParams
+ * @tc.desc: Test AssessmentService::End.
+ * @tc.type: FUNC
+ */
+HWTEST_F(AssessmentServiceTest, EndInvalidParams, TestSize.Level1)
+{
+    AssessmentService service;
+    sptr<IRemoteObject> callerToken = nullptr;
+    int32_t errCode = 0;
+
+    service.End(callerToken, errCode);
+    EXPECT_EQ(errCode, static_cast<int32_t>(AssessmentApiErrCode::ERR_INVALID_PARAMS));
+}
+
+/**
+ * @tc.name: EndInvalidDeviceType
+ * @tc.desc: Test AssessmentService::End.
+ * @tc.type: FUNC
+ */
+HWTEST_F(AssessmentServiceTest, EndInvalidDeviceType, TestSize.Level1)
+{
+    AssessmentService service;
+    sptr<IRemoteObject> callerToken = CreateMockToken();
+    int32_t errCode = 0;
+
+    AssessmentTestConstants::GetInstance().CheckDeviceTypeSupported = false;
+    service.End(callerToken, errCode);
+    EXPECT_EQ(errCode, static_cast<int32_t>(AssessmentApiErrCode::ERR_CAPABILITY_NOT_SUPPORT));
+}
+
+/**
+ * @tc.name: EndInvalidPermission
+ * @tc.desc: Test AssessmentService::End.
+ * @tc.type: FUNC
+ */
+HWTEST_F(AssessmentServiceTest, EndInvalidPermission, TestSize.Level1)
+{
+    AssessmentService service;
+    sptr<IRemoteObject> callerToken = CreateMockToken();
+    int32_t errCode = 0;
+
+    AssessmentTestConstants::GetInstance().CheckDeviceTypeSupported = true;
+    AssessmentTestConstants::GetInstance().VerifyCallingPermissionReturn = false;
+    service.End(callerToken, errCode);
+    EXPECT_EQ(errCode, static_cast<int32_t>(AssessmentApiErrCode::ERR_PERMISSION_DENIED));
+}
+
+/**
+ * @tc.name: EndInvalidState
+ * @tc.desc: Test AssessmentService::End.
+ * @tc.type: FUNC
+ */
+HWTEST_F(AssessmentServiceTest, EndInvalidState, TestSize.Level1)
+{
+    AssessmentService service;
+    sptr<IRemoteObject> callerToken = CreateMockToken();
+    int32_t errCode = 0;
+
+    AssessmentTestConstants::GetInstance().CheckDeviceTypeSupported = true;
+    AssessmentTestConstants::GetInstance().VerifyCallingPermissionReturn = true;
+    service.isActive_ = false;
+    service.End(callerToken, errCode);
+    EXPECT_EQ(errCode, static_cast<int32_t>(AssessmentApiErrCode::ERR_ASSESSMENT_NOT_ACTIVE));
+}
+
+/**
+ * @tc.name: EndIntervalError
+ * @tc.desc: Test AssessmentService::End.
+ * @tc.type: FUNC
+ */
+HWTEST_F(AssessmentServiceTest, EndIntervalError, TestSize.Level1)
+{
+    AssessmentService service;
+    sptr<IRemoteObject> callerToken = CreateMockToken();
+    int32_t errCode = 0;
+
+    AssessmentTestConstants::GetInstance().CheckDeviceTypeSupported = true;
+    AssessmentTestConstants::GetInstance().VerifyCallingPermissionReturn = true;
+    service.isActive_ = true;
+    service.End(callerToken, errCode);
+    EXPECT_EQ(errCode, static_cast<int32_t>(AssessmentApiErrCode::ERR_INTERNAL_ERROR));
 }
 
 /**
