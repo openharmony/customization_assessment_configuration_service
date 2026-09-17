@@ -268,7 +268,7 @@ void AssessmentService::CleanupCurrentSession()
 ErrCode AssessmentService::Begin(const sptr<IRemoteObject> &token,
                                  uint32_t duration,
                                  const std::vector<std::string> &allowedApps,
-                                 const sptr<IRemoteObject> &callback,  
+                                 const sptr<IRemoteObject> &callback,
                                  int32_t &errCode)
 {
     TAG_LOGI(AAFwkTag::DEFAULT, "Begin called, duration: %{public}d, allowedApps size: %{public}zu",
@@ -796,15 +796,15 @@ void AssessmentService::AncoStateChangeCallback(const char *key, const char *val
         return;
     }
     TAG_LOGI(AAFwkTag::DEFAULT,
-         "AncoStateChangeCallback called, isWaittingAncoActive_: %{public}s", 
-         service->isWaittingAncoActive_ ? "true" : "false");
+             "AncoStateChangeCallback called, isWaittingAncoActive_: %{public}s",
+             service->isWaittingAncoActive_ ? "true" : "false");
     bool isAncoStateKey = (strcmp(key, PARAM_ANCO_STATE) == 0);
     bool isAncoActive = (strcmp(value, "0") == 0);
     if (service->isWaittingAncoActive_ && isAncoStateKey && isAncoActive) {
         system::SetParameter(PARAM_ASSESSMENT_IS_ACTIVE, service->isActive_ ? "true" : "false");
         TAG_LOGI(AAFwkTag::DEFAULT,
-             "AncoStateChangeCallback called, sync anco state success, assessment status: %{public}s",
-              service->isActive_ ? "true" : "fasle");
+                 "AncoStateChangeCallback called, sync anco state success, assessment status: %{public}s",
+                 service->isActive_ ? "true" : "fasle");
         if (!service->isActive_) {
             service->Destroy();
         }
