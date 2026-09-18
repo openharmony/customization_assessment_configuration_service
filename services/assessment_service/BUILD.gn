@@ -83,7 +83,8 @@ ohos_shared_library("assessmentsvcs") {
     "safwk:system_ability_fwk",
     "samgr:samgr_proxy",
     "input:libmmi-client",
-    "ability_runtime:app_manager"
+    "ability_runtime:app_manager",
+    "power_manager:powermgr_client",
   ]
 
   subsystem_name = "customization"

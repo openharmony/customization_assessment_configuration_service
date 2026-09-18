@@ -37,6 +37,7 @@
 #include <input_manager.h>
 #include "ipc_skeleton.h"
 #include "ability_manager_client.h"
+#include "power_mode_info.h"
 
 namespace OHOS {
 namespace AAFwk {
@@ -139,22 +140,9 @@ bool AssessmentService::InitSubsystems()
         TAG_LOGE(AAFwkTag::DEFAULT, "InputManager get instance failed");
         return false;
     }
-    switchId_ = inputManager->SubscribeSwitchEvent([this](std::shared_ptr<OHOS::MMI::SwitchEvent> event) {
-        if (event == nullptr) {
-            TAG_LOGE(AAFwkTag::DEFAULT, "SwitchEvent is null");
-            return;
-        }
-        if (event -> GetSwitchType() != OHOS::MMI::SwitchEvent::SWITCH_LID) {
-            TAG_LOGE(AAFwkTag::DEFAULT, "Not LID Event");
-            return;
-        }
-        int32_t switchValue = event->GetSwitchValue();
-        if (switchValue == OHOS::MMI::SwitchEvent::SWITCH_ON) {
-            TAG_LOGE(AAFwkTag::DEFAULT, "Lid_Open");
-        } else {
-            TAG_LOGE(AAFwkTag::DEFAULT, "Lid_Close");
-        }
-    }, OHOS::MMI::SwitchEvent::SWITCH_LID);
+    switchId_ = inputManager->SubscribeSwitchEvent(
+        std::bind(&AssessmentService::OnSwitchEvent, this, std::placeholders::_1),
+        OHOS::MMI::SwitchEvent::SWITCH_LID);
     if (switchId_ < 0) {
         TAG_LOGE(AAFwkTag::DEFAULT, "SubscribeSwitchEvent failed, switchId = %{public}d", switchId_);
     }
@@ -454,10 +442,7 @@ void AssessmentService::CheckEndpointAndExecuteTaskLockedUnsafe()
         std::chrono::system_clock::now().time_since_epoch()).count();
     if (now >= endpointCheckPoint_) {
         this->TimeoutLockedUnsafe();
-        auto sam = SystemAbilityManagerClient::GetInstance().GetSystemAbilityManager();
-        if (sam != nullptr) {
-            sam->UnloadSystemAbility(ASSESSMENT_SERVICE_ID);
-        }
+        this->Destroy();
     }
 }
 
@@ -663,10 +648,27 @@ void AssessmentService::AppDieHandle(const std::string &bundleName)
     CleanupCurrentSession();
     ClearState();
     TAG_LOGI(AAFwkTag::ASSESSMENT, "assement clear app: %{public}s for app died", bundleName.c_str());
-    auto sam = SystemAbilityManagerClient::GetInstance().GetSystemAbilityManager();
-    if (sam != nullptr) {
-        sam->UnloadSystemAbility(ASSESSMENT_SERVICE_ID);
+    Destroy();
+}
+
+void AssessmentService::EnvAnomalyLockedUnsafe()
+{
+    if (!isActive_ || callerToken_ == nullptr) {
+        TAG_LOGW(AAFwkTag::ASSESSMENT, "Assessment not active");
+        return;
     }
+
+    ErrCode ret = ExitKioskModeLockedUnsafe();
+    if (ret != ERR_OK) {
+        TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment exitKioskMode for end fail");
+        return;
+    }
+    CallbackManager::GetInstance().OnInterrupted(
+        callerToken_, static_cast<int32_t>(AssessmentErrorCode::ENV_ANOMALY),
+        AssessmentErrCodeToErrMsg(AssessmentErrorCode::ENV_ANOMALY));
+    CleanupCurrentSession();
+    ClearState();
+    Destroy();
 }
 
 void AssessmentService::DispatchEvent(const OHOS::EventFwk::CommonEventData& eventData)
@@ -693,9 +695,35 @@ void AssessmentService::DispatchEvent(const OHOS::EventFwk::CommonEventData& eve
     } else if (action == OHOS::EventFwk::CommonEventSupport::COMMON_EVENT_SHUTDOWN) {
         TAG_LOGI(AAFwkTag::DEFAULT, "System shutdown");
     } else if (action == OHOS::EventFwk::CommonEventSupport::COMMON_EVENT_POWER_SAVE_MODE_CHANGED) {
-        TAG_LOGI(AAFwkTag::DEFAULT, "System exited POWER_SAVE_MODE_CHANGED");
+        uint32_t code = eventData.GetCode();
+        TAG_LOGI(AAFwkTag::ASSESSMENT,
+            "assessment POWER_SAVE_MODE_CHANGED, mode: %{public}u", code);
+        if (code == static_cast<uint32_t>(OHOS::PowerMgr::PowerMode::EXTREME_POWER_SAVE_MODE)) {
+            std::unique_lock<std::mutex> lock(this->mutexSa_);
+            this->EnvAnomalyLockedUnsafe();
+        }
     } else if (action == OHOS::EventFwk::CommonEventSupport::COMMON_EVENT_BOOT_COMPLETED) {
         TAG_LOGI(AAFwkTag::DEFAULT, "System BOOT_COMPLETED");
+    }
+}
+
+void AssessmentService::OnSwitchEvent(std::shared_ptr<OHOS::MMI::SwitchEvent> event)
+{
+    if (event == nullptr) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "SwitchEvent is null");
+        return;
+    }
+    if (event -> GetSwitchType() != OHOS::MMI::SwitchEvent::SWITCH_LID) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "Not LID Event");
+        return;
+    }
+    int32_t switchValue = event->GetSwitchValue();
+    if (switchValue == OHOS::MMI::SwitchEvent::SWITCH_ON) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "Lid_Open");
+    } else {
+        TAG_LOGE(AAFwkTag::DEFAULT, "Lid_Close");
+        std::unique_lock<std::mutex> lock(this->mutexSa_);
+        this->EnvAnomalyLockedUnsafe();
     }
 }
 }  // namespace AAFwk
