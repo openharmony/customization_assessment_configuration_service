@@ -14,11 +14,9 @@
  */
 #include <gtest/gtest.h>
 
-#include "assessment_utils.h"
 #include "syspara/parameters.h"
 
 #define private public
-#include "assessment_service.h"
 #include "assessment_service_ability.h"
 #undef private
 
@@ -64,6 +62,21 @@ HWTEST_F(AssessmentServiceAbilityTest, OnStart, TestSize.Level1)
     AssessmentServiceAbility sa(said, false);
     sa.service_ = AssessmentService::GetInstance();
     EXPECT_NO_FATAL_FAILURE(sa.OnStart());
+}
+
+/**
+ * @tc.name: OnStart02
+ * @tc.desc: Test AssessmentServiceAbility::OnStart.
+ * @tc.type: FUNC
+ */
+HWTEST_F(AssessmentServiceAbilityTest, OnStart02, TestSize.Level1)
+{
+    int32_t said = 8660;
+    AssessmentServiceAbility sa(said, false);
+    EXPECT_NO_FATAL_FAILURE(sa.OnStart());
+    std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+    sa.service_->running_ = false;
+    sa.service_->thread_.join();
 }
 
 /**
