@@ -22,6 +22,7 @@
 #include "singleton.h"
 #include "system_ability_definition.h"
 #include "telephony_observer_broker.h"
+#include "syspara/parameters.h"
 
 namespace OHOS {
 namespace AAFwk {
