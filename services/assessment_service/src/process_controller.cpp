@@ -18,6 +18,7 @@
 #include "accessibility_config.h"
 #include "call_manager_client.h"
 #include "hilog_tag_wrapper.h"
+#include "parameter.h"
 #include "singleton.h"
 #include "system_ability_definition.h"
 #include "telephony_observer_broker.h"
@@ -158,7 +159,8 @@ void ProcessController::UnRegisterCallObserver()
 bool ProcessController::DisableScreenReader()
 {
     TAG_LOGI(AAFwkTag::DEFAULT, "Disable ScreenReader");
-    const std::string screenReaderName = "com.huawei.hmos.screenreader/AccessibilityExtAbility";
+    const std::string screenReaderName =
+        system::GetParameter("persist.assessment.screenreader_name", "");
     auto ret = AccessibilityConfig::AccessibilityConfig::GetInstance().DisableAbility(screenReaderName);
     if (ret == Accessibility::RetError::RET_OK) {
         TAG_LOGI(AAFwkTag::DEFAULT, "Screen reader disabled success");
