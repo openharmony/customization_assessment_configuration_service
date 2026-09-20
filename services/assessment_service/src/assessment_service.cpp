@@ -225,6 +225,7 @@ void AssessmentService::ConfigCurrentSession(const sptr<IRemoteObject> &token, u
     endpointCheckPoint_ = 0;
     isActive_ = false;
     examStatus_ = AssessmentExamStatus::CONFIRMING;
+    callingUid_ = IPCSkeleton::GetCallingUid();
 }
 
 void AssessmentService::CleanupCurrentSession()
@@ -238,6 +239,7 @@ void AssessmentService::CleanupCurrentSession()
     currentConfig_ = AssessmentConfig();
     bundleName_ = "";
     endpointCheckPoint_ = 0;
+    callingUid_ = 0;
 }
 
 ErrCode AssessmentService::Begin(const sptr<IRemoteObject> &token, uint32_t duration,
@@ -312,6 +314,12 @@ ErrCode AssessmentService::End(const sptr<IRemoteObject> &token, int32_t &errCod
     if (!isActive_) {
         TAG_LOGW(AAFwkTag::ASSESSMENT, "Assessment not active");
         errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_ASSESSMENT_NOT_ACTIVE);
+        return ERR_OK;
+    }
+    int32_t callingUid = IPCSkeleton::GetCallingUid();
+    if (callingUid_ != callingUid) {
+        TAG_LOGW(AAFwkTag::ASSESSMENT, "Assessment be called for other app");
+        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_INVALID_OPERATION);
         return ERR_OK;
     }
 
