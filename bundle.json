@@ -60,10 +60,10 @@
                     "name": "//base/customization/assessment_configuration_service/interfaces/inner_api/assessment_service:assessment_manager",
                     "header": {
                         "header_files": [
-                            "assessment_service.h",
+                            "assessment_service_client.h",
                             "assessment_callback_code.h",
                             "hilog_tag_wrapper.h",
-                            "assessment_error_code.h"
+                            "assessment_api_error_code.h"
                         ],
                         "header_base": "//base/customization/assessment_configuration_service/interfaces/inner_api/assessment_service/include"
                     }
