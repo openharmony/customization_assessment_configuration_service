@@ -31,6 +31,7 @@
 #include "assessment_service_stub.h"
 #include "assessment_event_manager.h"
 #include "assessment_event_publisher.h"
+#include <input_manager.h>
 
 namespace OHOS {
 namespace AAFwk {
@@ -76,6 +77,7 @@ public:
 
     void DoLoop();
     void DispatchEvent(const OHOS::EventFwk::CommonEventData& data);
+    void OnSwitchEvent(std::shared_ptr<OHOS::MMI::SwitchEvent> event);
 
     std::string GetAssessmentBundleName();
     AssessmentConfig GetAssessmentCurrentConfig();
@@ -100,6 +102,7 @@ private:
     void TimeoutLockedUnsafe();
     ErrCode ExitKioskModeLockedUnsafe();
     void AppDieHandle(const std::string &bundleName);
+    void EnvAnomalyLockedUnsafe();
 
     static std::mutex mutex_;
     static sptr<AssessmentService> instance_;
