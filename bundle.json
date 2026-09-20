@@ -40,7 +40,8 @@
                 "graphic_2d",
                 "window_manager",
                 "napi",
-                "input"
+                "input",
+                "power_manager"
             ],
             "third_party": []
         },
