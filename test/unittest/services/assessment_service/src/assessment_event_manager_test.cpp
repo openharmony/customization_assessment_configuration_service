@@ -100,6 +100,23 @@ HWTEST_F(AssessmentEventManagerTest, Subscribe, TestSize.Level1)
 }
 
 /**
+ * @tc.name: Unsubscribe
+ * @tc.desc: Test AssessmentEventObserver::Unsubscribe.
+ * @tc.type: FUNC
+ */
+HWTEST_F(AssessmentEventManagerTest, Unsubscribe, TestSize.Level1)
+{
+    OHOS::EventFwk::MatchingSkills matchingSkills;
+    matchingSkills.AddEvent(OHOS::EventFwk::CommonEventSupport::COMMON_EVENT_ENTER_HIBERNATE);
+    OHOS::EventFwk::CommonEventSubscribeInfo subscribeInfo(matchingSkills);
+
+    auto svr = AssessmentEventObserver::Create(subscribeInfo,
+        [](const OHOS::EventFwk::CommonEventData&) {});
+    EXPECT_NE(svr, nullptr);
+    EXPECT_NO_FATAL_FAILURE(svr->Unsubscribe());
+}
+
+/**
  * @tc.name: OnReceiveEvent
  * @tc.desc: Test AssessmentEventObserver::OnReceiveEvent.
  * @tc.type: FUNC

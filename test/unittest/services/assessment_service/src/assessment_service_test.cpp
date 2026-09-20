@@ -20,6 +20,7 @@
 
 #include "assessment_api_error_code.h"
 #include "common_event_support.h"
+#include "syspara/parameters.h"
 
 #define private public
 #include "assessment_service.h"
@@ -92,6 +93,18 @@ HWTEST_F(AssessmentServiceTest, CleanupCurrentSession, TestSize.Level1)
 }
 
 /**
+ * @tc.name: CleanupCurrentSession02
+ * @tc.desc: Test AssessmentService::CleanupCurrentSession
+ * @tc.type: FUNC
+ */
+HWTEST_F(AssessmentServiceTest, CleanupCurrentSession02, TestSize.Level1)
+{
+    AssessmentService service;
+    service.callerToken_ = CreateMockToken();
+    EXPECT_NO_FATAL_FAILURE(service.CleanupCurrentSession());
+}
+
+/**
  * @tc.name: ComputeNextTaskTimeoutLockedUnsafe01
  * @tc.desc: Test AssessmentService::ComputeNextTaskTimeoutLockedUnsafe
  * @tc.type: FUNC
@@ -100,13 +113,22 @@ HWTEST_F(AssessmentServiceTest, ComputeNextTaskTimeoutLockedUnsafe01, TestSize.L
 {
     int32_t defaultValue = 5000;
     AssessmentService service;
+    service.isActive_ = false;
+    service.callerToken_ = nullptr;
     auto ret = service.ComputeNextTaskTimeoutLockedUnsafe();
     EXPECT_EQ(ret, defaultValue);
 
-    service.isActive_ = true;
+    service.isActive_ = false;
+    service.callerToken_ = CreateMockToken();
     ret = service.ComputeNextTaskTimeoutLockedUnsafe();
     EXPECT_EQ(ret, defaultValue);
 
+    service.isActive_ = true;
+    service.callerToken_ = nullptr;
+    ret = service.ComputeNextTaskTimeoutLockedUnsafe();
+    EXPECT_EQ(ret, defaultValue);
+
+    service.isActive_ = true;
     sptr<IRemoteObject> token = CreateMockToken();
     service.callerToken_ = token;
     service.endpointCheckPoint_ = 0;
@@ -135,6 +157,17 @@ HWTEST_F(AssessmentServiceTest, SubscribeCommonEvent, TestSize.Level1)
 {
     AssessmentService service;
     EXPECT_NO_FATAL_FAILURE(service.SubscribeCommonEvent());
+    EXPECT_NO_FATAL_FAILURE(service.UnsubscribeCommonEvent());
+}
+
+/**
+ * @tc.name: UnsubscribeCommonEvent
+ * @tc.desc: Test AssessmentService::UnsubscribeCommonEvent.
+ * @tc.type: FUNC
+ */
+HWTEST_F(AssessmentServiceTest, UnsubscribeCommonEvent, TestSize.Level1)
+{
+    AssessmentService service;
     EXPECT_NO_FATAL_FAILURE(service.UnsubscribeCommonEvent());
 }
 
@@ -223,6 +256,21 @@ HWTEST_F(AssessmentServiceTest, AssessmentServiceDispatchEvent06, TestSize.Level
 }
 
 /**
+ * @tc.name: AssessmentServiceDispatchEvent07
+ * @tc.desc: Test AssessmentService::DispatchEvent.
+ * @tc.type: FUNC
+ */
+HWTEST_F(AssessmentServiceTest, AssessmentServiceDispatchEvent07, TestSize.Level1)
+{
+    AssessmentService service;
+    OHOS::AAFwk::Want want;
+    want.SetAction("assessment.event.confirmation");
+    OHOS::EventFwk::CommonEventData eventData(want);
+    eventData.SetData("ticket:0");
+    EXPECT_NO_FATAL_FAILURE(service.DispatchEvent(eventData));
+}
+
+/**
  * @tc.name: NotifyBegin
  * @tc.desc: Test AssessmentService::NotifyBegin.
  * @tc.type: FUNC
@@ -285,6 +333,20 @@ HWTEST_F(AssessmentServiceTest, DoLoop, TestSize.Level1)
 }
 
 /**
+ * @tc.name: Quit
+ * @tc.desc: Test AssessmentService::Quit.
+ * @tc.type: FUNC
+ */
+HWTEST_F(AssessmentServiceTest, Quit, TestSize.Level1)
+{
+    auto service = AssessmentService::GetInstance();
+    do {
+        std::unique_lock<std::mutex> lock(service->mutexSa_);
+        EXPECT_NO_FATAL_FAILURE(service->Quit());
+    } while (false);
+}
+
+/**
  * @tc.name: AppDieHandle
  * @tc.desc: Test AssessmentService::AppDieHandle.
  * @tc.type: FUNC
@@ -295,6 +357,35 @@ HWTEST_F(AssessmentServiceTest, AppDieHandle, TestSize.Level1)
     AssessmentService service;
     EXPECT_NO_FATAL_FAILURE(service.AppDieHandle(bundleName));
     service.isActive_ = true;
+    EXPECT_NO_FATAL_FAILURE(service.AppDieHandle(bundleName));
+}
+
+/**
+ * @tc.name: AppDieHandle02
+ * @tc.desc: Test AssessmentService::AppDieHandle.
+ * @tc.type: FUNC
+ */
+HWTEST_F(AssessmentServiceTest, AppDieHandle02, TestSize.Level1)
+{
+    std::string bundleName = "com.test.demo";
+    AssessmentService service;
+    service.isActive_ = true;
+    service.bundleName_ = bundleName;
+    service.callerToken_ = CreateMockToken();
+    EXPECT_NO_FATAL_FAILURE(service.AppDieHandle(bundleName));
+}
+
+/**
+ * @tc.name: AppDieHandle03
+ * @tc.desc: Test AssessmentService::AppDieHandle.
+ * @tc.type: FUNC
+ */
+HWTEST_F(AssessmentServiceTest, AppDieHandle03, TestSize.Level1)
+{
+    std::string bundleName = "com.test.demo";
+    AssessmentService service;
+    service.isActive_ = true;
+    service.bundleName_ = bundleName;
     EXPECT_NO_FATAL_FAILURE(service.AppDieHandle(bundleName));
 }
 
@@ -315,9 +406,16 @@ HWTEST_F(AssessmentServiceTest, HandleBegin, TestSize.Level1)
     EXPECT_NO_FATAL_FAILURE(service.HandleBegin(ticket, operation));
 
     service.ticket_ = ticket;
+    service.examStatus_ = AssessmentExamStatus::CONFIRMING;
     EXPECT_NO_FATAL_FAILURE(service.HandleBegin(ticket, 2));
 
+    service.ticket_ = ticket;
+    service.examStatus_ = AssessmentExamStatus::CONFIRMING;
     EXPECT_NO_FATAL_FAILURE(service.HandleBegin(ticket, 0));
+
+    service.ticket_ = ticket;
+    service.examStatus_ = AssessmentExamStatus::CONFIRMING;
+    EXPECT_NO_FATAL_FAILURE(service.HandleBegin(ticket, 1));
 }
 
 /**
@@ -412,6 +510,74 @@ HWTEST_F(AssessmentServiceTest, BeginAlreadyActived, TestSize.Level1)
 }
 
 /**
+ * @tc.name: BeginConfirm
+ * @tc.desc: Test AssessmentService::Begin.
+ * @tc.type: FUNC
+ */
+HWTEST_F(AssessmentServiceTest, BeginConfirm, TestSize.Level1)
+{
+    AssessmentService service;
+    sptr<IRemoteObject> callerToken = CreateMockToken();
+    uint32_t duration = 0;
+    std::vector<std::string> allowedApps = {"com.exam.demo"};
+    sptr<IRemoteObject> callback = CreateMockToken();
+    int32_t errCode = 0;
+
+    AssessmentTestConstants::GetInstance().CheckDeviceTypeSupported = true;
+    AssessmentTestConstants::GetInstance().VerifyCallingPermissionReturn = true;
+
+    service.isActive_ = false;
+    service.examStatus_ = AssessmentExamStatus::CONFIRMING;
+    EXPECT_NO_FATAL_FAILURE(service.Begin(callerToken, duration, allowedApps, callback, errCode));
+}
+
+/**
+ * @tc.name: BeginConfirm02
+ * @tc.desc: Test AssessmentService::Begin.
+ * @tc.type: FUNC
+ */
+HWTEST_F(AssessmentServiceTest, BeginConfirm02, TestSize.Level1)
+{
+    AssessmentService service;
+    sptr<IRemoteObject> callerToken = CreateMockToken();
+    uint32_t duration = 0;
+    std::vector<std::string> allowedApps = {"com.exam.demo"};
+    sptr<IRemoteObject> callback = CreateMockToken();
+    int32_t errCode = 0;
+
+    AssessmentTestConstants::GetInstance().CheckDeviceTypeSupported = true;
+    AssessmentTestConstants::GetInstance().VerifyCallingPermissionReturn = true;
+
+    service.isActive_ = false;
+    service.examStatus_ = AssessmentExamStatus::CONFIRMING;
+    service.callerToken_ = CreateMockToken();
+    EXPECT_NO_FATAL_FAILURE(service.Begin(callerToken, duration, allowedApps, callback, errCode));
+}
+
+/**
+ * @tc.name: BeginConfirm03
+ * @tc.desc: Test AssessmentService::Begin.
+ * @tc.type: FUNC
+ */
+HWTEST_F(AssessmentServiceTest, BeginConfirm03, TestSize.Level1)
+{
+    AssessmentService service;
+    sptr<IRemoteObject> callerToken = CreateMockToken();
+    uint32_t duration = 0;
+    std::vector<std::string> allowedApps = {"com.exam.demo"};
+    sptr<IRemoteObject> callback = CreateMockToken();
+    int32_t errCode = 0;
+
+    AssessmentTestConstants::GetInstance().CheckDeviceTypeSupported = true;
+    AssessmentTestConstants::GetInstance().VerifyCallingPermissionReturn = true;
+
+    service.isActive_ = false;
+    service.examStatus_ = AssessmentExamStatus::IDLE;
+    service.callerToken_ = CreateMockToken();
+    EXPECT_NO_FATAL_FAILURE(service.Begin(callerToken, duration, allowedApps, callback, errCode));
+}
+
+/**
  * @tc.name: EndInvalidParams
  * @tc.desc: Test AssessmentService::End.
  * @tc.type: FUNC
@@ -503,20 +669,20 @@ HWTEST_F(AssessmentServiceTest, EndIntervalError, TestSize.Level1)
 HWTEST_F(AssessmentServiceTest, IsActive, TestSize.Level1)
 {
     AssessmentService service;
-    AssessmentTestConstants::GetInstance().VerifyCallingPermissionReturn = false;
     AssessmentTestConstants::GetInstance().CheckDeviceTypeSupported = false;
+    AssessmentTestConstants::GetInstance().VerifyCallingPermissionReturn = false;
     int32_t errCode = 0;
     bool actived = false;
     service.IsActive(actived, errCode);
     EXPECT_EQ(actived, false);
 
-    AssessmentTestConstants::GetInstance().VerifyCallingPermissionReturn = true;
-    AssessmentTestConstants::GetInstance().CheckDeviceTypeSupported = false;
+    AssessmentTestConstants::GetInstance().CheckDeviceTypeSupported = true;
+    AssessmentTestConstants::GetInstance().VerifyCallingPermissionReturn = false;
     service.IsActive(actived, errCode);
     EXPECT_EQ(actived, false);
 
-    AssessmentTestConstants::GetInstance().VerifyCallingPermissionReturn = true;
     AssessmentTestConstants::GetInstance().CheckDeviceTypeSupported = true;
+    AssessmentTestConstants::GetInstance().VerifyCallingPermissionReturn = true;
     service.IsActive(actived, errCode);
     EXPECT_EQ(actived, false);
     EXPECT_EQ(errCode, 0);
@@ -535,8 +701,8 @@ HWTEST_F(AssessmentServiceTest, IsActive, TestSize.Level1)
 HWTEST_F(AssessmentServiceTest, GetConfiguration, TestSize.Level1)
 {
     AssessmentService service;
-    AssessmentTestConstants::GetInstance().VerifyCallingPermissionReturn = false;
     AssessmentTestConstants::GetInstance().CheckDeviceTypeSupported = false;
+    AssessmentTestConstants::GetInstance().VerifyCallingPermissionReturn = false;
     
     uint32_t duration = 0;
     std::vector<std::string> allowedApps;
@@ -544,13 +710,13 @@ HWTEST_F(AssessmentServiceTest, GetConfiguration, TestSize.Level1)
     service.GetConfiguration(duration, allowedApps, errCode);
     EXPECT_NE(errCode, 0);
 
-    AssessmentTestConstants::GetInstance().VerifyCallingPermissionReturn = true;
-    AssessmentTestConstants::GetInstance().CheckDeviceTypeSupported = false;
+    AssessmentTestConstants::GetInstance().CheckDeviceTypeSupported = true;
+    AssessmentTestConstants::GetInstance().VerifyCallingPermissionReturn = false;
     service.GetConfiguration(duration, allowedApps, errCode);
     EXPECT_NE(errCode, 0);
 
-    AssessmentTestConstants::GetInstance().VerifyCallingPermissionReturn = true;
     AssessmentTestConstants::GetInstance().CheckDeviceTypeSupported = true;
+    AssessmentTestConstants::GetInstance().VerifyCallingPermissionReturn = true;
     service.GetConfiguration(duration, allowedApps, errCode);
     EXPECT_EQ(errCode, 0);
 }
@@ -567,6 +733,48 @@ HWTEST_F(AssessmentServiceTest, LoadState, TestSize.Level1)
 }
 
 /**
+ * @tc.name: LoadState02
+ * @tc.desc: Test AssessmentService::LoadState.
+ * @tc.type: FUNC
+ */
+HWTEST_F(AssessmentServiceTest, LoadState02, TestSize.Level1)
+{
+    AssessmentService service;
+    OHOS::system::SetParameter("persist.assessment.is_active", "true");
+    OHOS::system::SetParameter("persist.assessment.duration", "2000");
+    OHOS::system::SetParameter("persist.assessment.allowed_apps", "com.demo1|com.demo2");
+    EXPECT_NO_FATAL_FAILURE(service.LoadState());
+}
+
+/**
+ * @tc.name: LoadState03
+ * @tc.desc: Test AssessmentService::LoadState.
+ * @tc.type: FUNC
+ */
+HWTEST_F(AssessmentServiceTest, LoadState03, TestSize.Level1)
+{
+    AssessmentService service;
+    OHOS::system::SetParameter("persist.assessment.is_active", "false");
+    OHOS::system::SetParameter("persist.assessment.duration", "");
+    OHOS::system::SetParameter("persist.assessment.allowed_apps", "|");
+    EXPECT_NO_FATAL_FAILURE(service.LoadState());
+}
+
+/**
+ * @tc.name: LoadState04
+ * @tc.desc: Test AssessmentService::LoadState.
+ * @tc.type: FUNC
+ */
+HWTEST_F(AssessmentServiceTest, LoadState04, TestSize.Level1)
+{
+    AssessmentService service;
+    OHOS::system::SetParameter("persist.assessment.is_active", "");
+    OHOS::system::SetParameter("persist.assessment.duration", "2000");
+    OHOS::system::SetParameter("persist.assessment.allowed_apps", "com.demo1");
+    EXPECT_NO_FATAL_FAILURE(service.LoadState());
+}
+
+/**
  * @tc.name: SaveState
  * @tc.desc: Test AssessmentService::SaveState.
  * @tc.type: FUNC
@@ -574,6 +782,19 @@ HWTEST_F(AssessmentServiceTest, LoadState, TestSize.Level1)
 HWTEST_F(AssessmentServiceTest, SaveState, TestSize.Level1)
 {
     AssessmentService service;
+    EXPECT_NO_FATAL_FAILURE(service.SaveState());
+}
+
+/**
+ * @tc.name: SaveState02
+ * @tc.desc: Test AssessmentService::SaveState.
+ * @tc.type: FUNC
+ */
+HWTEST_F(AssessmentServiceTest, SaveState02, TestSize.Level1)
+{
+    AssessmentService service;
+    service.currentConfig_.allowedApps.push_back("com.demo1");
+    service.currentConfig_.allowedApps.push_back("com.demo2");
     EXPECT_NO_FATAL_FAILURE(service.SaveState());
 }
 
@@ -588,6 +809,138 @@ HWTEST_F(AssessmentServiceTest, ClearState, TestSize.Level1)
     EXPECT_NO_FATAL_FAILURE(service.ClearState());
 }
 
+/**
+ * @tc.name: Init
+ * @tc.desc: Test AssessmentService::Init.
+ * @tc.type: FUNC
+ */
+HWTEST_F(AssessmentServiceTest, Init, TestSize.Level1)
+{
+    AssessmentService service;
+    EXPECT_NO_FATAL_FAILURE(service.Init());
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    service.running_ = false;
+    service.thread_.join();
+}
+
+/**
+ * @tc.name: InitSubsystems
+ * @tc.desc: Test AssessmentService::InitSubsystems.
+ * @tc.type: FUNC
+ */
+HWTEST_F(AssessmentServiceTest, InitSubsystems, TestSize.Level1)
+{
+    AssessmentService service;
+    EXPECT_NO_FATAL_FAILURE(service.InitSubsystems());
+}
+
+/**
+ * @tc.name: TimeoutLockedUnsafe
+ * @tc.desc: Test AssessmentService::TimeoutLockedUnsafe.
+ * @tc.type: FUNC
+ */
+HWTEST_F(AssessmentServiceTest, TimeoutLockedUnsafe, TestSize.Level1)
+{
+    AssessmentService service;
+    EXPECT_NO_FATAL_FAILURE(service.TimeoutLockedUnsafe());
+}
+
+/**
+ * @tc.name: ConfirmationBeginLockedUnsafe
+ * @tc.desc: Test AssessmentService::ConfirmationBeginLockedUnsafe.
+ * @tc.type: FUNC
+ */
+HWTEST_F(AssessmentServiceTest, ConfirmationBeginLockedUnsafe, TestSize.Level1)
+{
+    AssessmentService service;
+    EXPECT_NO_FATAL_FAILURE(service.ConfirmationBeginLockedUnsafe());
+}
+
+/**
+ * @tc.name: InvokeSystemDialog
+ * @tc.desc: Test AssessmentService::InvokeSystemDialog.
+ * @tc.type: FUNC
+ */
+HWTEST_F(AssessmentServiceTest, InvokeSystemDialog, TestSize.Level1)
+{
+    AssessmentService service;
+    EXPECT_NO_FATAL_FAILURE(service.InvokeSystemDialog());
+}
+
+/**
+ * @tc.name: CheckEndpointAndExecuteTaskLockedUnsafe
+ * @tc.desc: Test AssessmentService::CheckEndpointAndExecuteTaskLockedUnsafe.
+ * @tc.type: FUNC
+ */
+HWTEST_F(AssessmentServiceTest, CheckEndpointAndExecuteTaskLockedUnsafe, TestSize.Level1)
+{
+    AssessmentService service;
+    EXPECT_NO_FATAL_FAILURE(service.CheckEndpointAndExecuteTaskLockedUnsafe());
+}
+
+/**
+ * @tc.name: CheckEndpointAndExecuteTaskLockedUnsafe02
+ * @tc.desc: Test AssessmentService::CheckEndpointAndExecuteTaskLockedUnsafe.
+ * @tc.type: FUNC
+ */
+HWTEST_F(AssessmentServiceTest, CheckEndpointAndExecuteTaskLockedUnsafe02, TestSize.Level1)
+{
+    AssessmentService service;
+    service.isActive_ = true;
+    EXPECT_NO_FATAL_FAILURE(service.CheckEndpointAndExecuteTaskLockedUnsafe());
+}
+
+/**
+ * @tc.name: CheckEndpointAndExecuteTaskLockedUnsafe03
+ * @tc.desc: Test AssessmentService::CheckEndpointAndExecuteTaskLockedUnsafe.
+ * @tc.type: FUNC
+ */
+HWTEST_F(AssessmentServiceTest, CheckEndpointAndExecuteTaskLockedUnsafe03, TestSize.Level1)
+{
+    AssessmentService service;
+    service.isActive_ = true;
+    service.callerToken_ = CreateMockToken();
+    EXPECT_NO_FATAL_FAILURE(service.CheckEndpointAndExecuteTaskLockedUnsafe());
+}
+
+/**
+ * @tc.name: CheckEndpointAndExecuteTaskLockedUnsafe04
+ * @tc.desc: Test AssessmentService::CheckEndpointAndExecuteTaskLockedUnsafe.
+ * @tc.type: FUNC
+ */
+HWTEST_F(AssessmentServiceTest, CheckEndpointAndExecuteTaskLockedUnsafe04, TestSize.Level1)
+{
+    AssessmentService service;
+    service.isActive_ = true;
+    service.callerToken_ = CreateMockToken();
+    uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    service.endpointCheckPoint_ = now + 1000;
+    EXPECT_NO_FATAL_FAILURE(service.CheckEndpointAndExecuteTaskLockedUnsafe());
+}
+
+/**
+ * @tc.name: Destroy
+ * @tc.desc: Test AssessmentService::Destroy.
+ * @tc.type: FUNC
+ */
+HWTEST_F(AssessmentServiceTest, Destroy, TestSize.Level1)
+{
+    AssessmentService service;
+    EXPECT_NO_FATAL_FAILURE(service.Destroy());
+}
+
+/**
+ * @tc.name: CancelBeginLockedUnsafe
+ * @tc.desc: Test AssessmentService::CancelBeginLockedUnsafe.
+ * @tc.type: FUNC
+ */
+HWTEST_F(AssessmentServiceTest, CancelBeginLockedUnsafe, TestSize.Level1)
+{
+    AssessmentService service;
+    service.callerToken_ = CreateMockToken();
+    EXPECT_NO_FATAL_FAILURE(service.CancelBeginLockedUnsafe());
+}
 } // namespace TEST
 } // namespace AAFwk
 } // namespace OHOS
