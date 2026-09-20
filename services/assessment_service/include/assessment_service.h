@@ -80,6 +80,9 @@ private:
     void ConfigCurrentSession(const sptr<IRemoteObject> &token, uint32_t duration,
                               const std::vector<std::string> &allowedApps,
                               const sptr<IRemoteObject> &callback);
+    bool CheckBeginPreconditions(const sptr<IRemoteObject> &token,
+                                 const std::vector<std::string> &allowedApps,
+                                 const sptr<IRemoteObject> &callback, int32_t &errCode);
     void CleanupCurrentSession();
     bool InitSubsystems();
 

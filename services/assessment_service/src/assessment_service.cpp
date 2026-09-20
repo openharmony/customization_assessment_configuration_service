@@ -265,6 +265,34 @@ void AssessmentService::CleanupCurrentSession()
     endpointCheckPoint_ = 0;
 }
 
+bool AssessmentService::CheckBeginPreconditions(const sptr<IRemoteObject> &token,
+    const std::vector<std::string> &allowedApps, const sptr<IRemoteObject> &callback, int32_t &errCode)
+{
+    if (token == nullptr || callback == nullptr || allowedApps.empty()) {
+        TAG_LOGE(AAFwkTag::ASSESSMENT, "assessment invalid params");
+        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_INVALID_PARAMS);
+        return false;
+    }
+    if (!AssessmentServiceUtils::CheckDeviceTypeSupported()) {
+        TAG_LOGE(AAFwkTag::ASSESSMENT, "assessment device not supported");
+        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_CAPABILITY_NOT_SUPPORT);
+        return false;
+    }
+    if (!AssessmentServiceUtils::VerifyCallingPermission(PERMISSION_ASSESSMENT_CONFIGURATION)) {
+        TAG_LOGE(AAFwkTag::ASSESSMENT, "no permission: ohos.permission.ASSESSMENT_CONFIGURATION");
+        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_PERMISSION_DENIED);
+        return false;
+    }
+    // Environment check runs without holding mutexSa_: it may block on
+    // device-manager / call-manager / closed-source extension operations.
+    if (!envChecker_.CheckAll()) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "Environment check failed, cannot start exam mode");
+        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_INVALID_OPERATION);
+        return false;
+    }
+    return true;
+}
+
 ErrCode AssessmentService::Begin(const sptr<IRemoteObject> &token,
                                  uint32_t duration,
                                  const std::vector<std::string> &allowedApps,
@@ -274,28 +302,7 @@ ErrCode AssessmentService::Begin(const sptr<IRemoteObject> &token,
     TAG_LOGI(AAFwkTag::DEFAULT, "Begin called, duration: %{public}d, allowedApps size: %{public}zu",
         duration, allowedApps.size());
 
-    if (token == nullptr || callback == nullptr || allowedApps.empty()) {
-        TAG_LOGE(AAFwkTag::ASSESSMENT, "assessment invalid params");
-        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_INVALID_PARAMS);
-        return ERR_OK;
-    }
-
-    if (!AssessmentServiceUtils::CheckDeviceTypeSupported()) {
-        TAG_LOGE(AAFwkTag::ASSESSMENT, "assessment device not supported");
-        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_CAPABILITY_NOT_SUPPORT);
-        return ERR_OK;
-    }
-    if (!AssessmentServiceUtils::VerifyCallingPermission(PERMISSION_ASSESSMENT_CONFIGURATION)) {
-        TAG_LOGE(AAFwkTag::ASSESSMENT, "no permission: ohos.permission.ASSESSMENT_CONFIGURATION");
-        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_PERMISSION_DENIED);
-        return ERR_OK;
-    }
-
-    // Environment check runs without holding mutexSa_: it may block on
-    // device-manager / call-manager / closed-source extension operations.
-    if (!envChecker_.CheckAll()) {
-        TAG_LOGE(AAFwkTag::DEFAULT, "Environment check failed, cannot start exam mode");
-        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_INVALID_OPERATION);
+    if (!CheckBeginPreconditions(token, allowedApps, callback, errCode)) {
         return ERR_OK;
     }
 
