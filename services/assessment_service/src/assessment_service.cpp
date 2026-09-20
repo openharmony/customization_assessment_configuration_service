@@ -220,6 +220,8 @@ void AssessmentService::ConfigCurrentSession(const sptr<IRemoteObject> &token, u
     CallbackManager::GetInstance().RegisterCallback(token, callback);
     duration = std::min(duration, DEFAULT_MAX_DURATION);
     currentConfig_.duration = (duration == 0) ? DEFAULT_MAX_DURATION : duration;
+    currentConfig_.examId = AssessmentServiceUtils::GenerateRandomExamId();
+    currentConfig_.examStartTime = AssessmentServiceUtils::GetCurrentAssessmentTimeStamp();
     currentConfig_.allowedApps = allowedApps;
     bundleName_ = allowedApps.back();
     endpointCheckPoint_ = 0;
@@ -697,6 +699,18 @@ void AssessmentService::DispatchEvent(const OHOS::EventFwk::CommonEventData& eve
     } else if (action == OHOS::EventFwk::CommonEventSupport::COMMON_EVENT_BOOT_COMPLETED) {
         TAG_LOGI(AAFwkTag::DEFAULT, "System BOOT_COMPLETED");
     }
+}
+
+std::string AssessmentService::GetAssessmentBundleName()
+{
+    TAG_LOGI(AAFwkTag::ASSESSMENT, "GetAssessmentBundleName called");
+    return bundleName_;
+}
+
+AssessmentConfig AssessmentService::GetAssessmentCurrentConfig()
+{
+    TAG_LOGI(AAFwkTag::ASSESSMENT, "GetAssessmentCurrentConfig called");
+    return currentConfig_;
 }
 }  // namespace AAFwk
 }  // namespace OHOS

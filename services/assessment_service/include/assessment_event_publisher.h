@@ -13,28 +13,20 @@
  * limitations under the License.
  */
 
-#ifndef OHOS_ASSESSMENT_UTILS_H
-#define OHOS_ASSESSMENT_UTILS_H
+#ifndef OHOS_ASSESSMENT_EVENT_PUBLISHER_H
+#define OHOS_ASSESSMENT_EVENT_PUBLISHER_H
 
 #include <string>
-#include <cstdint>
 
 namespace OHOS {
 namespace AAFwk {
 
-constexpr const char* PERMISSION_ASSESSMENT_CONFIGURATION = "ohos.permission.ASSESSMENT_CONFIGURATION";
-
-class AssessmentServiceUtils {
+class AssessmentEventPublisher {
 public:
-    static std::string GenerateRandomString(size_t length);
-    static uint64_t GenerateRandomExamId();
-    static uint64_t GetCurrentAssessmentTimeStamp();
-    static bool VerifyCallingPermission(
-        const std::string &permissionName, const uint32_t specifyTokenId = 0);
-    static bool CheckDeviceTypeSupported();
+    void PublishEnterExamModeEvent(const char* errorReason);
+    void PublishExitExamModeEvent(const char* exitReason, const char* errorReason);
 };
 
 } // namespace AAFwk
 } // namespace OHOS
-#endif // OHOS_ASSESSMENT_UTILS_H
-
+#endif // OHOS_ASSESSMENT_EVENT_PUBLISHER_H
