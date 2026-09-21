@@ -111,6 +111,7 @@ private:
     AssessmentExamStatus examStatus_ = AssessmentExamStatus::IDLE;
     std::string ticket_;
     std::string bundleName_;
+    int32_t callingUid_ = 0;
 
     std::mutex mutexSa_;
     std::condition_variable condSa_;
