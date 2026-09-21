@@ -34,7 +34,7 @@ void AssessmentEventPublisher::PublishEnterExamModeEvent(const char *errorReason
 {
     TAG_LOGI(AAFwkTag::DEFAULT, "PublishEnterExamModeEvent called");
     if (errorReason == nullptr) {
-        TAG_LOGW(AAFwkTag::DEFAULT, "Invalid errorReason");
+        TAG_LOGW(AAFwkTag::DEFAULT, "Error reason is empty");
         return;
     }
 
@@ -57,17 +57,21 @@ void AssessmentEventPublisher::PublishEnterExamModeEvent(const char *errorReason
     data.SetWant(want);
 
     if (!EventFwk::CommonEventManager::PublishCommonEvent(data)) {
-        TAG_LOGW(AAFwkTag::DEFAULT, "fail to publish enter exam mode event");
+        TAG_LOGW(AAFwkTag::DEFAULT, "Fail to publish enter exam mode event");
         return;
     }
-    TAG_LOGI(AAFwkTag::DEFAULT, "success to publish enter exam mode event");
+    TAG_LOGI(AAFwkTag::DEFAULT, "Success to publish enter exam mode event");
 }
 
 void AssessmentEventPublisher::PublishExitExamModeEvent(const char *exitReason, const char *errorReason)
 {
     TAG_LOGI(AAFwkTag::DEFAULT, "PublishExitExamModeEvent called");
+    if (exitReason == nullptr) {
+        TAG_LOGW(AAFwkTag::DEFAULT, "Exit Reason is empty");
+        return;
+    }
     if (errorReason == nullptr) {
-        TAG_LOGW(AAFwkTag::DEFAULT, "Invalid errorReason");
+        TAG_LOGW(AAFwkTag::DEFAULT, "Error Reason is empty");
         return;
     }
     
@@ -90,10 +94,10 @@ void AssessmentEventPublisher::PublishExitExamModeEvent(const char *exitReason, 
     data.SetWant(want);
 
     if (!EventFwk::CommonEventManager::PublishCommonEvent(data)) {
-        TAG_LOGW(AAFwkTag::DEFAULT, "fail to publish exit exam mode event");
+        TAG_LOGW(AAFwkTag::DEFAULT, "Fail to publish exit exam mode event");
         return;
     }
-    TAG_LOGI(AAFwkTag::DEFAULT, "success to publish exit exam mode event");
+    TAG_LOGI(AAFwkTag::DEFAULT, "Success to publish exit exam mode event");
 }
 }  // namespace AAFwk
 }  // namespace OHOS
