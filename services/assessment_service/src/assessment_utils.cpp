@@ -83,9 +83,15 @@ bool AssessmentServiceUtils::VerifyCallingPermission(
     return true;
 }
 
+const std::string& AssessmentServiceUtils::GetDeviceType()
+{
+    static const std::string deviceType = OHOS::system::GetParameter("const.product.devicetype", "");
+    return deviceType;
+}
+
 bool AssessmentServiceUtils::CheckDeviceTypeSupported()
 {
-    std::string deviceType = OHOS::system::GetParameter("const.product.devicetype", "");
+    const std::string& deviceType = GetDeviceType();
     if (deviceType == "2in1" || deviceType == "phone" || deviceType == "tablet") {
         return true;
     }

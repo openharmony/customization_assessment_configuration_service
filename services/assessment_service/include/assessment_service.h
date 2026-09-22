@@ -31,6 +31,8 @@
 #include "assessment_service_stub.h"
 #include "assessment_event_manager.h"
 #include "assessment_event_publisher.h"
+#include "env_checker.h"
+#include "process_controller.h"
 #include <input_manager.h>
 
 namespace OHOS {
@@ -66,7 +68,7 @@ public:
     ErrCode IsActive(bool &isActive, int32_t &errCode) override;
     ErrCode GetConfiguration(
         uint32_t &duration, std::vector<std::string> &allowedApps, int32_t &errCode) override;
-    
+
     void NotifyBegin(int32_t code, const std::string &message);
     void NotifyInterrupted(int32_t reason, const std::string &message);
     void NotifyEnd();
@@ -85,6 +87,9 @@ private:
     void ConfigCurrentSession(const sptr<IRemoteObject> &token, uint32_t duration,
                               const std::vector<std::string> &allowedApps,
                               const sptr<IRemoteObject> &callback);
+    bool CheckBeginPreconditions(const sptr<IRemoteObject> &token,
+                                 const std::vector<std::string> &allowedApps,
+                                 const sptr<IRemoteObject> &callback, int32_t &errCode);
     void CleanupCurrentSession();
     bool InitSubsystems();
 
@@ -97,6 +102,10 @@ private:
     bool SubscribeCommonEvent();
     void UnsubscribeCommonEvent();
     void HandleBegin(const std::string &ticket, uint32_t operation);
+    // Activates process control and handles failure/races. Must be called
+    // without mutexSa_ held: it may block on external services and re-acquires
+    // the lock internally. allowedApps must be a copy taken under the lock.
+    void ActivateProcessControl(const std::vector<std::string> &allowedApps);
     void ConfirmationBeginLockedUnsafe();
     void CancelBeginLockedUnsafe();
     void TimeoutLockedUnsafe();
@@ -116,6 +125,7 @@ private:
     AssessmentExamStatus examStatus_ = AssessmentExamStatus::IDLE;
     std::string ticket_;
     std::string bundleName_;
+    int32_t callingUid_ = 0;
 
     std::mutex mutexSa_;
     std::condition_variable condSa_;
@@ -124,9 +134,15 @@ private:
 
     std::shared_ptr<AssessmentEventObserver> assessmentEventObserver_;
     std::shared_ptr<AssessmentEventPublisher> assessmentEventPublisher_;
+    EnvChecker envChecker_;
+    ProcessController processController_;
 
     DISALLOW_COPY_AND_MOVE(AssessmentService);
     int32_t switchId_ = -1;
+
+    bool isWaittingAncoActive_ = false;
+    void RestrictAncoApp();
+    static void AncoStateChangeCallback(const char *key, const char *value, void *context);
 };
 } // namespace AAFwk
 } // namespace OHOS
