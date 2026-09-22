@@ -107,6 +107,8 @@ private:
     ErrCode ExitKioskModeLockedUnsafe();
     void AppDieHandle(const std::string &bundleName);
     void EnvAnomalyLockedUnsafe();
+    void RemarkSaIdleLockedUnsafe();
+    void CheckAndHandleSaIdleLockedUnsafe(int32_t delta);
 
     static std::mutex mutex_;
     static sptr<AssessmentService> instance_;
@@ -121,6 +123,7 @@ private:
     std::string ticket_;
     std::string bundleName_;
     int32_t callingUid_ = 0;
+    uint64_t accumulateIdleTime_ = 0;
 
     std::mutex mutexSa_;
     std::condition_variable condSa_;

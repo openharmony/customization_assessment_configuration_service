@@ -21,6 +21,7 @@
 #include "if_system_ability_manager.h"
 #include "iservice_registry.h"
 #include "system_ability_definition.h"
+#include "assessment_api_error_code.h"
 
 namespace OHOS {
 namespace AAFwk {
@@ -44,10 +45,10 @@ ErrCode AssessmentServiceClient::Begin(const sptr<IRemoteObject> &token, uint32_
 
     auto assessmentService = GetAssessmentProxyWithCheck();
     if (assessmentService == nullptr) {
-        return ERR_INVALID_VALUE;
+        return static_cast<ErrCode>(AssessmentApiErrCode::ERR_INTERNAL_ERROR);
     }
 
-    int errCode = ERR_UNKNOWN_REASON;
+    int32_t errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_INTERNAL_ERROR);
     assessmentService->Begin(token, duration, allowedApps, callback, errCode);
     return static_cast<ErrCode>(errCode);
 }
@@ -59,10 +60,10 @@ ErrCode AssessmentServiceClient::End(const sptr<IRemoteObject> &token)
 
     auto assessmentService = GetAssessmentProxyWithCheck();
     if (assessmentService == nullptr) {
-        return ERR_INVALID_VALUE;
+        return static_cast<ErrCode>(AssessmentApiErrCode::ERR_INTERNAL_ERROR);
     }
 
-    int errCode = ERR_UNKNOWN_REASON;
+    int32_t errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_INTERNAL_ERROR);
     assessmentService->End(token, errCode);
     return static_cast<ErrCode>(errCode);
 }
@@ -73,9 +74,9 @@ ErrCode AssessmentServiceClient::IsActive(bool &isActive)
     auto assessmentService = GetAssessmentProxyWithCheck();
     if (assessmentService == nullptr) {
         isActive = false;
-        return ERR_INVALID_VALUE;
+        return static_cast<ErrCode>(AssessmentApiErrCode::ERR_INTERNAL_ERROR);
     }
-    int errCode = ERR_UNKNOWN_REASON;
+    int32_t errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_INTERNAL_ERROR);
     assessmentService->IsActive(isActive, errCode);
     return static_cast<ErrCode>(errCode);
 }
@@ -87,9 +88,9 @@ ErrCode AssessmentServiceClient::GetConfiguration(uint32_t &duration, std::vecto
     if (assessmentService == nullptr) {
         duration = 0;
         allowedApps.clear();
-        return ERR_INVALID_VALUE;
+        return static_cast<ErrCode>(AssessmentApiErrCode::ERR_INTERNAL_ERROR);
     }
-    int errCode = ERR_UNKNOWN_REASON;
+    int32_t errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_INTERNAL_ERROR);
     assessmentService->GetConfiguration(duration, allowedApps, errCode);
     return static_cast<ErrCode>(errCode);
 }
