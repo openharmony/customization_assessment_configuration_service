@@ -14,3 +14,4 @@
 persist.assessment.is_active=false
 persist.assessment.duration=0
 persist.assessment.allowed_apps=
+persist.assessment.screenreader_name=com.huawei.hmos.screenreader/AccessibilityExtAbility
