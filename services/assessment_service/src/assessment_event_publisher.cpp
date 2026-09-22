@@ -77,7 +77,7 @@ void AssessmentEventPublisher::PublishExitExamModeEvent(const char *exitReason, 
     
     uint64_t examStartTime = AssessmentService::GetInstance()->GetAssessmentCurrentConfig().examStartTime;
     uint64_t examEndTime = AssessmentServiceUtils::GetCurrentAssessmentTimeStamp();
-    uint64_t EXAM_DURATION = examEndTime - examStartTime;
+    uint64_t EXAM_DURATION = (examEndTime > examStartTime) ? (examEndTime - examStartTime) : 0;
 
     OHOS::AAFwk::Want want;
     want.SetAction(EXIT_EXAM_MODE);
