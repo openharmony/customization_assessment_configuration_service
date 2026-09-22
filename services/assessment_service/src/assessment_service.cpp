@@ -731,12 +731,14 @@ void AssessmentService::OnSwitchEvent(std::shared_ptr<OHOS::MMI::SwitchEvent> ev
 
 std::string AssessmentService::GetAssessmentBundleName()
 {
+    std::lock_guard<std::mutex> lock(this->mutexSa_);
     TAG_LOGI(AAFwkTag::ASSESSMENT, "GetAssessmentBundleName called");
     return bundleName_;
 }
 
 AssessmentConfig AssessmentService::GetAssessmentCurrentConfig()
 {
+    std::lock_guard<std::mutex> lock(this->mutexSa_);
     TAG_LOGI(AAFwkTag::ASSESSMENT, "GetAssessmentCurrentConfig called");
     return currentConfig_;
 }
