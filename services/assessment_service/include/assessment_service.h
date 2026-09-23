@@ -30,6 +30,7 @@
 #include "assessment_error_code.h"
 #include "assessment_service_stub.h"
 #include "assessment_event_manager.h"
+#include "assessment_event_publisher.h"
 #include "env_checker.h"
 #include "process_controller.h"
 #include <input_manager.h>
@@ -39,6 +40,8 @@ namespace AAFwk {
 
 struct AssessmentConfig {
     uint32_t duration = 0;
+    uint64_t examId = 0;
+    uint64_t examStartTime = 0;
     std::vector<std::string> allowedApps;
 };
 
@@ -78,6 +81,8 @@ public:
     void DispatchEvent(const OHOS::EventFwk::CommonEventData& data);
     void OnSwitchEvent(std::shared_ptr<OHOS::MMI::SwitchEvent> event);
 
+    std::string GetAssessmentBundleName();
+    AssessmentConfig GetAssessmentCurrentConfig();
 private:
     void ConfigCurrentSession(const sptr<IRemoteObject> &token, uint32_t duration,
                               const std::vector<std::string> &allowedApps,
@@ -131,6 +136,7 @@ private:
     std::thread thread_;
 
     std::shared_ptr<AssessmentEventObserver> assessmentEventObserver_;
+    std::shared_ptr<AssessmentEventPublisher> assessmentEventPublisher_;
     EnvChecker envChecker_;
     ProcessController processController_;
 

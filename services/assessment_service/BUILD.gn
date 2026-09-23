@@ -36,6 +36,7 @@ config("assessment_config") {
 
 assessment_sources = [
   "src/assessment_event_manager.cpp",
+  "src/assessment_event_publisher.cpp",
   "src/assessment_service.cpp",
   "src/assessment_service_ability.cpp",
   "src/assessment_utils.cpp",
