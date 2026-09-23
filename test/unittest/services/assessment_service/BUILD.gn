@@ -42,6 +42,9 @@ ohos_unittest("AssessmentServiceTest") {
     "${assessment_services_path}/assessment_service/src/assessment_service.cpp",
     "${assessment_services_path}/assessment_service/src/assessment_service_ability.cpp",
     "${assessment_services_path}/assessment_service/src/callback_manager.cpp",
+    "${assessment_services_path}/assessment_service/src/env_checker.cpp",
+    "${assessment_services_path}/assessment_service/src/extension_loader.cpp",
+    "${assessment_services_path}/assessment_service/src/process_controller.cpp",
     "./mock/src/mock_assessment_utils.cpp",
     "./src/assessment_service_test.cpp",
   ]
@@ -59,21 +62,31 @@ ohos_unittest("AssessmentServiceTest") {
     "ability_base:want",
     "ability_runtime:ability_context_native",
     "ability_runtime:ability_connect_callback_stub",
-    "ability_runtime:app_manager",
     "ability_runtime:extension_manager",
     "ability_runtime:ability_manager",
+    "accessibility:accessibilityclient",
+    "accessibility:accessibilityconfig",
     "access_token:libaccesstoken_sdk",
     "bundle_framework:appexecfwk_base",
     "bundle_framework:appexecfwk_core",
     "c_utils:utils",
+    "call_manager:tel_call_manager_api",
+    "core_service:tel_core_service_api",
+    "state_registry:tel_state_registry_api",
+    "device_manager:devicemanagersdk",
     "eventhandler:libeventhandler",
+    "graphic_2d:librender_service_base",
     "hilog:libhilog",
     "hitrace:hitrace_meter",
     "init:libbegetutil",
+    "init:libbeget_proxy",
     "ipc:ipc_single",
     "safwk:system_ability_fwk",
     "samgr:samgr_proxy",
-    "input:libmmi-client"
+    "input:libmmi-client",
+    "ability_runtime:app_manager",
+    "window_manager:libdm",
+    "power_manager:powermgr_client"
   ]
 
   sanitize = {
@@ -106,6 +119,9 @@ ohos_unittest("AssessmentUtilsTest") {
     "${assessment_services_path}/assessment_service/src/assessment_service.cpp",
     "${assessment_services_path}/assessment_service/src/assessment_service_ability.cpp",
     "${assessment_services_path}/assessment_service/src/callback_manager.cpp",
+    "${assessment_services_path}/assessment_service/src/env_checker.cpp",
+    "${assessment_services_path}/assessment_service/src/extension_loader.cpp",
+    "${assessment_services_path}/assessment_service/src/process_controller.cpp",
     "./src/assessment_utils_test.cpp",
   ]
 
@@ -122,21 +138,31 @@ ohos_unittest("AssessmentUtilsTest") {
     "ability_base:want",
     "ability_runtime:ability_context_native",
     "ability_runtime:ability_connect_callback_stub",
-    "ability_runtime:app_manager",
     "ability_runtime:extension_manager",
     "ability_runtime:ability_manager",
+    "accessibility:accessibilityclient",
+    "accessibility:accessibilityconfig",
     "access_token:libaccesstoken_sdk",
     "bundle_framework:appexecfwk_base",
     "bundle_framework:appexecfwk_core",
     "c_utils:utils",
+    "call_manager:tel_call_manager_api",
+    "core_service:tel_core_service_api",
+    "state_registry:tel_state_registry_api",
+    "device_manager:devicemanagersdk",
     "eventhandler:libeventhandler",
+    "graphic_2d:librender_service_base",
     "hilog:libhilog",
     "hitrace:hitrace_meter",
     "init:libbegetutil",
+    "init:libbeget_proxy",
     "ipc:ipc_single",
     "safwk:system_ability_fwk",
     "samgr:samgr_proxy",
-    "input:libmmi-client"
+    "input:libmmi-client",
+    "ability_runtime:app_manager",
+    "window_manager:libdm",
+    "power_manager:powermgr_client"
   ]
 
   sanitize = {
@@ -169,6 +195,9 @@ ohos_unittest("AssessmentCallbackManagerTest") {
     "${assessment_services_path}/assessment_service/src/assessment_service.cpp",
     "${assessment_services_path}/assessment_service/src/assessment_service_ability.cpp",
     "${assessment_services_path}/assessment_service/src/callback_manager.cpp",
+    "${assessment_services_path}/assessment_service/src/env_checker.cpp",
+    "${assessment_services_path}/assessment_service/src/extension_loader.cpp",
+    "${assessment_services_path}/assessment_service/src/process_controller.cpp",
     "./src/assessment_callback_manager_test.cpp",
   ]
 
@@ -185,21 +214,31 @@ ohos_unittest("AssessmentCallbackManagerTest") {
     "ability_base:want",
     "ability_runtime:ability_context_native",
     "ability_runtime:ability_connect_callback_stub",
-    "ability_runtime:app_manager",
     "ability_runtime:extension_manager",
     "ability_runtime:ability_manager",
+    "accessibility:accessibilityclient",
+    "accessibility:accessibilityconfig",
     "access_token:libaccesstoken_sdk",
     "bundle_framework:appexecfwk_base",
     "bundle_framework:appexecfwk_core",
     "c_utils:utils",
+    "call_manager:tel_call_manager_api",
+    "core_service:tel_core_service_api",
+    "state_registry:tel_state_registry_api",
+    "device_manager:devicemanagersdk",
     "eventhandler:libeventhandler",
+    "graphic_2d:librender_service_base",
     "hilog:libhilog",
     "hitrace:hitrace_meter",
     "init:libbegetutil",
+    "init:libbeget_proxy",
     "ipc:ipc_single",
     "safwk:system_ability_fwk",
     "samgr:samgr_proxy",
-    "input:libmmi-client"
+    "input:libmmi-client",
+    "ability_runtime:app_manager",
+    "window_manager:libdm",
+    "power_manager:powermgr_client"
   ]
 
   sanitize = {
@@ -232,6 +271,9 @@ ohos_unittest("AssessmentEventManagerTest") {
     "${assessment_services_path}/assessment_service/src/assessment_service.cpp",
     "${assessment_services_path}/assessment_service/src/assessment_service_ability.cpp",
     "${assessment_services_path}/assessment_service/src/callback_manager.cpp",
+    "${assessment_services_path}/assessment_service/src/env_checker.cpp",
+    "${assessment_services_path}/assessment_service/src/extension_loader.cpp",
+    "${assessment_services_path}/assessment_service/src/process_controller.cpp",
     "./src/assessment_event_manager_test.cpp",
   ]
 
@@ -248,21 +290,31 @@ ohos_unittest("AssessmentEventManagerTest") {
     "ability_base:want",
     "ability_runtime:ability_context_native",
     "ability_runtime:ability_connect_callback_stub",
-    "ability_runtime:app_manager",
     "ability_runtime:extension_manager",
     "ability_runtime:ability_manager",
+    "accessibility:accessibilityclient",
+    "accessibility:accessibilityconfig",
     "access_token:libaccesstoken_sdk",
     "bundle_framework:appexecfwk_base",
     "bundle_framework:appexecfwk_core",
     "c_utils:utils",
+    "call_manager:tel_call_manager_api",
+    "core_service:tel_core_service_api",
+    "state_registry:tel_state_registry_api",
+    "device_manager:devicemanagersdk",
     "eventhandler:libeventhandler",
+    "graphic_2d:librender_service_base",
     "hilog:libhilog",
     "hitrace:hitrace_meter",
     "init:libbegetutil",
+    "init:libbeget_proxy",
     "ipc:ipc_single",
     "safwk:system_ability_fwk",
     "samgr:samgr_proxy",
-    "input:libmmi-client"
+    "input:libmmi-client",
+    "ability_runtime:app_manager",
+    "window_manager:libdm",
+    "power_manager:powermgr_client"
   ]
 
   sanitize = {
@@ -295,6 +347,9 @@ ohos_unittest("AssessmentServiceAbilityTest") {
     "${assessment_services_path}/assessment_service/src/assessment_service.cpp",
     "${assessment_services_path}/assessment_service/src/assessment_service_ability.cpp",
     "${assessment_services_path}/assessment_service/src/callback_manager.cpp",
+    "${assessment_services_path}/assessment_service/src/env_checker.cpp",
+    "${assessment_services_path}/assessment_service/src/extension_loader.cpp",
+    "${assessment_services_path}/assessment_service/src/process_controller.cpp",
     "./src/assessment_service_ability_test.cpp",
   ]
 
@@ -311,21 +366,31 @@ ohos_unittest("AssessmentServiceAbilityTest") {
     "ability_base:want",
     "ability_runtime:ability_context_native",
     "ability_runtime:ability_connect_callback_stub",
-    "ability_runtime:app_manager",
     "ability_runtime:extension_manager",
     "ability_runtime:ability_manager",
+    "accessibility:accessibilityclient",
+    "accessibility:accessibilityconfig",
     "access_token:libaccesstoken_sdk",
     "bundle_framework:appexecfwk_base",
     "bundle_framework:appexecfwk_core",
     "c_utils:utils",
+    "call_manager:tel_call_manager_api",
+    "core_service:tel_core_service_api",
+    "state_registry:tel_state_registry_api",
+    "device_manager:devicemanagersdk",
     "eventhandler:libeventhandler",
+    "graphic_2d:librender_service_base",
     "hilog:libhilog",
     "hitrace:hitrace_meter",
     "init:libbegetutil",
+    "init:libbeget_proxy",
     "ipc:ipc_single",
     "safwk:system_ability_fwk",
     "samgr:samgr_proxy",
-    "input:libmmi-client"
+    "input:libmmi-client",
+    "ability_runtime:app_manager",
+    "window_manager:libdm",
+    "power_manager:powermgr_client"
   ]
 
   sanitize = {
@@ -358,6 +423,9 @@ ohos_unittest("AssessmentServiceAppStateCBTest") {
     "${assessment_services_path}/assessment_service/src/assessment_service.cpp",
     "${assessment_services_path}/assessment_service/src/assessment_service_ability.cpp",
     "${assessment_services_path}/assessment_service/src/callback_manager.cpp",
+    "${assessment_services_path}/assessment_service/src/env_checker.cpp",
+    "${assessment_services_path}/assessment_service/src/extension_loader.cpp",
+    "${assessment_services_path}/assessment_service/src/process_controller.cpp",
     "./src/assessment_service_app_state_cb_test.cpp",
   ]
 
@@ -374,21 +442,31 @@ ohos_unittest("AssessmentServiceAppStateCBTest") {
     "ability_base:want",
     "ability_runtime:ability_context_native",
     "ability_runtime:ability_connect_callback_stub",
-    "ability_runtime:app_manager",
     "ability_runtime:extension_manager",
     "ability_runtime:ability_manager",
+    "accessibility:accessibilityclient",
+    "accessibility:accessibilityconfig",
     "access_token:libaccesstoken_sdk",
     "bundle_framework:appexecfwk_base",
     "bundle_framework:appexecfwk_core",
     "c_utils:utils",
+    "call_manager:tel_call_manager_api",
+    "core_service:tel_core_service_api",
+    "state_registry:tel_state_registry_api",
+    "device_manager:devicemanagersdk",
     "eventhandler:libeventhandler",
+    "graphic_2d:librender_service_base",
     "hilog:libhilog",
     "hitrace:hitrace_meter",
     "init:libbegetutil",
+    "init:libbeget_proxy",
     "ipc:ipc_single",
     "safwk:system_ability_fwk",
     "samgr:samgr_proxy",
-    "input:libmmi-client"
+    "input:libmmi-client",
+    "ability_runtime:app_manager",
+    "window_manager:libdm",
+    "power_manager:powermgr_client"
   ]
 
   sanitize = {

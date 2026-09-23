@@ -44,6 +44,12 @@ std::string AssessmentServiceUtils::GenerateRandomString(size_t length)
     return result;
 }
 
+const std::string& AssessmentServiceUtils::GetDeviceType()
+{
+    static const std::string deviceType = "phone";
+    return deviceType;
+}
+
 bool AssessmentServiceUtils::VerifyCallingPermission(
     const std::string &, const uint32_t)
 {
