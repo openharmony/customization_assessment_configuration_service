@@ -240,6 +240,8 @@ void AssessmentService::ConfigCurrentSession(const sptr<IRemoteObject> &token, u
     CallbackManager::GetInstance().RegisterCallback(token, callback);
     duration = std::min(duration, DEFAULT_MAX_DURATION);
     currentConfig_.duration = (duration == 0) ? DEFAULT_MAX_DURATION : duration;
+    currentConfig_.examId = AssessmentServiceUtils::GenerateRandomExamId();
+    currentConfig_.examStartTime = AssessmentServiceUtils::GetCurrentAssessmentTimeStamp();
     currentConfig_.allowedApps = allowedApps;
     bundleName_ = allowedApps.back();
     endpointCheckPoint_ = 0;
@@ -635,34 +637,6 @@ void AssessmentService::HandleBegin(const std::string &ticket, uint32_t operatio
     }
 }
 
-void AssessmentService::ActivateProcessControl(const std::vector<std::string> &allowedApps)
-{
-    // Runs without mutexSa_ held: registering the call observer and disabling
-    // the screen reader may block on external services.
-    if (!processController_.Activate(allowedApps)) {
-        // Environment could not be locked down (e.g. screen reader disable
-        // failed): roll back was done in Activate, interrupt the assessment.
-        TAG_LOGE(AAFwkTag::ASSESSMENT, "process control activation failed, interrupt assessment");
-        std::unique_lock<std::mutex> lock(this->mutexSa_);
-        if (callerToken_ != nullptr) {
-            CallbackManager::GetInstance().OnInterrupted(
-                callerToken_, static_cast<int32_t>(AssessmentErrorCode::SYSTEM_ERROR),
-                AssessmentErrCodeToErrMsg(AssessmentErrorCode::SYSTEM_ERROR));
-        }
-        CleanupCurrentSession();
-        ClearState();
-        return;
-    }
-
-    // The session may have been ended (End/timeout) while activation was in
-    // progress; deactivate so that no lockdown outlives the assessment.
-    std::unique_lock<std::mutex> lock(this->mutexSa_);
-    if (this->examStatus_ != AssessmentExamStatus::ACTIVE) {
-        TAG_LOGW(AAFwkTag::ASSESSMENT, "session ended during activation, deactivate process control");
-        processController_.Deactivate();
-    }
-}
-
 void AssessmentService::ConfirmationBeginLockedUnsafe()
 {
     auto cleanUp = [this]() {
@@ -671,6 +645,12 @@ void AssessmentService::ConfirmationBeginLockedUnsafe()
             AssessmentErrCodeToErrMsg(AssessmentErrorCode::SYSTEM_ERROR));
         CleanupCurrentSession();
     };
+
+    if (!processController_.Activate(currentConfig_.allowedApps)) {
+        TAG_LOGE(AAFwkTag::ASSESSMENT, "process control activation failed, interrupt assessment");
+        cleanUp();
+        return;
+    }
  
     std::shared_ptr<OHOS::AAFwk::AbilityManagerClient> abilityManagerClient
         = OHOS::AAFwk::AbilityManagerClient::GetInstance();
@@ -864,6 +844,20 @@ void AssessmentService::OnSwitchEvent(std::shared_ptr<OHOS::MMI::SwitchEvent> ev
         std::unique_lock<std::mutex> lock(this->mutexSa_);
         this->EnvAnomalyLockedUnsafe();
     }
+}
+
+std::string AssessmentService::GetAssessmentBundleName()
+{
+    std::lock_guard<std::mutex> lock(this->mutexSa_);
+    TAG_LOGI(AAFwkTag::ASSESSMENT, "GetAssessmentBundleName called");
+    return bundleName_;
+}
+
+AssessmentConfig AssessmentService::GetAssessmentCurrentConfig()
+{
+    std::lock_guard<std::mutex> lock(this->mutexSa_);
+    TAG_LOGI(AAFwkTag::ASSESSMENT, "GetAssessmentCurrentConfig called");
+    return currentConfig_;
 }
 }  // namespace AAFwk
 }  // namespace OHOS

@@ -17,6 +17,7 @@
 #define OHOS_ASSESSMENT_UTILS_H
 
 #include <string>
+#include <cstdint>
 
 namespace OHOS {
 namespace AAFwk {
@@ -26,6 +27,8 @@ constexpr const char* PERMISSION_ASSESSMENT_CONFIGURATION = "ohos.permission.ASS
 class AssessmentServiceUtils {
 public:
     static std::string GenerateRandomString(size_t length);
+    static uint64_t GenerateRandomExamId();
+    static uint64_t GetCurrentAssessmentTimeStamp();
     static bool VerifyCallingPermission(
         const std::string &permissionName, const uint32_t specifyTokenId = 0);
     /**

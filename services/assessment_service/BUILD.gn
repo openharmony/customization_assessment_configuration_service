@@ -36,6 +36,7 @@ config("assessment_config") {
 
 assessment_sources = [
   "src/assessment_event_manager.cpp",
+  "src/assessment_event_publisher.cpp",
   "src/assessment_service.cpp",
   "src/assessment_service_ability.cpp",
   "src/assessment_utils.cpp",
@@ -74,8 +75,6 @@ ohos_shared_library("assessmentsvcs") {
     "ability_runtime:ability_connect_callback_stub",
     "ability_runtime:extension_manager",
     "ability_runtime:ability_manager",
-    "accessibility:accessibilityclient",
-    "accessibility:accessibilityconfig",
     "access_token:libaccesstoken_sdk",
     "bundle_framework:appexecfwk_base",
     "bundle_framework:appexecfwk_core",

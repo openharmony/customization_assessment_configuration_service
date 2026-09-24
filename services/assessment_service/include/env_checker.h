@@ -42,10 +42,11 @@ public:
  * The check logic is organized as follows:
  * 1. IsScreenRecording  - Detects screen capture via DisplayManager.
  * 2. IsScreenCasting    - Detects remote devices via DeviceManager (soft bus).
- * 3. IsMultiScreen      - Detects virtual screens via ScreenManager.
+ * 3. IsMultiScreen      - Detects non built-in (external/virtual) screens via ScreenManager.
+ *                        - Only checked when screen count > 1 (some devices have no built-in screen).
  * 4. IsInCall           - Detects active phone call via CallManagerClient.
  * 5. IsPcDevice         - Checks if the device type is "2in1" (PC form factor).
- *    └─ IsVirtualMachine - Delegates to ExtensionLoader for closed-source VM check.
+ *    `-- IsVirtualMachine - Delegates to ExtensionLoader for closed-source VM check.
  *
  * All checks must pass (return true from CheckAll) for the assessment to proceed.
  * Any single failure causes CheckAll to return false immediately.

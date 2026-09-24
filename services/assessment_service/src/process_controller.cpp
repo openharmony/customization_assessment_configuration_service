@@ -15,14 +15,12 @@
 
 #include "process_controller.h"
 
-#include "accessibility_config.h"
 #include "call_manager_client.h"
 #include "hilog_tag_wrapper.h"
 #include "parameter.h"
 #include "singleton.h"
 #include "system_ability_definition.h"
 #include "telephony_observer_broker.h"
-#include "syspara/parameters.h"
 
 namespace OHOS {
 namespace AAFwk {
@@ -54,7 +52,7 @@ void AssessmentTelephonyObserver::OnCallStateUpdated(
     }
 
     TAG_LOGI(AAFwkTag::DEFAULT, "Incoming call detected, auto-rejecting");
-    int32_t ret = callClient->RejectCall(0, false, u"");
+    int32_t ret = callClient->RejectCall(Telephony::RejectType::CALL_REJECT_MISSED_CALL);
     if (ret != 0) {
         TAG_LOGE(AAFwkTag::DEFAULT, "RejectCall failed, ret: %{public}d", ret);
     } else {
@@ -76,13 +74,6 @@ bool ProcessController::Activate(const std::vector<std::string> &allowedApps)
     // callback arriving during activation already sees the active state.
     activated_ = true;
     RegisterCallObserver();
-
-    if (!DisableScreenReader()) {
-        TAG_LOGE(AAFwkTag::DEFAULT, "DisableScreenReader failed, rollback activation");
-        UnRegisterCallObserver();
-        activated_ = false;
-        return false;
-    }
 
     return true;
 }
@@ -154,26 +145,6 @@ void ProcessController::UnRegisterCallObserver()
         telephonyObserver_ = nullptr;
         callObserverRegistered_ = false;
         TAG_LOGI(AAFwkTag::DEFAULT, "CallObserver unregistered");
-    }
-}
-
-bool ProcessController::DisableScreenReader()
-{
-    TAG_LOGI(AAFwkTag::DEFAULT, "Disable ScreenReader");
-    const std::string screenReaderName =
-        system::GetParameter("persist.assessment.screenreader_name", "");
-    auto ret = AccessibilityConfig::AccessibilityConfig::GetInstance().DisableAbility(screenReaderName);
-    if (ret == Accessibility::RetError::RET_OK) {
-        TAG_LOGI(AAFwkTag::DEFAULT, "Screen reader disabled success");
-        return true;
-    } else if (ret == Accessibility::RetError::RET_ERR_NO_INJECTOR ||
-               ret == Accessibility::RetError::RET_ERR_NOT_INSTALLED ||
-               ret == Accessibility::RetError::RET_ERR_NOT_ENABLED) {
-        TAG_LOGI(AAFwkTag::DEFAULT, "Screen reader not active, skip disable, ret: %{public}d", ret);
-        return true;
-    } else {
-        TAG_LOGE(AAFwkTag::DEFAULT, "disable screen reader failed, ret: %{public}d", ret);
-        return false;
     }
 }
 

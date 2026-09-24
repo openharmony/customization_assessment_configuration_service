@@ -16,7 +16,10 @@
 #include "assessment_utils.h"
 
 #include <random>
+#include <cerrno>
+#include <chrono>
 
+#include <sys/random.h>
 #include "accesstoken_kit.h"
 #include "ipc_skeleton.h"
 #include "hilog_tag_wrapper.h"
@@ -44,6 +47,24 @@ std::string AssessmentServiceUtils::GenerateRandomString(size_t length)
     }
 
     return result;
+}
+
+uint64_t AssessmentServiceUtils::GenerateRandomExamId()
+{
+    uint64_t result = 0;
+    ssize_t ret = getrandom(&result, sizeof(result), GRND_NONBLOCK);
+    if (ret != sizeof(result)) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "GenerateRandomExamId failed, ret=%{public}zd, errno=%{public}d", ret, errno);
+        return 0;
+    }
+    return result;
+}
+
+uint64_t AssessmentServiceUtils::GetCurrentAssessmentTimeStamp()
+{
+    auto currentTimeStamp = std::chrono::system_clock::now().time_since_epoch();
+    auto currentTimeStampInMs = std::chrono::duration_cast<std::chrono::milliseconds>(currentTimeStamp).count();
+    return currentTimeStampInMs;
 }
 
 bool AssessmentServiceUtils::VerifyCallingPermission(
