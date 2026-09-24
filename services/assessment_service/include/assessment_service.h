@@ -34,6 +34,7 @@
 #include "env_checker.h"
 #include "process_controller.h"
 #include <input_manager.h>
+#include "assessment_service_app_state_cb.h"
 
 namespace OHOS {
 namespace AAFwk {
@@ -101,6 +102,7 @@ private:
 
     bool SubscribeCommonEvent();
     void UnsubscribeCommonEvent();
+    void PostCommonEventForSystemDialog(const std::string &ticket);
     void HandleBegin(const std::string &ticket, uint32_t operation);
     void ConfirmationBeginLockedUnsafe();
     void CancelBeginLockedUnsafe();
@@ -110,6 +112,7 @@ private:
     void EnvAnomalyLockedUnsafe();
     void RemarkSaIdleLockedUnsafe();
     void CheckAndHandleSaIdleLockedUnsafe(int32_t delta);
+    void BeginDialogSystemError(const std::string &ticket);
 
     static std::mutex mutex_;
     static sptr<AssessmentService> instance_;
@@ -133,6 +136,7 @@ private:
 
     std::shared_ptr<AssessmentEventObserver> assessmentEventObserver_;
     std::shared_ptr<AssessmentEventPublisher> assessmentEventPublisher_;
+    sptr<AAFwk::AssessmentServiceAppStateCb> appStateObserver_;
     EnvChecker envChecker_;
     ProcessController processController_;
 

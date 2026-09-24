@@ -57,19 +57,28 @@ private:
     AssessmentEventReceiver receiver_;
 };
 
+using AssessmentConnectionCallback = std::function<void()>;
+
 class AssessmentAbilityConnection : public AAFwk::AbilityConnectionStub {
 public:
     AssessmentAbilityConnection(
-        const std::string &bundleName, const std::string &abilityName, const std::string &commandStr)
-        : bundleName_(bundleName), abilityName_(abilityName), commandStr_(commandStr) {}
+        const std::string &bundleName,
+        const std::string &abilityName,
+        const std::string &commandStr,
+        AssessmentConnectionCallback callback = nullptr)
+        : bundleName_(bundleName), abilityName_(abilityName), commandStr_(commandStr), callback_(callback) {}
     virtual ~AssessmentAbilityConnection() = default;
     void OnAbilityConnectDone(const AppExecFwk::ElementName& element,
         const sptr<IRemoteObject>& remoteObject, int32_t resultCode) override;
     void OnAbilityDisconnectDone(const AppExecFwk::ElementName& element, int32_t resultCode) override;
 private:
+    bool DoRequest(const AppExecFwk::ElementName& element,
+        const sptr<IRemoteObject>& remoteObject, int32_t resultCode);
+private:
     std::string bundleName_;
     std::string abilityName_;
     std::string commandStr_;
+    AssessmentConnectionCallback callback_;
 };
 } // namespace AAFwk
 } // namespace OHOS

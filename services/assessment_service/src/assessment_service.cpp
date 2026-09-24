@@ -30,7 +30,6 @@
 #include "common_event_subscribe_info.h"
 #include "common_event_manager.h"
 #include "common_event_support.h"
-#include "assessment_service_app_state_cb.h"
 #include "app_mgr_client.h"
 #include "app_mgr_interface.h"
 #include "singleton.h"
@@ -55,10 +54,11 @@ const uint64_t SA_IDLE_MAX_INTERVAL = 5 * 60 * 1000;
 const int32_t TICKET_LEN = 16;
 
 const char* const ASSESSMENT_COMMON_EVENT_CONFIRMATION = "assessment.event.confirmation";
+const char* const ASSESSMENT_COMMON_EVENT_ACK = "assessment.event.ack";
 const std::string SCENEBOARD_BUNDLE_NAME = "com.ohos.sceneboard";
 const std::string SCENEBOARD_ABILITY_NAME = "com.ohos.sceneboard.systemdialog";
-const std::string SYSTEM_UI_BUNDLE_NAME = "com.test.demo";
-const std::string SYSTEM_UI_ABILITY_NAME = "CustomDialogAbility";
+const std::string SYSTEM_UI_BUNDLE_NAME = "com.ohos.commondialog";
+const std::string SYSTEM_UI_ABILITY_NAME = "AssessmentServiceDialogAbility";
 
 enum AssessmentConfirmationOperation : uint32_t {
     CANCEL = 0,
@@ -138,7 +138,6 @@ bool AssessmentService::Init()
 
 bool AssessmentService::InitSubsystems()
 {
-    sptr<AAFwk::AssessmentServiceAppStateCb> appStateObserver_ = nullptr;
     appStateObserver_ = new (std::nothrow) AAFwk::AssessmentServiceAppStateCb([this](const std::string &bundleName) {
         TAG_LOGE(AAFwkTag::DEFAULT, "AssessmentServiceAppStateCb cb: %{public}s", bundleName.c_str());
         this->AppDieHandle(bundleName);
@@ -329,12 +328,22 @@ ErrCode AssessmentService::Begin(const sptr<IRemoteObject> &token,
     }
     CleanupCurrentSession();
     ConfigCurrentSession(token, duration, allowedApps, callback);
-
     errCode = ERR_OK;
+
+    bool uiComponentExists = AssessmentServiceUtils::IsSystemDialogAvailable(
+        SYSTEM_UI_BUNDLE_NAME, SYSTEM_UI_ABILITY_NAME);
+    if (uiComponentExists) {
+        auto invokeRet = InvokeSystemDialog();
+        TAG_LOGI(AAFwkTag::ASSESSMENT, "Begin phrase invoke system dialog, ret: %{public}d", invokeRet);
+        if (invokeRet == ERR_OK) {
+            return ERR_OK;
+        }
+    }
+
     ConfirmationBeginLockedUnsafe();
     condSa_.notify_all();
 
-    TAG_LOGI(AAFwkTag::ASSESSMENT, "Begin over, invoke system dialog, ret: %{public}d", errCode);
+    TAG_LOGI(AAFwkTag::ASSESSMENT, "Begin over, direct to exam state");
     return ERR_OK;
 }
 
@@ -591,15 +600,30 @@ void AssessmentService::UnsubscribeCommonEvent()
     this->assessmentEventObserver_->Unsubscribe();
 }
 
+void AssessmentService::PostCommonEventForSystemDialog(const std::string &ticket)
+{
+    OHOS::EventFwk::CommonEventPublishInfo publishInfo;
+    OHOS::AAFwk::Want want;
+    want.SetAction(ASSESSMENT_COMMON_EVENT_ACK);
+    want.SetParam("ticket", ticket);
+    OHOS::EventFwk::CommonEventData event(want);
+    OHOS::EventFwk::CommonEventManager::PublishCommonEvent(event, publishInfo, nullptr);
+}
+
 int32_t AssessmentService::InvokeSystemDialog()
 {
     OHOS::AAFwk::Want want;
     want.SetElementName(SCENEBOARD_BUNDLE_NAME, SCENEBOARD_ABILITY_NAME);
     std::string parameters =
-        "{\"ability.want.params.uiExtensionType\":\"sysDialog/common\",\"ticket\":\"" + ticket_ + "\"}";
+        "{\"ability.want.params.uiExtensionType\":\"sysDialog/common\","
+        "\"ticket\":\"" + ticket_ + "\",\"bundleName\":\"" + bundleName_ + "\"}";
+    std::string ticket = ticket_;
     sptr<AssessmentAbilityConnection> connection = sptr<AssessmentAbilityConnection>(
         new (std::nothrow)AssessmentAbilityConnection(
-            SYSTEM_UI_BUNDLE_NAME, SYSTEM_UI_ABILITY_NAME, parameters));
+            SYSTEM_UI_BUNDLE_NAME, SYSTEM_UI_ABILITY_NAME, parameters,
+            [ticket, this]() {
+                this->BeginDialogSystemError(ticket);
+            }));
     if (connection == nullptr) {
         TAG_LOGW(AAFwkTag::DEFAULT, "connection is nullptr.");
         return static_cast<int32_t>(AssessmentApiErrCode::ERR_INTERNAL_ERROR);
@@ -617,6 +641,11 @@ int32_t AssessmentService::InvokeSystemDialog()
 void AssessmentService::HandleBegin(const std::string &ticket, uint32_t operation)
 {
     TAG_LOGI(AAFwkTag::DEFAULT, "assessment handle begin %{public}s, %{public}d", ticket.c_str(), operation);
+    if (operation != AssessmentConfirmationOperation::CANCEL
+        && operation != AssessmentConfirmationOperation::CONFIRM) {
+        TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment invalid operation: %{public}d, ignore", operation);
+        return;
+    }
     std::unique_lock<std::mutex> lock(this->mutexSa_);
     if (this->examStatus_ != AssessmentExamStatus::CONFIRMING) {
         TAG_LOGE(AAFwkTag::ASSESSMENT, "assessment is not confirmation state, ignore");
@@ -627,13 +656,12 @@ void AssessmentService::HandleBegin(const std::string &ticket, uint32_t operatio
         return;
     }
 
+    PostCommonEventForSystemDialog(ticket);
     if (operation == AssessmentConfirmationOperation::CANCEL) {
         CancelBeginLockedUnsafe();
     } else if (operation == AssessmentConfirmationOperation::CONFIRM) {
         ConfirmationBeginLockedUnsafe();
         condSa_.notify_all();
-    } else {
-        TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment invalid operation: %{public}d, ignore", operation);
     }
 }
 
@@ -773,17 +801,11 @@ void AssessmentService::DispatchEvent(const OHOS::EventFwk::CommonEventData& eve
     const OHOS::AAFwk::Want& want = eventData.GetWant();
     std::string action = want.GetAction();
     if (action == ASSESSMENT_COMMON_EVENT_CONFIRMATION) {
-        std::string data = eventData.GetData();
-        TAG_LOGI(AAFwkTag::DEFAULT, "assessment receive data:%{public}s for handle begin", data.c_str());
-
-        std::string ticket;
-        int operation = 0;
-
-        std::replace(data.begin(), data.end(), ':', ' ');
-        std::istringstream is(data);
-        if ((is >> ticket >> operation)) {
-            HandleBegin(ticket, operation);
-        }
+        std::string ticket = want.GetStringParam("ticket");
+        int operation = want.GetIntParam("operation", 2);
+        HandleBegin(ticket, operation);
+        TAG_LOGI(AAFwkTag::DEFAULT, "assessment receive ticket:%{public}s, operation:%{public}d for handle begin",
+            ticket.c_str(), operation);
     } else if (action == OHOS::EventFwk::CommonEventSupport::COMMON_EVENT_ENTER_HIBERNATE) {
         TAG_LOGI(AAFwkTag::DEFAULT, "System entered HIBERNATE");
     } else if (action == OHOS::EventFwk::CommonEventSupport::COMMON_EVENT_EXIT_HIBERNATE) {
@@ -858,6 +880,25 @@ AssessmentConfig AssessmentService::GetAssessmentCurrentConfig()
     std::lock_guard<std::mutex> lock(this->mutexSa_);
     TAG_LOGI(AAFwkTag::ASSESSMENT, "GetAssessmentCurrentConfig called");
     return currentConfig_;
+}
+
+void AssessmentService::BeginDialogSystemError(const std::string &ticket)
+{
+    std::unique_lock<std::mutex> lock(this->mutexSa_);
+    if (this->ticket_ != ticket) {
+        return;
+    }
+    if (isActive_) {
+        return;
+    }
+    if (callerToken_ != nullptr) {
+        CallbackManager::GetInstance().OnBegin(
+            callerToken_, static_cast<int32_t>(AssessmentErrorCode::SYSTEM_ERROR),
+            AssessmentErrCodeToErrMsg(AssessmentErrorCode::SYSTEM_ERROR));
+    }
+    CleanupCurrentSession();
+    ClearState();
+    TAG_LOGI(AAFwkTag::ASSESSMENT, "BeginDialogSystemError called");
 }
 }  // namespace AAFwk
 }  // namespace OHOS

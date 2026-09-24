@@ -75,5 +75,10 @@ uint64_t AssessmentServiceUtils::GetCurrentAssessmentTimeStamp()
     auto currentTimeStampInMs = std::chrono::duration_cast<std::chrono::milliseconds>(currentTimeStamp).count();
     return currentTimeStampInMs;
 }
+
+bool AssessmentServiceUtils::IsSystemDialogAvailable(const std::string &, const std::string &)
+{
+    return false;
+}
 }  // namespace AAFwk
 }  // namespace OHOS
