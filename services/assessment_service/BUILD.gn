@@ -75,8 +75,6 @@ ohos_shared_library("assessmentsvcs") {
     "ability_runtime:ability_connect_callback_stub",
     "ability_runtime:extension_manager",
     "ability_runtime:ability_manager",
-    "accessibility:accessibilityclient",
-    "accessibility:accessibilityconfig",
     "access_token:libaccesstoken_sdk",
     "bundle_framework:appexecfwk_base",
     "bundle_framework:appexecfwk_core",

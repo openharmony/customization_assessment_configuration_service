@@ -102,10 +102,6 @@ private:
     bool SubscribeCommonEvent();
     void UnsubscribeCommonEvent();
     void HandleBegin(const std::string &ticket, uint32_t operation);
-    // Activates process control and handles failure/races. Must be called
-    // without mutexSa_ held: it may block on external services and re-acquires
-    // the lock internally. allowedApps must be a copy taken under the lock.
-    void ActivateProcessControl(const std::vector<std::string> &allowedApps);
     void ConfirmationBeginLockedUnsafe();
     void CancelBeginLockedUnsafe();
     void TimeoutLockedUnsafe();

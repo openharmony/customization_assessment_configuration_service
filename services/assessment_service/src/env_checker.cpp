@@ -22,6 +22,7 @@
 #include "device_manager.h"
 #include "display_manager.h"
 #include "hilog_tag_wrapper.h"
+#include "screen_info.h"
 #include "screen_manager.h"
 #include "singleton.h"
 #include "system_ability_definition.h"
@@ -134,8 +135,17 @@ bool EnvChecker::IsScreenCasting()
         return false;
     }
 
-    if (!devList.empty()) {
-        TAG_LOGE(AAFwkTag::DEFAULT, "Online device detected on soft bus, device count: %{public}d",
+    // Exclude the local device: GetAvailableDeviceList may include self.
+    DistributedHardware::DmDeviceInfo localDeviceInfo;
+    ret = DistributedHardware::DeviceManager::GetInstance().GetLocalDeviceInfo(
+        "assessment_service", localDeviceInfo);
+    std::string localDeviceId = (ret == 0) ? std::string(localDeviceInfo.deviceId) : "";
+
+    for (const auto &device : devList) {
+        if (!localDeviceId.empty() && std::string(device.deviceId) == localDeviceId) {
+            continue;
+        }
+        TAG_LOGE(AAFwkTag::DEFAULT, "Remote device detected on soft bus, device count: %{public}d",
             static_cast<int32_t>(devList.size()));
         return true;
     }
@@ -150,9 +160,25 @@ bool EnvChecker::IsMultiScreen()
         TAG_LOGW(AAFwkTag::DEFAULT, "GetAllScreens failed, ret: %{public}d", static_cast<int32_t>(ret));
         return false;
     }
+    // Only check screen type when more than one screen is present.
+    // Some devices have no built-in screen; a single external screen is allowed.
+    if (screens.size() <= 1) {
+        return false;
+    }
     for (const auto &screen : screens) {
-        if (screen != nullptr && !screen->IsReal()) {
-            TAG_LOGI(AAFwkTag::DEFAULT, "Virtual screen detected, screenId: %{public}" PRIu64, screen->GetId());
+        if (screen == nullptr) {
+            continue;
+        }
+        sptr<Rosen::ScreenInfo> screenInfo = screen->GetScreenInfo();
+        if (screenInfo == nullptr) {
+            // Cannot confirm the screen is built-in: treat it as an anomaly.
+            TAG_LOGE(AAFwkTag::DEFAULT, "GetScreenInfo null, screenId: %{public}" PRIu64, screen->GetId());
+            return true;
+        }
+        Rosen::ScreenTypeInfo screenType = screenInfo->GetScreenTypeInfo();
+        if (screenType != Rosen::ScreenTypeInfo::BUILT_IN) {
+            TAG_LOGE(AAFwkTag::DEFAULT, "Non built-in screen detected, screenId: %{public}" PRIu64
+                ", screenType: %{public}d", screen->GetId(), static_cast<int32_t>(screenType));
             return true;
         }
     }
@@ -212,5 +238,6 @@ bool EnvChecker::IsVirtualMachine()
     }
     return !loader_->InvokeCheckAll(std::vector<std::string>{});
 }
+
 } // namespace AAFwk
 } // namespace OHOS
