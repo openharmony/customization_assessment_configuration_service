@@ -39,6 +39,7 @@
 #include "ability_manager_client.h"
 #include "power_mode_info.h"
 #include "power_mgr_client.h"
+#include "service_control.h"
 
 namespace OHOS {
 namespace AAFwk {
@@ -389,6 +390,10 @@ ErrCode AssessmentService::End(const sptr<IRemoteObject> &token, int32_t &errCod
         errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_INTERNAL_ERROR);
         return ERR_OK;
     }
+    int scRet = ServiceControl("softbus_server", ServiceAction::START);
+    if (scRet != 0) {
+        TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment softbus_server start fail, %{public}d", scRet);
+    }
 
     sptr<IRemoteObject> caller = callerToken_;
     if (caller != nullptr) {
@@ -681,7 +686,9 @@ void AssessmentService::ConfirmationBeginLockedUnsafe()
         cleanUp();
         return;
     }
- 
+
+    ServiceControl("softbus_server", ServiceAction::STOP);
+
     std::shared_ptr<OHOS::AAFwk::AbilityManagerClient> abilityManagerClient
         = OHOS::AAFwk::AbilityManagerClient::GetInstance();
     ErrCode retSetAppList = abilityManagerClient->AddKioskApplicationList(currentConfig_.allowedApps);
@@ -735,6 +742,10 @@ void AssessmentService::TimeoutLockedUnsafe()
         TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment exitKioskMode for timeout fail");
         return;
     }
+    int scRet = ServiceControl("softbus_server", ServiceAction::START);
+    if (scRet != 0) {
+        TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment softbus_server start fail, %{public}d", scRet);
+    }
     TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment exitKioskMode for timeout successfully");
     if (callerToken_ != nullptr) {
         CallbackManager::GetInstance().OnInterrupted(
@@ -775,6 +786,10 @@ void AssessmentService::AppDieHandle(const std::string &bundleName)
     if (ret != ERR_OK) {
         TAG_LOGW(AAFwkTag::ASSESSMENT, "assement exit kiosk failed, %{public}d", ret);
     }
+    int scRet = ServiceControl("softbus_server", ServiceAction::START);
+    if (scRet != 0) {
+        TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment softbus_server start fail, %{public}d", scRet);
+    }
 
     sptr<IRemoteObject> caller = callerToken_;
     if (caller != nullptr) {
@@ -796,6 +811,10 @@ void AssessmentService::EnvAnomalyLockedUnsafe()
     if (ret != ERR_OK) {
         TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment exitKioskMode for end fail");
         return;
+    }
+    int scRet = ServiceControl("softbus_server", ServiceAction::START);
+    if (scRet != 0) {
+        TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment softbus_server start fail, %{public}d", scRet);
     }
     CallbackManager::GetInstance().OnInterrupted(
         callerToken_, static_cast<int32_t>(AssessmentErrorCode::ENV_ANOMALY),

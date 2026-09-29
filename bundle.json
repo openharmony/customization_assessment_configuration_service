@@ -1,5 +1,5 @@
 {
-    "name": "@ohos/assessment",
+    "name": "@ohos/assessment_configuration_service",
     "description": "Assessment Configuration Service for device assessment and configuration management",
     "version": "4.0",
     "license": "Apache License 2.0",
@@ -46,7 +46,7 @@
         },
         "build": {
             "sub_component": [
-                "//base/customization/assessment_configuration_service/services/assessment_service:assessmentsvcs",
+                "//base/customization/assessment_configuration_service/services/assessment_service:assessment_configuration_service",
                 "//base/customization/assessment_configuration_service/services/assessment_service:assessment_service.cfg",
                 "//base/customization/assessment_configuration_service/services/assessment_service/sa_profile:assessment_service_sa_profile",
                 "//base/customization/assessment_configuration_service/services/assessment_service/etc/param:assessment.para",
