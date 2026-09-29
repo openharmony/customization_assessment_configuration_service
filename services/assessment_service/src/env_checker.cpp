@@ -21,16 +21,18 @@
 #include "call_manager_client.h"
 #include "device_manager.h"
 #include "display_manager.h"
+#include "enterprise_device_mgr_proxy.h"
 #include "hilog_tag_wrapper.h"
 #include "screen_info.h"
 #include "screen_manager.h"
 #include "singleton.h"
 #include "system_ability_definition.h"
+#include "want.h"
 
 namespace OHOS {
 namespace AAFwk {
 
-const std::string EXTENSION_SO_PATH = "libassessment_ext.z.so";
+const std::string EXTENSION_SO_PATH = "libassessment_configuration_service_ext.z.so";
 
 void AssessmentDmInitCallback::OnRemoteDied()
 {
@@ -96,6 +98,11 @@ bool EnvChecker::CheckAll()
             TAG_LOGE(AAFwkTag::DEFAULT, "Virtual machine running detected");
             return false;
         }
+    }
+
+    if (IsEdmAdminPresent()) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "EDM admin detected, device is managed");
+        return false;
     }
 
     return true;
@@ -237,6 +244,26 @@ bool EnvChecker::IsVirtualMachine()
         return false;
     }
     return !loader_->InvokeCheckAll(std::vector<std::string>{});
+}
+
+bool EnvChecker::IsEdmAdminPresent()
+{
+    auto proxy = OHOS::EDM::EnterpriseDeviceMgrProxy::GetInstance();
+    if (proxy == nullptr) {
+        TAG_LOGW(AAFwkTag::DEFAULT, "EDM proxy is null, skip EDM admin check");
+        return false;
+    }
+    std::vector<std::shared_ptr<OHOS::AAFwk::Want>> wants;
+    ErrCode err = proxy->GetAdmins(wants);
+    if (err != ERR_OK) {
+        TAG_LOGW(AAFwkTag::DEFAULT, "GetAdmins failed, err: %{public}d, skip EDM admin check", err);
+        return false;
+    }
+    if (!wants.empty()) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "EDM admin count: %{public}d", static_cast<int32_t>(wants.size()));
+        return true;
+    }
+    return false;
 }
 
 } // namespace AAFwk

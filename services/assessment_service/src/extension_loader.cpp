@@ -64,6 +64,18 @@ bool ExtensionLoader::InitExtensionLoader()
         return false;
     }
 
+    activateAllFunc_ = reinterpret_cast<ACTIVATE_ALL_FUNC>(dlsym(handle_, "ActivateAll"));
+    if (activateAllFunc_ == nullptr) {
+        TAG_LOGW(AAFwkTag::DEFAULT, "dlsym ActivateAll failed: %{private}s, process control will be skipped",
+            dlerror());
+    }
+
+    deactivateAllFunc_ = reinterpret_cast<DEACTIVATE_ALL_FUNC>(dlsym(handle_, "DeactivateAll"));
+    if (deactivateAllFunc_ == nullptr) {
+        TAG_LOGW(AAFwkTag::DEFAULT, "dlsym DeactivateAll failed: %{private}s, process control will be skipped",
+            dlerror());
+    }
+
     TAG_LOGI(AAFwkTag::DEFAULT, "extension loader init success");
     return true;
 }
@@ -129,6 +141,44 @@ bool ExtensionLoader::IsDegrade() const
 {
     std::lock_guard<std::mutex> lock(mutex_);
     return checkAllFunc_ == nullptr;
+}
+
+bool ExtensionLoader::InvokeActivateAll(const std::vector<std::string> &allowedApps)
+{
+    ACTIVATE_ALL_FUNC activateFunc = nullptr;
+    DegradedCallback degradedCb = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        activateFunc = activateAllFunc_;
+        degradedCb = degradedCallback_;
+    }
+    if (activateFunc == nullptr) {
+        TAG_LOGW(AAFwkTag::DEFAULT, "ActivateAll func is null, degrade");
+        if (degradedCb) {
+            degradedCb(soPath_, "ActivateAll");
+        }
+        return true;
+    }
+    return activateFunc(allowedApps);
+}
+
+bool ExtensionLoader::InvokeDeactivateAll()
+{
+    DEACTIVATE_ALL_FUNC deactivateFunc = nullptr;
+    DegradedCallback degradedCb = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        deactivateFunc = deactivateAllFunc_;
+        degradedCb = degradedCallback_;
+    }
+    if (deactivateFunc == nullptr) {
+        TAG_LOGW(AAFwkTag::DEFAULT, "DeactivateAll func is null, degrade");
+        if (degradedCb) {
+            degradedCb(soPath_, "DeactivateAll");
+        }
+        return true;
+    }
+    return deactivateFunc();
 }
 
 void ExtensionLoader::SetDegradedCallback(DegradedCallback callback)

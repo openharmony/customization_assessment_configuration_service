@@ -13,13 +13,13 @@
  * limitations under the License.
  */
 
+#include <cstddef>
 #include "assessment_event_publisher.h"
 #include "assessment_service.h"
 #include "assessment_utils.h"
 #include "hilog_tag_wrapper.h"
 #include "common_event_manager.h"
 #include "want.h"
-#include <cstddef>
 
 namespace OHOS {
 namespace AAFwk {

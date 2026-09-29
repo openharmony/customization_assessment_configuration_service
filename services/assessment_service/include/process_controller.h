@@ -17,10 +17,12 @@
 #define OHOS_AAFWK_ASSESSMENT_PROCESS_CONTROLLER_H
 
 #include <atomic>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <vector>
 
+#include "extension_loader.h"
 #include "telephony_observer.h"
 #include "telephony_observer_client.h"
 
@@ -51,6 +53,7 @@ private:
  * While activated, ProcessController:
  * 1. Registers a telephony observer to detect incoming calls.
  * 2. Forwards call-state events to the assessment service for interruption.
+ * 3. Disables virtual machines via the closed-source extension.
  */
 class ProcessController {
 public:
@@ -58,8 +61,9 @@ public:
     ~ProcessController() = default;
 
     /**
-     * @brief Initialize the CallManager dependency. Intended to be called once
-     *        at service startup rather than on each Activate().
+     * @brief Initialize the CallManager dependency and the extension loader
+     *        used for VM disable/enable. Intended to be called once at
+     *        service startup rather than on each Activate().
      * @return true if CallManager initialized successfully.
      */
     bool Init();
@@ -88,6 +92,7 @@ private:
     bool callManagerInited_ = false;
     bool callObserverRegistered_ = false;
     sptr<AssessmentTelephonyObserver> telephonyObserver_;
+    std::unique_ptr<ExtensionLoader> extLoader_;
 };
 
 } // namespace AAFwk

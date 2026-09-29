@@ -25,6 +25,8 @@
 namespace OHOS {
 namespace AAFwk {
 
+const std::string EXTENSION_SO_PATH = "libassessment_configuration_service_ext.z.so";
+
 void AssessmentTelephonyObserver::OnCallStateUpdated(
     int32_t slotId, int32_t callState, const std::u16string &phoneNumber)
 {
@@ -62,6 +64,10 @@ void AssessmentTelephonyObserver::OnCallStateUpdated(
 
 bool ProcessController::Init()
 {
+    extLoader_ = std::make_unique<ExtensionLoader>(EXTENSION_SO_PATH);
+    if (!extLoader_->InitExtensionLoader()) {
+        TAG_LOGW(AAFwkTag::DEFAULT, "Extension loader degraded, VM control will be skipped");
+    }
     return InitCallManager();
 }
 
@@ -74,6 +80,10 @@ bool ProcessController::Activate(const std::vector<std::string> &allowedApps)
     // callback arriving during activation already sees the active state.
     activated_ = true;
     RegisterCallObserver();
+
+    if (extLoader_ != nullptr && !extLoader_->InvokeActivateAll(allowedApps)) {
+        TAG_LOGW(AAFwkTag::DEFAULT, "ActivateAll failed, process control degraded");
+    }
 
     return true;
 }
@@ -89,6 +99,10 @@ void ProcessController::Deactivate()
     }
 
     UnRegisterCallObserver();
+
+    if (extLoader_ != nullptr) {
+        extLoader_->InvokeDeactivateAll();
+    }
 
     activated_ = false;
 }
