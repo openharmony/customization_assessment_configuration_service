@@ -112,7 +112,6 @@ private:
     void EnvAnomalyLockedUnsafe();
     void RemarkSaIdleLockedUnsafe();
     void CheckAndHandleSaIdleLockedUnsafe(int32_t delta);
-    void EnableScreenOff(bool enable);
     void BeginDialogSystemError(const std::string &ticket);
 
     static std::mutex mutex_;
