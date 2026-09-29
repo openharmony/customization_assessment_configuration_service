@@ -107,6 +107,9 @@ private:
     ErrCode ExitKioskModeLockedUnsafe();
     void AppDieHandle(const std::string &bundleName);
     void EnvAnomalyLockedUnsafe();
+    void RemarkSaIdleLockedUnsafe();
+    void CheckAndHandleSaIdleLockedUnsafe(int32_t delta);
+    void EnableScreenOff(bool enable);
 
     static std::mutex mutex_;
     static sptr<AssessmentService> instance_;

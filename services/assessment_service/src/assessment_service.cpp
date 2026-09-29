@@ -39,6 +39,7 @@
 #include "ipc_skeleton.h"
 #include "ability_manager_client.h"
 #include "power_mode_info.h"
+#include "power_mgr_client.h"
 
 namespace OHOS {
 namespace AAFwk {
@@ -209,6 +210,7 @@ void AssessmentService::SaveState()
     isWaittingAncoActive_ = envChecker_.IsAwakeAnco(ancoState);
     if (isActive_) {
         envChecker_.RestrictAncoApp();
+        EnableScreenOff(false);
     }
     TAG_LOGD(AAFwkTag::DEFAULT, "State saved");
 }
@@ -220,6 +222,7 @@ void AssessmentService::ClearState()
     system::SetParameter(PARAM_ASSESSMENT_ALLOWED_APPS, "");
     std::string ancoState = system::GetParameter(PARAM_ANCO_STATE, "2");
     isWaittingAncoActive_ = envChecker_.IsAwakeAnco(ancoState);
+    EnableScreenOff(true);
     TAG_LOGD(AAFwkTag::DEFAULT, "State cleared");
 }
 
@@ -464,6 +467,22 @@ void AssessmentService::DoLoop()
         TAG_LOGI(AAFwkTag::DEFAULT, "Assessment execute once");
     }
     TAG_LOGI(AAFwkTag::DEFAULT, "Assessment execute exit");
+}
+
+void AssessmentService::EnableScreenOff(bool enable)
+{
+    PowerMgr::PowerErrors powerError = PowerMgr::PowerMgrClient::GetInstance().SetInterfaceCallFilteringStrategy(enable ?
+        PowerMgr::InterfaceCallFilteringStrategy::SUSPEND_DEVICE_NOT_FILTERING :
+        PowerMgr::InterfaceCallFilteringStrategy::SUSPEND_DEVICE_FILTERING);
+    powerError = PowerMgr::PowerMgrClient::GetInstance().SetLidFilteringStrategy(enable ?
+        PowerMgr::LidFilteringStrategy::LID_CLOSE_NOT_FILTERING :
+        PowerMgr::LidFilteringStrategy::LID_CLOSE_FILTERING);
+    powerError = PowerMgr::PowerMgrClient::GetInstance().SetPowerKeyFilteringStrategy(enable ?
+        PowerMgr::PowerKeyFilteringStrategy::POWER_KEY_UP_SHORT_PRESS_NOT_FILTERING :
+        PowerMgr::PowerKeyFilteringStrategy::POWER_KEY_UP_SHORT_PRESS_FILTERING);
+    if (powerError != PowerMgr::PowerErrors::ERR_OK) {
+        TAG_LOGE(AAFwkTag::ASSESSMENT, "assessment EnableScreenOff failed, error: %{public}d", powerError);
+    }
 }
 
 int32_t AssessmentService::ComputeNextTaskTimeoutLockedUnsafe()
