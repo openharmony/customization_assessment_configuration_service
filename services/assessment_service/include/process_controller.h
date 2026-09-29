@@ -49,9 +49,8 @@ private:
  * @brief Process controller that locks down the device during an assessment.
  *
  * While activated, ProcessController:
- * 1. Disables the screen reader so accessibility TTS cannot be abused.
- * 2. Registers a telephony observer to detect incoming calls.
- * 3. Forwards call-state events to the assessment service for interruption.
+ * 1. Registers a telephony observer to detect incoming calls.
+ * 2. Forwards call-state events to the assessment service for interruption.
  */
 class ProcessController {
 public:
@@ -68,10 +67,7 @@ public:
     /**
      * @brief Lock down the device for an assessment.
      *
-     * Registers the telephony observer and disables the screen reader. If the
-     * screen reader cannot be disabled (a real error, not merely "not active"),
-     * the activation is rolled back (the observer is unregistered) and false is
-     * returned so the caller can interrupt the assessment.
+     * Registers the telephony observer that auto-rejects incoming calls.
      * @return true if process control was fully activated.
      */
     bool Activate(const std::vector<std::string> &allowedApps);
@@ -79,11 +75,10 @@ public:
 
     bool IsActivated() const;
 
- private:
+private:
     bool InitCallManager();
     void RegisterCallObserver();
     void UnRegisterCallObserver();
-    bool DisableScreenReader();
 
     // Serializes Activate()/Deactivate(): they may run on different threads
     // (activation from the common-event thread without the service lock,

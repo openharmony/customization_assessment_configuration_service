@@ -17,6 +17,7 @@
 #include "mock_assessment_constants.h"
 
 #include <random>
+#include <chrono>
 
 #include "hilog_tag_wrapper.h"
 
@@ -44,6 +45,12 @@ std::string AssessmentServiceUtils::GenerateRandomString(size_t length)
     return result;
 }
 
+const std::string& AssessmentServiceUtils::GetDeviceType()
+{
+    static const std::string deviceType = "phone";
+    return deviceType;
+}
+
 bool AssessmentServiceUtils::VerifyCallingPermission(
     const std::string &, const uint32_t)
 {
@@ -53,6 +60,25 @@ bool AssessmentServiceUtils::VerifyCallingPermission(
 bool AssessmentServiceUtils::CheckDeviceTypeSupported()
 {
     return OHOS::AAFwk::TEST::AssessmentTestConstants().GetInstance().CheckDeviceTypeSupported;
+}
+
+uint64_t AssessmentServiceUtils::GenerateRandomExamId()
+{
+    std::random_device rd;
+    std::mt19937_64 gen(rd());
+    return gen();
+}
+
+uint64_t AssessmentServiceUtils::GetCurrentAssessmentTimeStamp()
+{
+    auto currentTimeStamp = std::chrono::system_clock::now().time_since_epoch();
+    auto currentTimeStampInMs = std::chrono::duration_cast<std::chrono::milliseconds>(currentTimeStamp).count();
+    return currentTimeStampInMs;
+}
+
+bool AssessmentServiceUtils::IsSystemDialogAvailable(const std::string &, const std::string &)
+{
+    return false;
 }
 }  // namespace AAFwk
 }  // namespace OHOS

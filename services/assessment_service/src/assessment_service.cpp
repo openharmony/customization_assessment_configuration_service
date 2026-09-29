@@ -30,7 +30,6 @@
 #include "common_event_subscribe_info.h"
 #include "common_event_manager.h"
 #include "common_event_support.h"
-#include "assessment_service_app_state_cb.h"
 #include "app_mgr_client.h"
 #include "app_mgr_interface.h"
 #include "singleton.h"
@@ -52,13 +51,15 @@ const char APP_DELIMITER = '|';
 const uint64_t MILLISECONDS_UNIT = 1000;
 const uint64_t DEFAULT_TIME_SLICE_INTERVAL = 5 * MILLISECONDS_UNIT;
 const uint32_t DEFAULT_MAX_DURATION = 8 * 60 * 60 * 1000;
+const uint64_t SA_IDLE_MAX_INTERVAL = 5 * 60 * 1000;
 const int32_t TICKET_LEN = 16;
 
 const char* const ASSESSMENT_COMMON_EVENT_CONFIRMATION = "assessment.event.confirmation";
+const char* const ASSESSMENT_COMMON_EVENT_ACK = "assessment.event.ack";
 const std::string SCENEBOARD_BUNDLE_NAME = "com.ohos.sceneboard";
 const std::string SCENEBOARD_ABILITY_NAME = "com.ohos.sceneboard.systemdialog";
-const std::string SYSTEM_UI_BUNDLE_NAME = "com.test.demo";
-const std::string SYSTEM_UI_ABILITY_NAME = "CustomDialogAbility";
+const std::string SYSTEM_UI_BUNDLE_NAME = "com.ohos.commondialog";
+const std::string SYSTEM_UI_ABILITY_NAME = "AssessmentServiceDialogAbility";
 
 enum AssessmentConfirmationOperation : uint32_t {
     CANCEL = 0,
@@ -108,18 +109,25 @@ bool AssessmentService::Init()
         return false;
     }
 
-    InitSubsystems();
+    if (!InitSubsystems()) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "InitSubsystems fail");
+        return false;
+    }
     // Heavy dependency init (extension-loader dlopen, DeviceManager and
     // CallManager IPC) runs on the service thread so that SA OnStart is not
     // blocked on external services. Until it completes, the affected env
     // checks are skipped (fail-open, documented in EnvChecker).
+    if (!this->envChecker_.Init()) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "EnvChecker init incomplete, some env checks may be skipped");
+        return false;
+    }
+    if (!this->processController_.Init()) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "ProcessController init failed");
+        return false;
+    }
+
+    this->running_ = true;
     this->thread_ = std::thread([this]() {
-        if (!this->envChecker_.Init()) {
-            TAG_LOGE(AAFwkTag::DEFAULT, "EnvChecker init incomplete, some env checks may be skipped");
-        }
-        if (!this->processController_.Init()) {
-            TAG_LOGE(AAFwkTag::DEFAULT, "ProcessController init failed");
-        }
         this->DoLoop();
     });
     WatchParameter(
@@ -131,7 +139,6 @@ bool AssessmentService::Init()
 
 bool AssessmentService::InitSubsystems()
 {
-    sptr<AAFwk::AssessmentServiceAppStateCb> appStateObserver_ = nullptr;
     appStateObserver_ = new (std::nothrow) AAFwk::AssessmentServiceAppStateCb([this](const std::string &bundleName) {
         TAG_LOGE(AAFwkTag::DEFAULT, "AssessmentServiceAppStateCb cb: %{public}s", bundleName.c_str());
         this->AppDieHandle(bundleName);
@@ -235,11 +242,14 @@ void AssessmentService::ConfigCurrentSession(const sptr<IRemoteObject> &token, u
     CallbackManager::GetInstance().RegisterCallback(token, callback);
     duration = std::min(duration, DEFAULT_MAX_DURATION);
     currentConfig_.duration = (duration == 0) ? DEFAULT_MAX_DURATION : duration;
+    currentConfig_.examId = AssessmentServiceUtils::GenerateRandomExamId();
+    currentConfig_.examStartTime = AssessmentServiceUtils::GetCurrentAssessmentTimeStamp();
     currentConfig_.allowedApps = allowedApps;
     bundleName_ = allowedApps.back();
     endpointCheckPoint_ = 0;
     isActive_ = false;
     examStatus_ = AssessmentExamStatus::CONFIRMING;
+    callingUid_ = IPCSkeleton::GetCallingUid();
 }
 
 void AssessmentService::CleanupCurrentSession()
@@ -254,6 +264,7 @@ void AssessmentService::CleanupCurrentSession()
     currentConfig_ = AssessmentConfig();
     bundleName_ = "";
     endpointCheckPoint_ = 0;
+    callingUid_ = 0;
 }
 
 bool AssessmentService::CheckBeginPreconditions(const sptr<IRemoteObject> &token,
@@ -298,9 +309,15 @@ ErrCode AssessmentService::Begin(const sptr<IRemoteObject> &token,
     }
 
     std::unique_lock<std::mutex> lock(this->mutexSa_);
+    RemarkSaIdleLockedUnsafe();
     if (isActive_) {
         TAG_LOGW(AAFwkTag::ASSESSMENT, "Assessment already active");
         errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_ASSESSMENT_ALREADY_ACTIVE);
+        return ERR_OK;
+    }
+    if (!running_) {
+        TAG_LOGW(AAFwkTag::ASSESSMENT, "Assessment reject accept request");
+        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_INTERNAL_ERROR);
         return ERR_OK;
     }
 
@@ -314,20 +331,22 @@ ErrCode AssessmentService::Begin(const sptr<IRemoteObject> &token,
     }
     CleanupCurrentSession();
     ConfigCurrentSession(token, duration, allowedApps, callback);
+    errCode = ERR_OK;
 
-    errCode = InvokeSystemDialog();
-    if (errCode != ERR_OK) {
-        errCode = ERR_OK;
-        ConfirmationBeginLockedUnsafe();
-        condSa_.notify_all();
-        // Copy under the lock, then activate process control outside it.
-        std::vector<std::string> confirmedApps = currentConfig_.allowedApps;
-        lock.unlock();
-        ActivateProcessControl(confirmedApps);
-        return ERR_OK;
+    bool uiComponentExists = AssessmentServiceUtils::IsSystemDialogAvailable(
+        SYSTEM_UI_BUNDLE_NAME, SYSTEM_UI_ABILITY_NAME);
+    if (uiComponentExists) {
+        auto invokeRet = InvokeSystemDialog();
+        TAG_LOGI(AAFwkTag::ASSESSMENT, "Begin phrase invoke system dialog, ret: %{public}d", invokeRet);
+        if (invokeRet == ERR_OK) {
+            return ERR_OK;
+        }
     }
 
-    TAG_LOGI(AAFwkTag::ASSESSMENT, "Begin over, invoke system dialog, ret: %{public}d", errCode);
+    ConfirmationBeginLockedUnsafe();
+    condSa_.notify_all();
+
+    TAG_LOGI(AAFwkTag::ASSESSMENT, "Begin over, direct to exam state");
     return ERR_OK;
 }
 
@@ -352,9 +371,16 @@ ErrCode AssessmentService::End(const sptr<IRemoteObject> &token, int32_t &errCod
     }
 
     std::unique_lock<std::mutex> lock(this->mutexSa_);
+    RemarkSaIdleLockedUnsafe();
     if (!isActive_) {
         TAG_LOGW(AAFwkTag::ASSESSMENT, "Assessment not active");
         errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_ASSESSMENT_NOT_ACTIVE);
+        return ERR_OK;
+    }
+    int32_t callingUid = IPCSkeleton::GetCallingUid();
+    if (callingUid_ != callingUid) {
+        TAG_LOGW(AAFwkTag::ASSESSMENT, "Assessment be called for other app");
+        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_INVALID_OPERATION);
         return ERR_OK;
     }
 
@@ -372,11 +398,6 @@ ErrCode AssessmentService::End(const sptr<IRemoteObject> &token, int32_t &errCod
     CleanupCurrentSession();
     ClearState();
     errCode = ERR_OK;
-
-    if (!isWaittingAncoActive_) {
-        Destroy();
-    }
-    
     return ERR_OK;
 }
 
@@ -396,6 +417,7 @@ ErrCode AssessmentService::IsActive(bool &isActive, int32_t &errCode)
     }
 
     std::unique_lock<std::mutex> lock(this->mutexSa_);
+    RemarkSaIdleLockedUnsafe();
     isActive = isActive_;
     return ERR_OK;
 }
@@ -417,6 +439,7 @@ ErrCode AssessmentService::GetConfiguration(
     }
 
     std::unique_lock<std::mutex> lock(this->mutexSa_);
+    RemarkSaIdleLockedUnsafe();
     duration = currentConfig_.duration;
     allowedApps = currentConfig_.allowedApps;
     return ERR_OK;
@@ -459,13 +482,20 @@ void AssessmentService::DoLoop()
         int32_t timeout = this->ComputeNextTaskTimeoutLockedUnsafe();
         TAG_LOGD(AAFwkTag::DEFAULT, "Assessment execute compute next round: %{public}d", timeout);
 
-        auto waitUntil = std::chrono::system_clock::now() + std::chrono::milliseconds(timeout);
-        condSa_.wait_until(lock, waitUntil);
+        auto start = std::chrono::steady_clock::now();
+        condSa_.wait_for(lock, std::chrono::milliseconds(timeout));
 
         this->CheckEndpointAndExecuteTaskLockedUnsafe();
 
+        auto end = std::chrono::steady_clock::now();
+        auto delta = static_cast<int32_t>(
+            std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
+        delta = std::min(std::max(0, delta), timeout);
+        this->CheckAndHandleSaIdleLockedUnsafe(delta);
+
         TAG_LOGI(AAFwkTag::DEFAULT, "Assessment execute once");
     }
+    Destroy();
     TAG_LOGI(AAFwkTag::DEFAULT, "Assessment execute exit");
 }
 
@@ -516,8 +546,24 @@ void AssessmentService::CheckEndpointAndExecuteTaskLockedUnsafe()
         std::chrono::system_clock::now().time_since_epoch()).count();
     if (now >= endpointCheckPoint_) {
         this->TimeoutLockedUnsafe();
-        this->Destroy();
     }
+}
+
+void AssessmentService::CheckAndHandleSaIdleLockedUnsafe(int32_t delta)
+{
+    if (!isActive_ && examStatus_ == AssessmentExamStatus::IDLE) {
+        accumulateIdleTime_ += delta;
+        if (accumulateIdleTime_ > SA_IDLE_MAX_INTERVAL) {
+            this->running_ = false;
+        }
+    } else {
+        accumulateIdleTime_ = 0;
+    }
+}
+
+void AssessmentService::RemarkSaIdleLockedUnsafe()
+{
+    accumulateIdleTime_ = 0;
 }
 
 void AssessmentService::Quit()
@@ -573,15 +619,30 @@ void AssessmentService::UnsubscribeCommonEvent()
     this->assessmentEventObserver_->Unsubscribe();
 }
 
+void AssessmentService::PostCommonEventForSystemDialog(const std::string &ticket)
+{
+    OHOS::EventFwk::CommonEventPublishInfo publishInfo;
+    OHOS::AAFwk::Want want;
+    want.SetAction(ASSESSMENT_COMMON_EVENT_ACK);
+    want.SetParam("ticket", ticket);
+    OHOS::EventFwk::CommonEventData event(want);
+    OHOS::EventFwk::CommonEventManager::PublishCommonEvent(event, publishInfo, nullptr);
+}
+
 int32_t AssessmentService::InvokeSystemDialog()
 {
     OHOS::AAFwk::Want want;
     want.SetElementName(SCENEBOARD_BUNDLE_NAME, SCENEBOARD_ABILITY_NAME);
     std::string parameters =
-        "{\"ability.want.params.uiExtensionType\":\"sysDialog/common\",\"ticket\":\"" + ticket_ + "\"}";
+        "{\"ability.want.params.uiExtensionType\":\"sysDialog/common\","
+        "\"ticket\":\"" + ticket_ + "\",\"bundleName\":\"" + bundleName_ + "\"}";
+    std::string ticket = ticket_;
     sptr<AssessmentAbilityConnection> connection = sptr<AssessmentAbilityConnection>(
         new (std::nothrow)AssessmentAbilityConnection(
-            SYSTEM_UI_BUNDLE_NAME, SYSTEM_UI_ABILITY_NAME, parameters));
+            SYSTEM_UI_BUNDLE_NAME, SYSTEM_UI_ABILITY_NAME, parameters,
+            [ticket, this]() {
+                this->BeginDialogSystemError(ticket);
+            }));
     if (connection == nullptr) {
         TAG_LOGW(AAFwkTag::DEFAULT, "connection is nullptr.");
         return static_cast<int32_t>(AssessmentApiErrCode::ERR_INTERNAL_ERROR);
@@ -599,63 +660,27 @@ int32_t AssessmentService::InvokeSystemDialog()
 void AssessmentService::HandleBegin(const std::string &ticket, uint32_t operation)
 {
     TAG_LOGI(AAFwkTag::DEFAULT, "assessment handle begin %{public}s, %{public}d", ticket.c_str(), operation);
-    bool confirmed = false;
-    std::vector<std::string> allowedApps;
-    {
-        std::unique_lock<std::mutex> lock(this->mutexSa_);
-        if (this->examStatus_ != AssessmentExamStatus::CONFIRMING) {
-            TAG_LOGE(AAFwkTag::ASSESSMENT, "assessment is not confirmation state, ignore");
-            return;
-        }
-        if (ticket_ != ticket) {
-            TAG_LOGE(AAFwkTag::ASSESSMENT, "assessment replay ticket: %{public}s, ignore", ticket.c_str());
-            return;
-        }
-
-        if (operation == AssessmentConfirmationOperation::CANCEL) {
-            CancelBeginLockedUnsafe();
-        } else if (operation == AssessmentConfirmationOperation::CONFIRM) {
-            ConfirmationBeginLockedUnsafe();
-            condSa_.notify_all();
-            confirmed = true;
-            // Copy under the lock: a concurrent End() may clear the member
-            // as soon as the lock is released.
-            allowedApps = currentConfig_.allowedApps;
-        } else {
-            TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment invalid operation: %{public}d, ignore", operation);
-        }
+    if (operation != AssessmentConfirmationOperation::CANCEL
+        && operation != AssessmentConfirmationOperation::CONFIRM) {
+        TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment invalid operation: %{public}d, ignore", operation);
+        return;
     }
-
-    if (confirmed) {
-        ActivateProcessControl(allowedApps);
+    std::unique_lock<std::mutex> lock(this->mutexSa_);
+    if (this->examStatus_ != AssessmentExamStatus::CONFIRMING) {
+        TAG_LOGE(AAFwkTag::ASSESSMENT, "assessment is not confirmation state, ignore");
+        return;
     }
-}
-
-void AssessmentService::ActivateProcessControl(const std::vector<std::string> &allowedApps)
-{
-    // Runs without mutexSa_ held: registering the call observer and disabling
-    // the screen reader may block on external services.
-    if (!processController_.Activate(allowedApps)) {
-        // Environment could not be locked down (e.g. screen reader disable
-        // failed): roll back was done in Activate, interrupt the assessment.
-        TAG_LOGE(AAFwkTag::ASSESSMENT, "process control activation failed, interrupt assessment");
-        std::unique_lock<std::mutex> lock(this->mutexSa_);
-        if (callerToken_ != nullptr) {
-            CallbackManager::GetInstance().OnInterrupted(
-                callerToken_, static_cast<int32_t>(AssessmentErrorCode::SYSTEM_ERROR),
-                AssessmentErrCodeToErrMsg(AssessmentErrorCode::SYSTEM_ERROR));
-        }
-        CleanupCurrentSession();
-        ClearState();
+    if (ticket_ != ticket) {
+        TAG_LOGE(AAFwkTag::ASSESSMENT, "assessment replay ticket: %{public}s, ignore", ticket.c_str());
         return;
     }
 
-    // The session may have been ended (End/timeout) while activation was in
-    // progress; deactivate so that no lockdown outlives the assessment.
-    std::unique_lock<std::mutex> lock(this->mutexSa_);
-    if (this->examStatus_ != AssessmentExamStatus::ACTIVE) {
-        TAG_LOGW(AAFwkTag::ASSESSMENT, "session ended during activation, deactivate process control");
-        processController_.Deactivate();
+    PostCommonEventForSystemDialog(ticket);
+    if (operation == AssessmentConfirmationOperation::CANCEL) {
+        CancelBeginLockedUnsafe();
+    } else if (operation == AssessmentConfirmationOperation::CONFIRM) {
+        ConfirmationBeginLockedUnsafe();
+        condSa_.notify_all();
     }
 }
 
@@ -667,6 +692,12 @@ void AssessmentService::ConfirmationBeginLockedUnsafe()
             AssessmentErrCodeToErrMsg(AssessmentErrorCode::SYSTEM_ERROR));
         CleanupCurrentSession();
     };
+
+    if (!processController_.Activate(currentConfig_.allowedApps)) {
+        TAG_LOGE(AAFwkTag::ASSESSMENT, "process control activation failed, interrupt assessment");
+        cleanUp();
+        return;
+    }
  
     std::shared_ptr<OHOS::AAFwk::AbilityManagerClient> abilityManagerClient
         = OHOS::AAFwk::AbilityManagerClient::GetInstance();
@@ -762,7 +793,6 @@ void AssessmentService::AppDieHandle(const std::string &bundleName)
     CleanupCurrentSession();
     ClearState();
     TAG_LOGI(AAFwkTag::ASSESSMENT, "assement clear app: %{public}s for app died", bundleName.c_str());
-    Destroy();
 }
 
 void AssessmentService::EnvAnomalyLockedUnsafe()
@@ -782,7 +812,6 @@ void AssessmentService::EnvAnomalyLockedUnsafe()
         AssessmentErrCodeToErrMsg(AssessmentErrorCode::ENV_ANOMALY));
     CleanupCurrentSession();
     ClearState();
-    Destroy();
 }
 
 void AssessmentService::DispatchEvent(const OHOS::EventFwk::CommonEventData& eventData)
@@ -791,17 +820,11 @@ void AssessmentService::DispatchEvent(const OHOS::EventFwk::CommonEventData& eve
     const OHOS::AAFwk::Want& want = eventData.GetWant();
     std::string action = want.GetAction();
     if (action == ASSESSMENT_COMMON_EVENT_CONFIRMATION) {
-        std::string data = eventData.GetData();
-        TAG_LOGI(AAFwkTag::DEFAULT, "assessment receive data:%{public}s for handle begin", data.c_str());
-
-        std::string ticket;
-        int operation = 0;
-
-        std::replace(data.begin(), data.end(), ':', ' ');
-        std::istringstream is(data);
-        if ((is >> ticket >> operation)) {
-            HandleBegin(ticket, operation);
-        }
+        std::string ticket = want.GetStringParam("ticket");
+        int operation = want.GetIntParam("operation", 2);
+        HandleBegin(ticket, operation);
+        TAG_LOGI(AAFwkTag::DEFAULT, "assessment receive ticket:%{public}s, operation:%{public}d for handle begin",
+            ticket.c_str(), operation);
     } else if (action == OHOS::EventFwk::CommonEventSupport::COMMON_EVENT_ENTER_HIBERNATE) {
         TAG_LOGI(AAFwkTag::DEFAULT, "System entered HIBERNATE");
     } else if (action == OHOS::EventFwk::CommonEventSupport::COMMON_EVENT_EXIT_HIBERNATE) {
@@ -829,6 +852,7 @@ void AssessmentService::AncoStateChangeCallback(const char *key, const char *val
         TAG_LOGE(AAFwkTag::DEFAULT, "AncoStateChangeCallback called, invalid service");
         return;
     }
+    std::unique_lock<std::mutex> lock(service->mutexSa_);
     TAG_LOGI(AAFwkTag::DEFAULT,
              "AncoStateChangeCallback called, isWaittingAncoActive_: %{public}s",
              service->isWaittingAncoActive_ ? "true" : "false");
@@ -839,9 +863,6 @@ void AssessmentService::AncoStateChangeCallback(const char *key, const char *val
         TAG_LOGI(AAFwkTag::DEFAULT,
                  "AncoStateChangeCallback called, sync anco state success, assessment status: %{public}s",
                  service->isActive_ ? "true" : "fasle");
-        if (!service->isActive_) {
-            service->Destroy();
-        }
         service->isWaittingAncoActive_ = false;
     }
 }
@@ -864,6 +885,39 @@ void AssessmentService::OnSwitchEvent(std::shared_ptr<OHOS::MMI::SwitchEvent> ev
         std::unique_lock<std::mutex> lock(this->mutexSa_);
         this->EnvAnomalyLockedUnsafe();
     }
+}
+
+std::string AssessmentService::GetAssessmentBundleName()
+{
+    std::lock_guard<std::mutex> lock(this->mutexSa_);
+    TAG_LOGI(AAFwkTag::ASSESSMENT, "GetAssessmentBundleName called");
+    return bundleName_;
+}
+
+AssessmentConfig AssessmentService::GetAssessmentCurrentConfig()
+{
+    std::lock_guard<std::mutex> lock(this->mutexSa_);
+    TAG_LOGI(AAFwkTag::ASSESSMENT, "GetAssessmentCurrentConfig called");
+    return currentConfig_;
+}
+
+void AssessmentService::BeginDialogSystemError(const std::string &ticket)
+{
+    std::unique_lock<std::mutex> lock(this->mutexSa_);
+    if (this->ticket_ != ticket) {
+        return;
+    }
+    if (isActive_) {
+        return;
+    }
+    if (callerToken_ != nullptr) {
+        CallbackManager::GetInstance().OnBegin(
+            callerToken_, static_cast<int32_t>(AssessmentErrorCode::SYSTEM_ERROR),
+            AssessmentErrCodeToErrMsg(AssessmentErrorCode::SYSTEM_ERROR));
+    }
+    CleanupCurrentSession();
+    ClearState();
+    TAG_LOGI(AAFwkTag::ASSESSMENT, "BeginDialogSystemError called");
 }
 }  // namespace AAFwk
 }  // namespace OHOS

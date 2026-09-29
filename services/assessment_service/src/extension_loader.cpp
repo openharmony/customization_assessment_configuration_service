@@ -16,7 +16,6 @@
 #include "extension_loader.h"
 
 #include <dlfcn.h>
-#include <thread>
 
 #include "hilog_tag_wrapper.h"
 
@@ -42,22 +41,8 @@ bool ExtensionLoader::InitExtensionLoader()
         return checkAllFunc_ != nullptr;
     }
 
-    int32_t attempt = 0;
-    while (attempt < retryPolicy_.maxRetries) {
-        if (LoadInternal()) {
-            break;
-        }
-        if (attempt + 1 < retryPolicy_.maxRetries) {
-            TAG_LOGI(AAFwkTag::DEFAULT, "Load %{private}s retry %{public}d/%{public}d after %{public}d ms",
-                soPath_.c_str(), attempt + 1, retryPolicy_.maxRetries, retryPolicy_.retryIntervalMs);
-            std::this_thread::sleep_for(std::chrono::milliseconds(retryPolicy_.retryIntervalMs));
-        }
-        attempt++;
-    }
-
-    if (handle_ == nullptr) {
-        TAG_LOGE(AAFwkTag::DEFAULT, "Load %{private}s failed after %{public}d attempts",
-            soPath_.c_str(), attempt);
+    if (!LoadInternal()) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "Load %{private}s failed, entering degraded mode", soPath_.c_str());
         return false;
     }
 
@@ -150,12 +135,6 @@ void ExtensionLoader::SetDegradedCallback(DegradedCallback callback)
 {
     std::lock_guard<std::mutex> lock(mutex_);
     degradedCallback_ = std::move(callback);
-}
-
-void ExtensionLoader::SetRetryPolicy(const RetryPolicy &policy)
-{
-    std::lock_guard<std::mutex> lock(mutex_);
-    retryPolicy_ = policy;
 }
 
 } // namespace AAFwk

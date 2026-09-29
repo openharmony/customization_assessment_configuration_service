@@ -74,56 +74,78 @@ void AssessmentEventObserver::OnReceiveEvent(const OHOS::EventFwk::CommonEventDa
 void AssessmentAbilityConnection::OnAbilityConnectDone(
     const AppExecFwk::ElementName& element, const sptr<IRemoteObject>& remoteObject, int32_t resultCode)
 {
-    if (remoteObject == nullptr) {
-        TAG_LOGE(AAFwkTag::DEFAULT, "assessment, remoteObject is nullptr");
-        return;
+    if (!DoRequest(element, remoteObject, resultCode)) {
+        if (callback_) {
+            callback_();
+        }
     }
-    TAG_LOGD(AAFwkTag::DEFAULT, "assessment, resultCode: %{public}d", resultCode);
-    constexpr int32_t PARAM_NUM = 3;
-    MessageParcel data;
-    MessageParcel reply;
-    MessageOption option;
-    if (!data.WriteInt32(PARAM_NUM)) {
-        return;
-    }
-    if (!data.WriteString16(u"bundleName")) {
-        return;
-    }
-    if (!data.WriteString16(Str8ToStr16(bundleName_))) {
-        return;
-    }
-    if (!data.WriteString16(u"abilityName")) {
-        return;
-    }
-    if (!data.WriteString16(Str8ToStr16(abilityName_))) {
-        return;
-    }
-    if (!data.WriteString16(u"parameters")) {
-        return;
-    }
-    if (!data.WriteString16(Str8ToStr16(commandStr_))) {
-        return;
-    }
-    if (!data.WriteParcelable(&element)) {
-        TAG_LOGE(AAFwkTag::DEFAULT, "Connect done element error.");
-        return;
-    }
-    if (!data.WriteRemoteObject(remoteObject)) {
-        TAG_LOGE(AAFwkTag::DEFAULT, "Connect done remote object error.");
-        return;
-    }
-    if (!data.WriteInt32(resultCode)) {
-        TAG_LOGE(AAFwkTag::DEFAULT, "Connect done result code error.");
-        return;
-    }
-    int32_t errCode =
-        remoteObject->SendRequest(AAFwk::IAbilityConnection::ON_ABILITY_CONNECT_DONE, data, reply, option);
-    TAG_LOGI(AAFwkTag::DEFAULT, "assessment remoteObject->SendRequest result %{public}d", errCode);
 }
 
 void AssessmentAbilityConnection::OnAbilityDisconnectDone(const AppExecFwk::ElementName& element, int32_t resultCode)
 {
     TAG_LOGI(AAFwkTag::DEFAULT, "assessment, resultCode: %{public}d", resultCode);
+}
+
+bool AssessmentAbilityConnection::DoRequest(const AppExecFwk::ElementName& element,
+        const sptr<IRemoteObject>& remoteObject, int32_t resultCode)
+{
+    if (remoteObject == nullptr) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "assessment, remoteObject is nullptr");
+        return false;
+    }
+    if (resultCode != ERR_OK) {
+        TAG_LOGD(AAFwkTag::DEFAULT, "assessment, resultCode: %{public}d", resultCode);
+        return false;
+    }
+    constexpr int32_t PARAM_NUM = 3;
+    MessageParcel data;
+    MessageParcel reply;
+    MessageOption option;
+    if (!data.WriteInt32(PARAM_NUM)) {
+        return false;
+    }
+    if (!data.WriteString16(u"bundleName")) {
+        return false;
+    }
+    if (!data.WriteString16(Str8ToStr16(bundleName_))) {
+        return false;
+    }
+    if (!data.WriteString16(u"abilityName")) {
+        return false;
+    }
+    if (!data.WriteString16(Str8ToStr16(abilityName_))) {
+        return false;
+    }
+    if (!data.WriteString16(u"parameters")) {
+        return false;
+    }
+    if (!data.WriteString16(Str8ToStr16(commandStr_))) {
+        return false;
+    }
+    if (!data.WriteParcelable(&element)) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "Connect done element error.");
+        return false;
+    }
+    if (!data.WriteRemoteObject(remoteObject)) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "Connect done remote object error.");
+        return false;
+    }
+    if (!data.WriteInt32(resultCode)) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "Connect done result code error.");
+        return false;
+    }
+    int32_t errCode =
+        remoteObject->SendRequest(AAFwk::IAbilityConnection::ON_ABILITY_CONNECT_DONE, data, reply, option);
+    TAG_LOGI(AAFwkTag::DEFAULT, "assessment remoteObject->SendRequest result %{public}d", errCode);
+    if (errCode != ERR_OK) {
+        return false;
+    }
+    int replyRet = reply.ReadInt32();
+    TAG_LOGI(AAFwkTag::DEFAULT, "assessment reply.readInt %{public}d", replyRet);
+    if (replyRet != ERR_OK) {
+        return false;
+    }
+    return true;
 }
 }  // namespace AAFwk
 }  // namespace OHOS

@@ -16,11 +16,18 @@
 #include "assessment_utils.h"
 
 #include <random>
+#include <cerrno>
+#include <chrono>
 
+#include <sys/random.h>
 #include "accesstoken_kit.h"
 #include "ipc_skeleton.h"
 #include "hilog_tag_wrapper.h"
 #include "syspara/parameters.h"
+#include "system_ability_definition.h"
+#include "if_system_ability_manager.h"
+#include "iservice_registry.h"
+#include "bundle_mgr_interface.h"
 
 namespace OHOS {
 namespace AAFwk {
@@ -44,6 +51,24 @@ std::string AssessmentServiceUtils::GenerateRandomString(size_t length)
     }
 
     return result;
+}
+
+uint64_t AssessmentServiceUtils::GenerateRandomExamId()
+{
+    uint64_t result = 0;
+    ssize_t ret = getrandom(&result, sizeof(result), GRND_NONBLOCK);
+    if (ret != sizeof(result)) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "GenerateRandomExamId failed, ret=%{public}zd, errno=%{public}d", ret, errno);
+        return 0;
+    }
+    return result;
+}
+
+uint64_t AssessmentServiceUtils::GetCurrentAssessmentTimeStamp()
+{
+    auto currentTimeStamp = std::chrono::system_clock::now().time_since_epoch();
+    auto currentTimeStampInMs = std::chrono::duration_cast<std::chrono::milliseconds>(currentTimeStamp).count();
+    return currentTimeStampInMs;
 }
 
 bool AssessmentServiceUtils::VerifyCallingPermission(
@@ -77,5 +102,46 @@ bool AssessmentServiceUtils::CheckDeviceTypeSupported()
     TAG_LOGI(AAFwkTag::DEFAULT, "assessment not supported device_type: %{public}s", deviceType.c_str());
     return false;
 }
+
+bool AssessmentServiceUtils::IsSystemDialogAvailable(
+    const std::string &bundleName, const std::string &abilityName)
+{
+    auto systemAbilityManager =
+        SystemAbilityManagerClient::GetInstance().GetSystemAbilityManager();
+    if (!systemAbilityManager) {
+        return false;
+    }
+    sptr<IRemoteObject> remoteObject =
+        systemAbilityManager->GetSystemAbility(OHOS::BUNDLE_MGR_SERVICE_SYS_ABILITY_ID);
+    if (!remoteObject) {
+        return false;
+    }
+
+    sptr<OHOS::AppExecFwk::IBundleMgr> proxy = iface_cast<OHOS::AppExecFwk::IBundleMgr>(remoteObject);
+    if (proxy == nullptr) {
+        TAG_LOGW(AAFwkTag::ASSESSMENT, "fetch bundleProxy fail");
+        return false;
+    }
+
+    OHOS::AAFwk::Want want;
+    want.SetElementName(bundleName, abilityName);
+    std::vector<OHOS::AppExecFwk::ExtensionAbilityInfo> extensionInfos;
+
+    int32_t flags = static_cast<int32_t>(
+        OHOS::AppExecFwk::GetExtensionAbilityInfoFlag::GET_EXTENSION_ABILITY_INFO_DEFAULT);
+    int32_t BASE_USER_RANGE = 200000;
+    int32_t userId = IPCSkeleton::GetCallingUid() / BASE_USER_RANGE;
+
+    auto ret = proxy->QueryExtensionAbilityInfosV9(want, flags, userId, extensionInfos);
+    if (ret == ERR_OK && !extensionInfos.empty()) {
+        TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment QueryExtensionAbilityInfoV9 exists");
+        return true;
+    }
+
+    TAG_LOGW(AAFwkTag::ASSESSMENT,
+        "assessment QueryExtensionAbilityInfoV9 not exists, ret = %{public}d", ret);
+    return false;
+}
+
 }  // namespace AAFwk
 }  // namespace OHOS
