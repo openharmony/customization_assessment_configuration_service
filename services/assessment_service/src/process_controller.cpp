@@ -21,7 +21,6 @@
 #include "singleton.h"
 #include "system_ability_definition.h"
 #include "telephony_observer_broker.h"
-#include "power_mgr_client.h"
 
 namespace OHOS {
 namespace AAFwk {
@@ -73,10 +72,10 @@ bool ProcessController::Activate(const std::vector<std::string> &allowedApps)
 
     // Mark activated before registering the observer so that an incoming-call
     // callback arriving during activation already sees the active state.
-    activated_ = RestrictScreenOff(true);
+    activated_ = true;
     RegisterCallObserver();
 
-    return activated_;
+    return true;
 }
 
 void ProcessController::Deactivate()
@@ -89,7 +88,6 @@ void ProcessController::Deactivate()
         return;
     }
 
-    RestrictScreenOff(false);
     UnRegisterCallObserver();
 
     activated_ = false;
@@ -148,26 +146,6 @@ void ProcessController::UnRegisterCallObserver()
         callObserverRegistered_ = false;
         TAG_LOGI(AAFwkTag::DEFAULT, "CallObserver unregistered");
     }
-}
-
-bool ProcessController::RestrictScreenOff(bool enable)
-{
-    auto &powerClient = PowerMgr::PowerMgrClient::GetInstance();
-    powerClient.LockScreenAfterTimingOut(!enable, !enable);
-    PowerMgr::PowerErrors powerError = powerClient.SetInterfaceCallFilteringStrategy(enable ?
-        PowerMgr::InterfaceCallFilteringStrategy::SUSPEND_DEVICE_FILTERING :
-        PowerMgr::InterfaceCallFilteringStrategy::SUSPEND_DEVICE_NOT_FILTERING);
-    powerError = powerClient.SetLidFilteringStrategy(enable ?
-        PowerMgr::LidFilteringStrategy::LID_CLOSE_FILTERING :
-        PowerMgr::LidFilteringStrategy::LID_CLOSE_NOT_FILTERING);
-    powerError = powerClient.SetPowerKeyFilteringStrategy(enable ?
-        PowerMgr::PowerKeyFilteringStrategy::POWER_KEY_UP_SHORT_PRESS_FILTERING :
-        PowerMgr::PowerKeyFilteringStrategy::POWER_KEY_UP_SHORT_PRESS_NOT_FILTERING);
-    if (powerError != PowerMgr::PowerErrors::ERR_OK) {
-        TAG_LOGE(AAFwkTag::ASSESSMENT, "assessment EnableScreenOff failed, error: %{public}d", powerError);
-        return false;
-    }
-    return true;
 }
 
 } // namespace AAFwk

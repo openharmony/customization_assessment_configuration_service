@@ -113,6 +113,7 @@ private:
     void RemarkSaIdleLockedUnsafe();
     void CheckAndHandleSaIdleLockedUnsafe(int32_t delta);
     void BeginDialogSystemError(const std::string &ticket);
+    int32_t RestrictScreenOff(bool enable);
 
     static std::mutex mutex_;
     static sptr<AssessmentService> instance_;

@@ -79,7 +79,6 @@ private:
     bool InitCallManager();
     void RegisterCallObserver();
     void UnRegisterCallObserver();
-    bool RestrictScreenOff(bool enable);
 
     // Serializes Activate()/Deactivate(): they may run on different threads
     // (activation from the common-event thread without the service lock,
