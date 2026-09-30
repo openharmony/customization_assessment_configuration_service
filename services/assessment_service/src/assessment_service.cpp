@@ -38,6 +38,7 @@
 #include "ipc_skeleton.h"
 #include "ability_manager_client.h"
 #include "power_mode_info.h"
+#include "power_mgr_client.h"
 
 namespace OHOS {
 namespace AAFwk {
@@ -252,6 +253,7 @@ void AssessmentService::ConfigCurrentSession(const sptr<IRemoteObject> &token, u
 void AssessmentService::CleanupCurrentSession()
 {
     processController_.Deactivate();
+    RestrictScreenOff(false);
     if (callerToken_ != nullptr) {
         CallbackManager::GetInstance().UnregisterCallback(callerToken_);
     }
@@ -696,6 +698,13 @@ void AssessmentService::ConfirmationBeginLockedUnsafe()
         return;
     }
     TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment EnterKioskMode succcessfully");
+    ErrCode retRestrictScreenOff = RestrictScreenOff(true);
+    if (retRestrictScreenOff != ERR_OK) {
+        TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment RestrictScreenOff fail, %{public}d", retRestrictScreenOff);
+        cleanUp();
+        return;
+    }
+    TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment retRestrictScreenOff succcessfully");
 
     auto pt = std::chrono::system_clock::now() + std::chrono::milliseconds(currentConfig_.duration);
     endpointCheckPoint_
@@ -843,7 +852,7 @@ void AssessmentService::AncoStateChangeCallback(const char *key, const char *val
         system::SetParameter(PARAM_ASSESSMENT_IS_ACTIVE, service->isActive_ ? "true" : "false");
         TAG_LOGI(AAFwkTag::DEFAULT,
                  "AncoStateChangeCallback called, sync anco state success, assessment status: %{public}s",
-                 service->isActive_ ? "true" : "fasle");
+                 service->isActive_ ? "true" : "false");
         service->isWaittingAncoActive_ = false;
     }
 }
@@ -899,6 +908,26 @@ void AssessmentService::BeginDialogSystemError(const std::string &ticket)
     CleanupCurrentSession();
     ClearState();
     TAG_LOGI(AAFwkTag::ASSESSMENT, "BeginDialogSystemError called");
+}
+
+ErrCode AssessmentService::RestrictScreenOff(bool enable)
+{
+    auto &powerClient = PowerMgr::PowerMgrClient::GetInstance();
+    powerClient.LockScreenAfterTimingOut(!enable, !enable);
+    PowerMgr::PowerErrors powerError = powerClient.SetInterfaceCallFilteringStrategy(enable ?
+        PowerMgr::InterfaceCallFilteringStrategy::SUSPEND_DEVICE_FILTERING :
+        PowerMgr::InterfaceCallFilteringStrategy::SUSPEND_DEVICE_NOT_FILTERING);
+    powerError = powerClient.SetLidFilteringStrategy(enable ?
+        PowerMgr::LidFilteringStrategy::LID_CLOSE_FILTERING :
+        PowerMgr::LidFilteringStrategy::LID_CLOSE_NOT_FILTERING);
+    powerError = powerClient.SetPowerKeyFilteringStrategy(enable ?
+        PowerMgr::PowerKeyFilteringStrategy::POWER_KEY_UP_SHORT_PRESS_FILTERING :
+        PowerMgr::PowerKeyFilteringStrategy::POWER_KEY_UP_SHORT_PRESS_NOT_FILTERING);
+    if (powerError != PowerMgr::PowerErrors::ERR_OK) {
+        TAG_LOGE(AAFwkTag::ASSESSMENT, "assessment EnableScreenOff failed, error: %{public}d", powerError);
+        return static_cast<int32_t>(AssessmentErrorCode::SYSTEM_ERROR);
+    }
+    return ERR_OK;
 }
 }  // namespace AAFwk
 }  // namespace OHOS
