@@ -33,7 +33,41 @@ constexpr size_t ARGC_ONE = 1;
 constexpr size_t INDEX_ZERO = 0;
 constexpr size_t INDEX_ONE = 1;
 constexpr size_t INDEX_TWO = 2;
-constexpr size_t MAX_ALLOWED_APPS_COUNT = 10;
+constexpr size_t MAX_ALLOWED_APPS_COUNT = 20;
+constexpr size_t MAX_BUNDLENAME_ACC_LENGTH = 2048;
+constexpr int BUNDLE_MAX_DOT_NUM = 2;
+}
+
+static bool IsValidBundleName(const std::string &name)
+{
+    if (name.empty()) {
+        return false;
+    }
+    if (!isalpha(static_cast<unsigned char>(name[0]))) {
+        return false;
+    }
+    int dotNum = 0;
+    bool lastWasDot = true;
+    for (size_t i = 0; i < name.size(); i++) {
+        char c = name[i];
+        if (c == '.') {
+            if (lastWasDot) {
+                return false;
+            }
+            dotNum++;
+            lastWasDot = true;
+            continue;
+        }
+        if (isalnum(static_cast<unsigned char>(c)) || c == '_') {
+            lastWasDot = false;
+            continue;
+        }
+        return false;
+    }
+    if (dotNum < BUNDLE_MAX_DOT_NUM || lastWasDot || name.back() == '_') {
+        return false;
+    }
+    return true;
 }
 
 static napi_value GetNapiUndefined(napi_env env)
@@ -202,41 +236,49 @@ napi_value AssessmentNapiBegin(napi_env env, napi_callback_info info)
         GetUint32FromJs(env, durationValue, duration);
     }
 
-    std::vector<std::string> allowedApps;
+    std::vector<std::string> tmpAllowedApps;
     napi_value allowedAppsValue = nullptr;
     napi_get_named_property(env, configValue, "allowedApps", &allowedAppsValue);
     if (allowedAppsValue != nullptr) {
-        GetStringArrayFromJs(env, allowedAppsValue, allowedApps);
+        GetStringArrayFromJs(env, allowedAppsValue, tmpAllowedApps);
     }
     std::string bundleName = uiAbilityContext->GetBundleName();
     TAG_LOGD(AAFwkTag::ASSESSMENT, "assessment bundleName: %{public}s", bundleName.c_str());
-    auto it = std::find(allowedApps.begin(), allowedApps.end(), bundleName);
-    if (it != allowedApps.end()) {
-        allowedApps.erase(it);
-    }
+    std::set<std::string> appSets(tmpAllowedApps.begin(), tmpAllowedApps.end());
+    appSets.erase(bundleName);
+
+    size_t accLen = 0;
+    std::vector<std::string> allowedApps(appSets.begin(), appSets.end());
     allowedApps.push_back(bundleName);
+    if (allowedApps.size() > MAX_ALLOWED_APPS_COUNT) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "too many allowedApps, size: %{public}zu, max: %{public}zu",
+            allowedApps.size(), MAX_ALLOWED_APPS_COUNT);
+        return ThrowError(env, OHOS::AAFwk::AssessmentApiErrCode::ERR_INVALID_PARAMS);
+    }
+    for (auto &k: allowedApps) {
+        if (!IsValidBundleName(k)) {
+            TAG_LOGE(AAFwkTag::DEFAULT, "bundlename is not valid: %{public}s", k.c_str());
+            return ThrowError(env, OHOS::AAFwk::AssessmentApiErrCode::ERR_INVALID_PARAMS);
+        }
+        accLen += k.length();
+    }
+    if (accLen > MAX_BUNDLENAME_ACC_LENGTH) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "too many allowedApps, acc_len: %{public}zu", accLen);
+        return ThrowError(env, OHOS::AAFwk::AssessmentApiErrCode::ERR_INVALID_PARAMS);
+    }
 
     napi_value callbackValue = argv[INDEX_TWO];
     sptr<AAFwk::JsAssessmentCallback> jsCallback = CreateJsAssessmentCallback(env, callbackValue);
     if (jsCallback == nullptr) {
         return ThrowError(env, OHOS::AAFwk::AssessmentApiErrCode::ERR_INVALID_PARAMS);
     }
-
     TAG_LOGI(AAFwkTag::DEFAULT, "duration: %{public}d, allowedApps size: %{public}zu",
         duration, allowedApps.size());
-
-    if (allowedApps.size() > MAX_ALLOWED_APPS_COUNT) {
-        TAG_LOGE(AAFwkTag::DEFAULT, "too many allowedApps, size: %{public}zu, max: %{public}zu",
-            allowedApps.size(), MAX_ALLOWED_APPS_COUNT);
-        return ThrowError(env, OHOS::AAFwk::AssessmentApiErrCode::ERR_INVALID_PARAMS);
-    }
-
     sptr<IRemoteObject> callbackObj = jsCallback;
     ErrCode ret = OHOS::AAFwk::AssessmentServiceClient::GetInstance()->Begin(token, duration, allowedApps, callbackObj);
     if (ret != ERR_OK) {
         return ThrowError(env, ret, OHOS::AAFwk::AssessmentApiErrCodeToErrMsg(ret));
     }
-
     return GetNapiUndefined(env);
 }
 

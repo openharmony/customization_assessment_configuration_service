@@ -47,7 +47,7 @@ assessment_sources = [
   "src/process_controller.cpp",
 ]
 
-ohos_shared_library("assessmentsvcs") {
+ohos_shared_library("assessment_configuration_service") {
   sanitize = {
     cfi = true
     cfi_cross_dso = true
