@@ -1,5 +1,5 @@
 {
-    "name": "@ohos/assessment",
+    "name": "@ohos/assessment_configuration_service",
     "description": "Assessment Configuration Service for device assessment and configuration management",
     "version": "4.0",
     "license": "Apache License 2.0",
@@ -36,6 +36,7 @@
                 "core_service",
                 "state_registry",
                 "device_manager",
+                "enterprise_device_management",
                 "graphic_2d",
                 "window_manager",
                 "napi",

@@ -96,6 +96,7 @@ private:
     bool IsInCall();
     bool IsPcDevice();
     bool IsVirtualMachine();
+    bool IsEdmAdminPresent();
 
     // Atomic because Init() runs on the service startup thread while the
     // check methods may run concurrently on IPC threads.

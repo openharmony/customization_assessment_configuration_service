@@ -83,6 +83,7 @@ ohos_shared_library("assessmentsvcs") {
     "core_service:tel_core_service_api",
     "state_registry:tel_state_registry_api",
     "device_manager:devicemanagersdk",
+    "enterprise_device_management:edmservice_kits",
     "eventhandler:libeventhandler",
     "graphic_2d:librender_service_base",
     "hilog:libhilog",

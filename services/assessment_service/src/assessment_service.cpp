@@ -13,9 +13,10 @@
  * limitations under the License.
  */
 
-#include "assessment_service.h"
 #include <sstream>
 #include <sys/time.h>
+#include <input_manager.h>
+#include "assessment_service.h"
 #include "callback_manager.h"
 #include "hilog_tag_wrapper.h"
 #include "if_system_ability_manager.h"
@@ -34,7 +35,6 @@
 #include "app_mgr_interface.h"
 #include "singleton.h"
 #include "app_mgr_util.h"
-#include <input_manager.h>
 #include "ipc_skeleton.h"
 #include "ability_manager_client.h"
 #include "power_mode_info.h"
