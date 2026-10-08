@@ -62,6 +62,7 @@ void AssessmentEventPublisher::PublishEnterExamModeEvent(const char *errorReason
         return;
     }
     TAG_LOGI(AAFwkTag::DEFAULT, "Success to publish enter exam mode event");
+    TAG_LOGI(AAFwkTag::ASSESSMENT, "[EnterExamMode] error reason: %{public}s", errorReason);
 }
 
 void AssessmentEventPublisher::PublishExitExamModeEvent(const char *exitReason, const char *errorReason)
@@ -99,6 +100,8 @@ void AssessmentEventPublisher::PublishExitExamModeEvent(const char *exitReason, 
         return;
     }
     TAG_LOGI(AAFwkTag::DEFAULT, "Success to publish exit exam mode event");
+    TAG_LOGI(AAFwkTag::ASSESSMENT,
+             "[ExitExamMode] exit reason: %{public}s, error reason: %{public}s", exitReason, errorReason);
 }
 }  // namespace AAFwk
 }  // namespace OHOS
