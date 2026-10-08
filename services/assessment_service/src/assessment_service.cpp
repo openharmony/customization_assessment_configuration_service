@@ -910,6 +910,14 @@ AssessmentConfig AssessmentService::GetAssessmentCurrentConfig()
     return currentConfig_;
 }
 
+bool AssessmentService::GetEnvCheckResult();
+{
+    std::lock_guard<std::mutex> lock(this->mutexSa_);
+    TAG_LOGI(AAFwkTag::ASSESSMENT, "GetEnvCheckResult called");
+    bool envCheckResult = envChecker_.CheckAll();
+    return envCheckResult;
+}
+
 void AssessmentService::BeginDialogSystemError(const std::string &ticket)
 {
     std::unique_lock<std::mutex> lock(this->mutexSa_);

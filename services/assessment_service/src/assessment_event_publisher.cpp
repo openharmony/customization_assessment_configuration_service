@@ -51,6 +51,7 @@ void AssessmentEventPublisher::PublishEnterExamModeEvent(const char *errorReason
     want.SetParam("DURATION",
                   static_cast<long long>(AssessmentService::GetInstance()->GetAssessmentCurrentConfig().duration));
     want.SetParam("ALLOWED_APPS", AssessmentService::GetInstance()->GetAssessmentCurrentConfig().allowedApps);
+    want.SetParam("ENV_CHECK_RESULT", AssessmentService::GetInstance()->GetEnvCheckResult());
     want.SetParam("ERROR_REASON", errorReason);
 
     EventFwk::CommonEventData data;
