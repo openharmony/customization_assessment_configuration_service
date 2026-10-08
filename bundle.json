@@ -41,7 +41,8 @@
                 "window_manager",
                 "napi",
                 "input",
-                "power_manager"
+                "power_manager",
+                "runtime_core"
             ],
             "third_party": []
         },
@@ -53,7 +54,9 @@
                 "//base/customization/assessment_configuration_service/services/assessment_service/etc/param:assessment.para",
                 "//base/customization/assessment_configuration_service/services/assessment_service/etc/param:assessment.para.dac",
                 "//base/customization/assessment_configuration_service/interfaces/inner_api/assessment_service:assessment_manager",
-                "//base/customization/assessment_configuration_service/frameworks/js/napi:assessment_napi"
+                "//base/customization/assessment_configuration_service/frameworks/js/napi:assessment_napi",
+                "//base/customization/assessment_configuration_service/frameworks/js/ani:customization_assessment_ani",
+                "//base/customization/assessment_configuration_service/frameworks/js/ani:customization_assessment_ani_etc"
             ],
             "inner_kits":[
                 {
