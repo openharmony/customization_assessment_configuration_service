@@ -51,6 +51,7 @@ void AssessmentEventPublisher::PublishEnterExamModeEvent(const char *errorReason
     want.SetParam("DURATION",
                   static_cast<long long>(AssessmentService::GetInstance()->GetAssessmentCurrentConfig().duration));
     want.SetParam("ALLOWED_APPS", AssessmentService::GetInstance()->GetAssessmentCurrentConfig().allowedApps);
+    want.SetParam("ENV_CHECK_RESULT", AssessmentService::GetInstance()->GetEnvCheckResult());
     want.SetParam("ERROR_REASON", errorReason);
 
     EventFwk::CommonEventData data;
@@ -61,6 +62,7 @@ void AssessmentEventPublisher::PublishEnterExamModeEvent(const char *errorReason
         return;
     }
     TAG_LOGI(AAFwkTag::DEFAULT, "Success to publish enter exam mode event");
+    TAG_LOGI(AAFwkTag::ASSESSMENT, "[EnterExamMode] error reason: %{public}s", errorReason);
 }
 
 void AssessmentEventPublisher::PublishExitExamModeEvent(const char *exitReason, const char *errorReason)
@@ -98,6 +100,8 @@ void AssessmentEventPublisher::PublishExitExamModeEvent(const char *exitReason, 
         return;
     }
     TAG_LOGI(AAFwkTag::DEFAULT, "Success to publish exit exam mode event");
+    TAG_LOGI(AAFwkTag::ASSESSMENT,
+             "[ExitExamMode] exit reason: %{public}s, error reason: %{public}s", exitReason, errorReason);
 }
 }  // namespace AAFwk
 }  // namespace OHOS

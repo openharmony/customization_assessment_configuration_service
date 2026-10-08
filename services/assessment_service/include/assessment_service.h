@@ -84,6 +84,7 @@ public:
 
     std::string GetAssessmentBundleName();
     AssessmentConfig GetAssessmentCurrentConfig();
+    bool GetEnvCheckResult();
 private:
     void ConfigCurrentSession(const sptr<IRemoteObject> &token, uint32_t duration,
                               const std::vector<std::string> &allowedApps,
