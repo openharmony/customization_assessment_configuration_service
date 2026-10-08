@@ -730,9 +730,10 @@ void AssessmentService::TimeoutLockedUnsafe()
 
 ErrCode AssessmentService::EnterKioskModeLockedUnsafe()
 {
+    std::vector<std::string> whiteAppList = GetFinalAppList();
     std::shared_ptr<OHOS::AAFwk::AbilityManagerClient> abilityManagerClient
         = OHOS::AAFwk::AbilityManagerClient::GetInstance();
-    ErrCode retSetAppList = abilityManagerClient->AddKioskApplicationList(currentConfig_.allowedApps);
+    ErrCode retSetAppList = abilityManagerClient->AddKioskApplicationList(whiteAppList);
     if (retSetAppList != ERR_OK) {
         TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment set application list fail, %{public}d", retSetAppList);
         return retSetAppList;
@@ -763,7 +764,8 @@ ErrCode AssessmentService::ExitKioskModeLockedUnsafe()
         return retExitKioskMode;
     }
     TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment exitKioskMode successfully");
-    ErrCode retDelAppList = abilityManagerClient->DeleteKioskApplicationList(currentConfig_.allowedApps);
+    std::vector<std::string> whiteAppList = GetFinalAppList();
+    ErrCode retDelAppList = abilityManagerClient->DeleteKioskApplicationList(whiteAppList);
     if (retDelAppList != ERR_OK) {
         TAG_LOGW(AAFwkTag::ASSESSMENT, "assement deleteKioskApplicationList failed, %{public}d", retDelAppList);
     }
@@ -944,6 +946,22 @@ ErrCode AssessmentService::RestrictScreenOff(bool enable)
         return static_cast<int32_t>(AssessmentErrorCode::SYSTEM_ERROR);
     }
     return ERR_OK;
+}
+
+std::vector<std::string> AssessmentService::GetFinalAppList()
+{
+    std::vector<std::string> result = currentConfig_.allowedApps;
+    const std::string PARAM_IME_KEY = "persist.sys.default_ime";
+    std::string inputName = system::GetParameter(PARAM_IME_KEY, "");
+    if (!inputName.empty()) {
+        size_t pos = inputName.find("/");
+        if (pos != std::string::npos) {
+            inputName = inputName.substr(0, pos);
+        }
+        result.push_back(inputName);
+        TAG_LOGE(AAFwkTag::ASSESSMENT, "assessment fetch ime default: %{public}s", inputName.c_str());
+    }
+    return result;
 }
 }  // namespace AAFwk
 }  // namespace OHOS

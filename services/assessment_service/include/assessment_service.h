@@ -116,6 +116,7 @@ private:
     void CheckAndHandleSaIdleLockedUnsafe(int32_t delta);
     void BeginDialogSystemError(const std::string &ticket);
     int32_t RestrictScreenOff(bool enable);
+    std::vector<std::string> GetFinalAppList();
 
     static std::mutex mutex_;
     static sptr<AssessmentService> instance_;
