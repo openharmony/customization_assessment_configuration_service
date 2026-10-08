@@ -108,6 +108,7 @@ private:
     void ConfirmationBeginLockedUnsafe();
     void CancelBeginLockedUnsafe();
     void TimeoutLockedUnsafe();
+    ErrCode EnterKioskModeLockedUnsafe();
     ErrCode ExitKioskModeLockedUnsafe();
     void AppDieHandle(const std::string &bundleName);
     void EnvAnomalyLockedUnsafe();

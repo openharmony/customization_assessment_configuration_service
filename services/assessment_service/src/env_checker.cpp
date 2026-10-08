@@ -122,7 +122,7 @@ bool EnvChecker::IsScreenRecording()
 {
     bool isCaptured = Rosen::DisplayManager::GetInstance().IsCaptured();
     if (isCaptured) {
-        TAG_LOGE(AAFwkTag::DEFAULT, "Screen recording detected: isCaptured = true");
+        TAG_LOGE(AAFwkTag::DEFAULT, "Screen recording detected: isCaptured = true, screen recording check failed");
         return true;
     }
     return false;
@@ -152,8 +152,8 @@ bool EnvChecker::IsScreenCasting()
         if (!localDeviceId.empty() && std::string(device.deviceId) == localDeviceId) {
             continue;
         }
-        TAG_LOGE(AAFwkTag::DEFAULT, "Remote device detected on soft bus, device count: %{public}d",
-            static_cast<int32_t>(devList.size()));
+        TAG_LOGE(AAFwkTag::DEFAULT, "Screen casting check failed, remote device detected on soft bus,"
+            " device count: %{public}d", static_cast<int32_t>(devList.size()));
         return true;
     }
     return false;
@@ -184,8 +184,9 @@ bool EnvChecker::IsMultiScreen()
         }
         Rosen::ScreenTypeInfo screenType = screenInfo->GetScreenTypeInfo();
         if (screenType != Rosen::ScreenTypeInfo::BUILT_IN) {
-            TAG_LOGE(AAFwkTag::DEFAULT, "Non built-in screen detected, screenId: %{public}" PRIu64
-                ", screenType: %{public}d", screen->GetId(), static_cast<int32_t>(screenType));
+            TAG_LOGE(AAFwkTag::DEFAULT, "Multi screen check failed, non built-in screen detected,"
+                " screenId: %{public}" PRIu64 ", screenType: %{public}d",
+                screen->GetId(), static_cast<int32_t>(screenType));
             return true;
         }
     }
@@ -221,7 +222,7 @@ bool EnvChecker::IsInCall()
     }
     bool hasCall = callClient->HasCall(true);
     if (hasCall) {
-        TAG_LOGE(AAFwkTag::DEFAULT, "has call detected");
+        TAG_LOGE(AAFwkTag::DEFAULT, "has call detected, in call check failed");
         return true;
     }
     return false;
