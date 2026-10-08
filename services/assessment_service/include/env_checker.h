@@ -77,6 +77,16 @@ public:
     bool CheckAll();
 
     /**
+     * @brief Detect non built-in (external/virtual) screens via ScreenManager.
+     *
+     * Exposed so that the screen-hotplug listener can re-run exactly the same
+     * judgement used before the assessment starts, including the "screen count
+     * <= 1" exemption for devices that have no built-in screen.
+     * @return true if an external screen is present, false otherwise.
+     */
+    bool IsMultiScreen();
+
+    /**
      * @brief Check anco state.
      * @return true if anco freeze, false if anco active.
      */
@@ -92,7 +102,6 @@ private:
     bool InitCallManager();
     bool IsScreenRecording();
     bool IsScreenCasting();
-    bool IsMultiScreen();
     bool IsInCall();
     bool IsPcDevice();
     bool IsVirtualMachine();

@@ -81,6 +81,7 @@ public:
     void DoLoop();
     void DispatchEvent(const OHOS::EventFwk::CommonEventData& data);
     void OnSwitchEvent(std::shared_ptr<OHOS::MMI::SwitchEvent> event);
+    void OnExternalScreenConnected();
 
     std::string GetAssessmentBundleName();
     AssessmentConfig GetAssessmentCurrentConfig();
