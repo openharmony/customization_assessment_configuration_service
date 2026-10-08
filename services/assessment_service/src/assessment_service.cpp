@@ -39,7 +39,6 @@
 #include "ability_manager_client.h"
 #include "power_mode_info.h"
 #include "power_mgr_client.h"
-#include "service_control.h"
 
 namespace OHOS {
 namespace AAFwk {
@@ -285,13 +284,6 @@ bool AssessmentService::CheckBeginPreconditions(const sptr<IRemoteObject> &token
         errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_PERMISSION_DENIED);
         return false;
     }
-    // Environment check runs without holding mutexSa_: it may block on
-    // device-manager / call-manager / closed-source extension operations.
-    if (!envChecker_.CheckAll()) {
-        TAG_LOGE(AAFwkTag::DEFAULT, "Environment check failed, cannot start exam mode");
-        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_INVALID_OPERATION);
-        return false;
-    }
     return true;
 }
 
@@ -389,10 +381,6 @@ ErrCode AssessmentService::End(const sptr<IRemoteObject> &token, int32_t &errCod
         TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment exitKioskMode for end fail");
         errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_INTERNAL_ERROR);
         return ERR_OK;
-    }
-    int scRet = ServiceControl("softbus_server", ServiceAction::START);
-    if (scRet != 0) {
-        TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment softbus_server start fail, %{public}d", scRet);
     }
 
     sptr<IRemoteObject> caller = callerToken_;
@@ -681,37 +669,25 @@ void AssessmentService::ConfirmationBeginLockedUnsafe()
         CleanupCurrentSession();
     };
 
+    if (!envChecker_.CheckAll()) {
+        TAG_LOGE(AAFwkTag::ASSESSMENT, "Environment check failed after user confirmation");
+        CallbackManager::GetInstance().OnBegin(callerToken_,
+            static_cast<int32_t>(AssessmentErrorCode::ENV_ANOMALY),
+            AssessmentErrCodeToErrMsg(AssessmentErrorCode::ENV_ANOMALY));
+        CleanupCurrentSession();
+        return;
+    }
+
     if (!processController_.Activate(currentConfig_.allowedApps)) {
         TAG_LOGE(AAFwkTag::ASSESSMENT, "process control activation failed, interrupt assessment");
         cleanUp();
         return;
     }
 
-    ServiceControl("softbus_server", ServiceAction::STOP);
-
-    std::shared_ptr<OHOS::AAFwk::AbilityManagerClient> abilityManagerClient
-        = OHOS::AAFwk::AbilityManagerClient::GetInstance();
-    ErrCode retSetAppList = abilityManagerClient->AddKioskApplicationList(currentConfig_.allowedApps);
-    if (retSetAppList != ERR_OK) {
-        TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment set application list fail, %{public}d", retSetAppList);
+    if (EnterKioskModeLockedUnsafe() != ERR_OK) {
         cleanUp();
         return;
     }
-    TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment set application list succcessfully");
-    ErrCode retEnterKioskMode = abilityManagerClient->EnterKioskMode(callerToken_, 1);
-    if (retEnterKioskMode != ERR_OK) {
-        TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment EnterKioskMode fail, %{public}d", retEnterKioskMode);
-        cleanUp();
-        return;
-    }
-    TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment EnterKioskMode succcessfully");
-    ErrCode retRestrictScreenOff = RestrictScreenOff(true);
-    if (retRestrictScreenOff != ERR_OK) {
-        TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment RestrictScreenOff fail, %{public}d", retRestrictScreenOff);
-        cleanUp();
-        return;
-    }
-    TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment retRestrictScreenOff succcessfully");
 
     auto pt = std::chrono::system_clock::now() + std::chrono::milliseconds(currentConfig_.duration);
     endpointCheckPoint_
@@ -742,10 +718,6 @@ void AssessmentService::TimeoutLockedUnsafe()
         TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment exitKioskMode for timeout fail");
         return;
     }
-    int scRet = ServiceControl("softbus_server", ServiceAction::START);
-    if (scRet != 0) {
-        TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment softbus_server start fail, %{public}d", scRet);
-    }
     TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment exitKioskMode for timeout successfully");
     if (callerToken_ != nullptr) {
         CallbackManager::GetInstance().OnInterrupted(
@@ -754,6 +726,31 @@ void AssessmentService::TimeoutLockedUnsafe()
     }
     CleanupCurrentSession();
     ClearState();
+}
+
+ErrCode AssessmentService::EnterKioskModeLockedUnsafe()
+{
+    std::shared_ptr<OHOS::AAFwk::AbilityManagerClient> abilityManagerClient
+        = OHOS::AAFwk::AbilityManagerClient::GetInstance();
+    ErrCode retSetAppList = abilityManagerClient->AddKioskApplicationList(currentConfig_.allowedApps);
+    if (retSetAppList != ERR_OK) {
+        TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment set application list fail, %{public}d", retSetAppList);
+        return retSetAppList;
+    }
+    TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment set application list succcessfully");
+    ErrCode retEnterKioskMode = abilityManagerClient->EnterKioskMode(callerToken_, 1);
+    if (retEnterKioskMode != ERR_OK) {
+        TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment EnterKioskMode fail, %{public}d", retEnterKioskMode);
+        return retEnterKioskMode;
+    }
+    TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment EnterKioskMode succcessfully");
+    ErrCode retRestrictScreenOff = RestrictScreenOff(true);
+    if (retRestrictScreenOff != ERR_OK) {
+        TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment RestrictScreenOff fail, %{public}d", retRestrictScreenOff);
+        return retRestrictScreenOff;
+    }
+    TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment retRestrictScreenOff succcessfully");
+    return ERR_OK;
 }
 
 ErrCode AssessmentService::ExitKioskModeLockedUnsafe()
@@ -786,10 +783,6 @@ void AssessmentService::AppDieHandle(const std::string &bundleName)
     if (ret != ERR_OK) {
         TAG_LOGW(AAFwkTag::ASSESSMENT, "assement exit kiosk failed, %{public}d", ret);
     }
-    int scRet = ServiceControl("softbus_server", ServiceAction::START);
-    if (scRet != 0) {
-        TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment softbus_server start fail, %{public}d", scRet);
-    }
 
     sptr<IRemoteObject> caller = callerToken_;
     if (caller != nullptr) {
@@ -811,10 +804,6 @@ void AssessmentService::EnvAnomalyLockedUnsafe()
     if (ret != ERR_OK) {
         TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment exitKioskMode for end fail");
         return;
-    }
-    int scRet = ServiceControl("softbus_server", ServiceAction::START);
-    if (scRet != 0) {
-        TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment softbus_server start fail, %{public}d", scRet);
     }
     CallbackManager::GetInstance().OnInterrupted(
         callerToken_, static_cast<int32_t>(AssessmentErrorCode::ENV_ANOMALY),
