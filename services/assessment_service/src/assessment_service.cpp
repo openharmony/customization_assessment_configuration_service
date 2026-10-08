@@ -910,7 +910,7 @@ AssessmentConfig AssessmentService::GetAssessmentCurrentConfig()
     return currentConfig_;
 }
 
-bool AssessmentService::GetEnvCheckResult();
+bool AssessmentService::GetEnvCheckResult()
 {
     std::lock_guard<std::mutex> lock(this->mutexSa_);
     TAG_LOGI(AAFwkTag::ASSESSMENT, "GetEnvCheckResult called");
