@@ -50,7 +50,7 @@ ani_status CallAniFunctionVoid(ani_env* env, const char* ns, const char* fn, ani
     return ANI_OK;
 }
 
-ani_status CallAniFunctionVoidWithIntString(ani_env* env,
+ani_status CallAniFunctionVoidWithIntString(ani_env* env,  // NOLINT(readability-function-size)
                                             const char* ns,
                                             const char* fn,
                                             ani_ref callback,
