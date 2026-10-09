@@ -127,7 +127,11 @@ ani_status CreateBusinessError(ani_env* env, int32_t error, const std::string& m
         return status;
     }
     ani_string aniMsg;
-    GetAniString(env, message, &aniMsg);
+    status = GetAniString(env, message, &aniMsg);
+    if (status != ANI_OK) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "GetAniString failed, status:%{public}d", static_cast<int32_t>(status));
+        return status;
+    }
     status = env->Object_New(aniClass, aniCtor, err, aniMsg, CreateAniUndefined(env));
     if (status != ANI_OK) {
         TAG_LOGE(AAFwkTag::DEFAULT, "failed to new error, status:%{public}d", static_cast<int32_t>(status));
