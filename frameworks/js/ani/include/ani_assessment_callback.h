@@ -31,11 +31,6 @@ public:
     virtual ~AniAssessmentCallback();
 
     int OnRemoteRequest(uint32_t code, MessageParcel& data, MessageParcel& reply, MessageOption& option) override;
-
-    ani_ref GetOnBeginRef() const;
-    ani_ref GetOnInterruptedRef() const;
-    ani_ref GetOnEndRef() const;
-
     void CallJsOnBegin(int32_t code, const std::string& message);
     void CallJsOnInterrupted(int32_t reason, const std::string& message);
     void CallJsOnEnd();

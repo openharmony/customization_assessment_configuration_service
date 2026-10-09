@@ -72,21 +72,6 @@ AniAssessmentCallback::~AniAssessmentCallback()
     TAG_LOGI(AAFwkTag::ASSESSMENT, "AniAssessmentCallback destructor finish");
 }
 
-ani_ref AniAssessmentCallback::GetOnBeginRef() const
-{
-    return onBeginRef_;
-}
-
-ani_ref AniAssessmentCallback::GetOnInterruptedRef() const
-{
-    return onInterruptedRef_;
-}
-
-ani_ref AniAssessmentCallback::GetOnEndRef() const
-{
-    return onEndRef_;
-}
-
 int AniAssessmentCallback::OnRemoteRequest(uint32_t code,
                                            MessageParcel& data,
                                            MessageParcel& reply,
