@@ -73,9 +73,15 @@ const char* const TRACE_ERR_REASON_SAVE_SYSPARAM_FAIL = "SAVE_SYSPARAM_FAIL";
 const char* const TRACE_ERR_REASON_NO_EXAM = "NO_EXAM";
 const char* const TRACE_ERR_REASON_RESET_SYSPARAM_FAIL = "RESET_SYSPARAM_FAIL";
 const char* const TRACE_ERR_REASON_NON_OWNER_END = "NON_OWNER_END";
+const char* const TRACE_ERR_REASON_LOCK_SCREENOFF_FAILED = "LOCK_SCREENOFF_FAILED";
+const char* const TRACE_ERR_REASON_APP_DIED = "APP_DIED";
 
 const char* const TRACE_EXIT_REASON_TIMEOUT = "TIMEOUT";
 const char* const TRACE_EXIT_REASON_USER_INITIATED_EXIT = "USER_INITIATED_EXIT";
+const char* const TRACE_EXIT_REASON_ENTER_HIBERNATE = "ENTER_HIBERNATE";
+const char* const TRACE_EXIT_REASON_SHUTDOWN = "SHUTDOWN";
+const char* const TRACE_EXIT_REASON_DEVICE_REBOOT = "DEVICE_REBOOT";
+const char* const TRACE_EXIT_REASON_LID_CLOSED = "LID_CLOSED";
 
 enum AssessmentConfirmationOperation : uint32_t {
     CANCEL = 0,
@@ -443,12 +449,12 @@ ErrCode AssessmentService::End(const sptr<IRemoteObject> &token, int32_t &errCod
     if (caller != nullptr) {
         CallbackManager::GetInstance().OnEnd(caller);
     }
-    CleanupCurrentSession();
-    ClearState();
-    errCode = ERR_OK;
     ExitExamParam params = BuildExitExamParamLockUnsafe();
     AssessmentEventPublisher::PublishExitExamModeEvent(
         params, TRACE_EXIT_REASON_USER_INITIATED_EXIT, TRACE_ERR_REASON_NO_ERROR);
+    CleanupCurrentSession();
+    ClearState();
+    errCode = ERR_OK;
     return ERR_OK;
 }
 
@@ -712,9 +718,9 @@ void AssessmentService::HandleBegin(const std::string &ticket, uint32_t operatio
 
     PostCommonEventForSystemDialog(ticket);
     if (operation == AssessmentConfirmationOperation::CANCEL) {
-        CancelBeginLockedUnsafe();
         EnterExamParam params = BuildEnterExamParamLockUnsafe();
         AssessmentEventPublisher::PublishEnterExamModeEvent(params, TRACE_ERR_REASON_USER_CANCEL);
+        CancelBeginLockedUnsafe();
     } else if (operation == AssessmentConfirmationOperation::CONFIRM) {
         ConfirmationBeginLockedUnsafe();
         EnterExamParam params = BuildEnterExamParamLockUnsafe();
@@ -789,11 +795,11 @@ void AssessmentService::TimeoutLockedUnsafe()
             callerToken_, static_cast<int32_t>(AssessmentErrorCode::TIMEOUT),
             AssessmentErrCodeToErrMsg(AssessmentErrorCode::TIMEOUT));
     }
-    CleanupCurrentSession();
-    ClearState();
     ExitExamParam params = BuildExitExamParamLockUnsafe();
     AssessmentEventPublisher::PublishExitExamModeEvent(
         params, TRACE_EXIT_REASON_TIMEOUT, TRACE_ERR_REASON_NO_ERROR);
+    CleanupCurrentSession();
+    ClearState();
 }
 
 ErrCode AssessmentService::EnterKioskModeLockedUnsafe()
@@ -865,6 +871,9 @@ void AssessmentService::AppDieHandle(const std::string &bundleName)
     if (caller != nullptr) {
         CallbackManager::GetInstance().OnEnd(caller);
     }
+    ExitExamParam params = BuildExitExamParamLockUnsafe();
+    AssessmentEventPublisher::PublishExitExamModeEvent(
+        params, TRACE_ERR_REASON_APP_DIED, TRACE_ERR_REASON_APP_DIED);
     CleanupCurrentSession();
     ClearState();
     TAG_LOGI(AAFwkTag::ASSESSMENT, "assement clear app: %{public}s for app died", bundleName.c_str());
@@ -901,10 +910,21 @@ void AssessmentService::DispatchEvent(const OHOS::EventFwk::CommonEventData& eve
         TAG_LOGI(AAFwkTag::DEFAULT, "assessment receive ticket:%{public}s, operation:%{public}d for handle begin",
             ticket.c_str(), operation);
     } else if (action == OHOS::EventFwk::CommonEventSupport::COMMON_EVENT_ENTER_HIBERNATE) {
+        std::unique_lock<std::mutex> lock(this->mutexSa_);
+        ExitExamParam params = BuildExitExamParamLockUnsafe();
+        AssessmentEventPublisher::PublishExitExamModeEvent(
+            params, TRACE_EXIT_REASON_ENTER_HIBERNATE, TRACE_ERR_REASON_NO_ERROR);
         TAG_LOGI(AAFwkTag::DEFAULT, "System entered HIBERNATE");
     } else if (action == OHOS::EventFwk::CommonEventSupport::COMMON_EVENT_EXIT_HIBERNATE) {
+        std::unique_lock<std::mutex> lock(this->mutexSa_);
+        EnterExamParam params = BuildEnterExamParamLockUnsafe();
+        AssessmentEventPublisher::PublishEnterExamModeEvent(params, TRACE_ERR_REASON_NO_ERROR);
         TAG_LOGI(AAFwkTag::DEFAULT, "System exited HIBERNATE");
     } else if (action == OHOS::EventFwk::CommonEventSupport::COMMON_EVENT_SHUTDOWN) {
+        std::unique_lock<std::mutex> lock(this->mutexSa_);
+        ExitExamParam params = BuildExitExamParamLockUnsafe();
+        AssessmentEventPublisher::PublishExitExamModeEvent(
+            params, TRACE_EXIT_REASON_SHUTDOWN, TRACE_ERR_REASON_NO_ERROR);
         TAG_LOGI(AAFwkTag::DEFAULT, "System shutdown");
     } else if (action == OHOS::EventFwk::CommonEventSupport::COMMON_EVENT_POWER_SAVE_MODE_CHANGED) {
         uint32_t code = eventData.GetCode();
@@ -912,9 +932,16 @@ void AssessmentService::DispatchEvent(const OHOS::EventFwk::CommonEventData& eve
             "assessment POWER_SAVE_MODE_CHANGED, mode: %{public}u", code);
         if (code == static_cast<uint32_t>(OHOS::PowerMgr::PowerMode::EXTREME_POWER_SAVE_MODE)) {
             std::unique_lock<std::mutex> lock(this->mutexSa_);
+            ExitExamParam params = BuildExitExamParamLockUnsafe();
+            AssessmentEventPublisher::PublishExitExamModeEvent(
+                params, TRACE_EXIT_REASON_ENTER_POWER_SAVE_MODE, TRACE_ERR_REASON_NO_ERROR);
             this->EnvAnomalyLockedUnsafe();
         }
     } else if (action == OHOS::EventFwk::CommonEventSupport::COMMON_EVENT_BOOT_COMPLETED) {
+        std::unique_lock<std::mutex> lock(this->mutexSa_);
+        ExitExamParam params = BuildExitExamParamLockUnsafe();
+        AssessmentEventPublisher::PublishExitExamModeEvent(
+            params, TRACE_EXIT_REASON_DEVICE_REBOOT, TRACE_ERR_REASON_NO_ERROR);
         TAG_LOGI(AAFwkTag::DEFAULT, "System BOOT_COMPLETED");
     }
 }
@@ -958,6 +985,9 @@ void AssessmentService::OnSwitchEvent(std::shared_ptr<OHOS::MMI::SwitchEvent> ev
     } else {
         TAG_LOGE(AAFwkTag::DEFAULT, "Lid_Close");
         std::unique_lock<std::mutex> lock(this->mutexSa_);
+        ExitExamParam params = BuildExitExamParamLockUnsafe();
+        AssessmentEventPublisher::PublishExitExamModeEvent(
+            params, TRACE_EXIT_REASON_LID_CLOSED, TRACE_ERR_REASON_NO_ERROR);
         this->EnvAnomalyLockedUnsafe();
     }
 }
@@ -1006,8 +1036,8 @@ void AssessmentService::BeginDialogSystemError(const std::string &ticket)
 ErrCode AssessmentService::RestrictScreenOff(bool enable)
 {
     auto &powerClient = PowerMgr::PowerMgrClient::GetInstance();
-    powerClient.LockScreenAfterTimingOut(!enable, !enable);
-    PowerMgr::PowerErrors powerError = powerClient.SetInterfaceCallFilteringStrategy(enable ?
+    PowerMgr::PowerErrors powerError = powerClient.LockScreenAfterTimingOut(!enable, !enable);
+    powerError = powerClient.SetInterfaceCallFilteringStrategy(enable ?
         PowerMgr::InterfaceCallFilteringStrategy::SUSPEND_DEVICE_FILTERING :
         PowerMgr::InterfaceCallFilteringStrategy::SUSPEND_DEVICE_NOT_FILTERING);
     powerError = powerClient.SetLidFilteringStrategy(enable ?
@@ -1018,6 +1048,14 @@ ErrCode AssessmentService::RestrictScreenOff(bool enable)
         PowerMgr::PowerKeyFilteringStrategy::POWER_KEY_UP_SHORT_PRESS_NOT_FILTERING);
     if (powerError != PowerMgr::PowerErrors::ERR_OK) {
         TAG_LOGE(AAFwkTag::ASSESSMENT, "assessment EnableScreenOff failed, error: %{public}d", powerError);
+        if (enable) {
+            EnterExamParam params = BuildEnterExamParamLockUnsafe();
+            AssessmentEventPublisher::PublishEnterExamModeEvent(params, TRACE_ERR_REASON_LOCK_SCREENOFF_FAILED);
+        } else {
+            ExitExamParam params = BuildExitExamParamLockUnsafe();
+            AssessmentEventPublisher::PublishExitExamModeEvent(
+                params, TRACE_ERR_REASON_LOCK_SCREENOFF_FAILED, TRACE_ERR_REASON_LOCK_SCREENOFF_FAILED);
+        }
         return static_cast<int32_t>(AssessmentErrorCode::SYSTEM_ERROR);
     }
     return ERR_OK;
