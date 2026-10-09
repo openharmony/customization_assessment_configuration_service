@@ -15,7 +15,6 @@
 
 #include <cstddef>
 #include "assessment_event_publisher.h"
-#include "assessment_service.h"
 #include "assessment_utils.h"
 #include "hilog_tag_wrapper.h"
 #include "common_event_manager.h"
@@ -30,7 +29,7 @@ const char *const PACKAGE_NAME_ID = "assessment_configuration_service";
 const char *const PACKAGE_VERSION = "1.0";
 }
 
-void AssessmentEventPublisher::PublishEnterExamModeEvent(const char *errorReason)
+void AssessmentEventPublisher::PublishEnterExamModeEvent(const EnterExamParam &params, const char *errorReason)
 {
     TAG_LOGI(AAFwkTag::DEFAULT, "PublishEnterExamModeEvent called");
     if (errorReason == nullptr) {
@@ -42,16 +41,12 @@ void AssessmentEventPublisher::PublishEnterExamModeEvent(const char *errorReason
     want.SetAction(ENTER_EXAM_MODE);
     want.SetParam("PNAMEID", PACKAGE_NAME_ID);
     want.SetParam("PVERSION", PACKAGE_VERSION);
-    want.SetParam("PACKAGE_NAME", AssessmentService::GetInstance()->GetAssessmentBundleName());
-    want.SetParam("EXAM_ID",
-                  static_cast<long long>(AssessmentService::GetInstance()->GetAssessmentCurrentConfig().examId));
-    want.SetParam(
-        "EXAM_START_TIME",
-        static_cast<long long>(AssessmentService::GetInstance()->GetAssessmentCurrentConfig().examStartTime));
-    want.SetParam("DURATION",
-                  static_cast<long long>(AssessmentService::GetInstance()->GetAssessmentCurrentConfig().duration));
-    want.SetParam("ALLOWED_APPS", AssessmentService::GetInstance()->GetAssessmentCurrentConfig().allowedApps);
-    want.SetParam("ENV_CHECK_RESULT", AssessmentService::GetInstance()->GetEnvCheckResult());
+    want.SetParam("PACKAGE_NAME", params.bundleName);
+    want.SetParam("EXAM_ID", params.examId);
+    want.SetParam("EXAM_START_TIME", params.examStartTime);
+    want.SetParam("DURATION", params.duration);
+    want.SetParam("ALLOWED_APPS", params.allowedApps);
+    want.SetParam("ENV_CHECK_RESULT", params.envCheckResult);
     want.SetParam("ERROR_REASON", errorReason);
 
     EventFwk::CommonEventData data;
@@ -65,7 +60,9 @@ void AssessmentEventPublisher::PublishEnterExamModeEvent(const char *errorReason
     TAG_LOGI(AAFwkTag::ASSESSMENT, "[EnterExamMode] error reason: %{public}s", errorReason);
 }
 
-void AssessmentEventPublisher::PublishExitExamModeEvent(const char *exitReason, const char *errorReason)
+void AssessmentEventPublisher::PublishExitExamModeEvent(const ExitExamParam &params,
+                                                        const char *exitReason,
+                                                        const char *errorReason)
 {
     TAG_LOGI(AAFwkTag::DEFAULT, "PublishExitExamModeEvent called");
     if (exitReason == nullptr) {
@@ -77,7 +74,7 @@ void AssessmentEventPublisher::PublishExitExamModeEvent(const char *exitReason, 
         return;
     }
     
-    uint64_t examStartTime = AssessmentService::GetInstance()->GetAssessmentCurrentConfig().examStartTime;
+    uint64_t examStartTime = params.examStartTime;
     uint64_t examEndTime = AssessmentServiceUtils::GetCurrentAssessmentTimeStamp();
     uint64_t EXAM_DURATION = (examEndTime > examStartTime) ? (examEndTime - examStartTime) : 0;
 
@@ -85,9 +82,8 @@ void AssessmentEventPublisher::PublishExitExamModeEvent(const char *exitReason, 
     want.SetAction(EXIT_EXAM_MODE);
     want.SetParam("PNAMEID", PACKAGE_NAME_ID);
     want.SetParam("PVERSION", PACKAGE_VERSION);
-    want.SetParam("PACKAGE_NAME", AssessmentService::GetInstance()->GetAssessmentBundleName());
-    want.SetParam("EXAM_ID",
-                  static_cast<long long>(AssessmentService::GetInstance()->GetAssessmentCurrentConfig().examId));
+    want.SetParam("PACKAGE_NAME", params.bundleName);
+    want.SetParam("EXAM_ID", params.examId);
     want.SetParam("EXAM_DURATION", static_cast<long long>(EXAM_DURATION));
     want.SetParam("EXIT_REASON", exitReason);
     want.SetParam("ERROR_REASON", errorReason);

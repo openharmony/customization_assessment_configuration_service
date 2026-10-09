@@ -85,13 +85,17 @@ public:
     std::string GetAssessmentBundleName();
     AssessmentConfig GetAssessmentCurrentConfig();
     bool GetEnvCheckResult();
+
+    EnterExamParam BuildEnterExamParamLockUnsafe();
+    ExitExamParam BuildExitExamParamLockUnsafe();
 private:
     void ConfigCurrentSession(const sptr<IRemoteObject> &token, uint32_t duration,
                               const std::vector<std::string> &allowedApps,
                               const sptr<IRemoteObject> &callback);
-    bool CheckBeginPreconditions(const sptr<IRemoteObject> &token,
+    bool CheckBeginPreconditions(const sptr<IRemoteObject> &token, uint32_t duration,
                                  const std::vector<std::string> &allowedApps,
                                  const sptr<IRemoteObject> &callback, int32_t &errCode);
+    bool CheckEndPreconditionsLocked(const sptr<IRemoteObject> &token, int32_t &errCode);
     void CleanupCurrentSession();
     bool InitSubsystems();
 
@@ -139,7 +143,6 @@ private:
     std::thread thread_;
 
     std::shared_ptr<AssessmentEventObserver> assessmentEventObserver_;
-    std::shared_ptr<AssessmentEventPublisher> assessmentEventPublisher_;
     sptr<AAFwk::AssessmentServiceAppStateCb> appStateObserver_;
     EnvChecker envChecker_;
     ProcessController processController_;

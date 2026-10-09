@@ -61,6 +61,22 @@ const std::string SCENEBOARD_ABILITY_NAME = "com.ohos.sceneboard.systemdialog";
 const std::string SYSTEM_UI_BUNDLE_NAME = "com.ohos.commondialog";
 const std::string SYSTEM_UI_ABILITY_NAME = "AssessmentServiceDialogAbility";
 
+const char* const TRACE_ERR_REASON_NO_ERROR = "NO_ERROR";
+const char* const TRACE_ERR_REASON_INVALID_PARAMS = "INVALID_PARAMS";
+const char* const TRACE_ERR_REASON_PERMISSION_DENIED = "PERMISSION_DENIED";
+const char* const TRACE_ERR_REASON_DEVICE_NOT_SUPPORTED = "DEVICE_NOT_SUPPORTED";
+const char* const TRACE_ERR_REASON_EXAM_ALREADY_STARTED = "EXAM_ALREADY_STARTED";
+const char* const TRACE_ERR_REASON_USER_CONFIRM = "USER_CONFIRM";
+const char* const TRACE_ERR_REASON_USER_CANCEL = "USER_CANCEL";
+const char* const TRACE_ERR_REASON_CALL_KIOSK_FAIL = "CALL_KIOSK_FAIL";
+const char* const TRACE_ERR_REASON_SAVE_SYSPARAM_FAIL = "SAVE_SYSPARAM_FAIL";
+const char* const TRACE_ERR_REASON_NO_EXAM = "NO_EXAM";
+const char* const TRACE_ERR_REASON_RESET_SYSPARAM_FAIL = "RESET_SYSPARAM_FAIL";
+const char* const TRACE_ERR_REASON_NON_OWNER_END = "NON_OWNER_END";
+
+const char* const TRACE_EXIT_REASON_TIMEOUT = "TIMEOUT";
+const char* const TRACE_EXIT_REASON_USER_INITIATED_EXIT = "USER_INITIATED_EXIT";
+
 enum AssessmentConfirmationOperation : uint32_t {
     CANCEL = 0,
     CONFIRM = 1
@@ -201,7 +217,11 @@ void AssessmentService::LoadState()
 
 void AssessmentService::SaveState()
 {
-    system::SetParameter(PARAM_ASSESSMENT_IS_ACTIVE, isActive_ ? "true" : "false");
+    int ret = system::SetParameter(PARAM_ASSESSMENT_IS_ACTIVE, isActive_ ? "true" : "false");
+    if (ret != 0) {
+        EnterExamParam params = BuildEnterExamParamLockUnsafe();
+        AssessmentEventPublisher::PublishEnterExamModeEvent(params, TRACE_ERR_REASON_SAVE_SYSPARAM_FAIL);
+    }
     system::SetParameter(PARAM_ASSESSMENT_DURATION, std::to_string(currentConfig_.duration));
 
     std::stringstream ss;
@@ -223,7 +243,12 @@ void AssessmentService::SaveState()
 
 void AssessmentService::ClearState()
 {
-    system::SetParameter(PARAM_ASSESSMENT_IS_ACTIVE, "false");
+    int ret = system::SetParameter(PARAM_ASSESSMENT_IS_ACTIVE, "false");
+    if (ret != 0) {
+        ExitExamParam params = BuildExitExamParamLockUnsafe();
+        AssessmentEventPublisher::PublishExitExamModeEvent(
+            params, TRACE_ERR_REASON_RESET_SYSPARAM_FAIL, TRACE_ERR_REASON_RESET_SYSPARAM_FAIL);
+    }
     system::SetParameter(PARAM_ASSESSMENT_DURATION, "0");
     system::SetParameter(PARAM_ASSESSMENT_ALLOWED_APPS, "");
     std::string ancoState = system::GetParameter(PARAM_ANCO_STATE, "2");
@@ -266,22 +291,58 @@ void AssessmentService::CleanupCurrentSession()
     callingUid_ = 0;
 }
 
-bool AssessmentService::CheckBeginPreconditions(const sptr<IRemoteObject> &token,
+bool AssessmentService::CheckBeginPreconditions(const sptr<IRemoteObject> &token, uint32_t duration,
     const std::vector<std::string> &allowedApps, const sptr<IRemoteObject> &callback, int32_t &errCode)
 {
+    EnterExamParam params;
+    params.bundleName = allowedApps.empty() ? "" : allowedApps.back();
+    params.duration = duration;
+    params.allowedApps = allowedApps;
+    params.examStartTime = static_cast<long long>(AssessmentServiceUtils::GetCurrentAssessmentTimeStamp());
     if (token == nullptr || callback == nullptr || allowedApps.empty()) {
         TAG_LOGE(AAFwkTag::ASSESSMENT, "assessment invalid params");
         errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_INVALID_PARAMS);
+        AssessmentEventPublisher::PublishEnterExamModeEvent(params, TRACE_ERR_REASON_INVALID_PARAMS);
         return false;
     }
     if (!AssessmentServiceUtils::CheckDeviceTypeSupported()) {
         TAG_LOGE(AAFwkTag::ASSESSMENT, "assessment device not supported");
         errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_CAPABILITY_NOT_SUPPORT);
+        AssessmentEventPublisher::PublishEnterExamModeEvent(params, TRACE_ERR_REASON_DEVICE_NOT_SUPPORTED);
         return false;
     }
     if (!AssessmentServiceUtils::VerifyCallingPermission(PERMISSION_ASSESSMENT_CONFIGURATION)) {
         TAG_LOGE(AAFwkTag::ASSESSMENT, "no permission: ohos.permission.ASSESSMENT_CONFIGURATION");
         errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_PERMISSION_DENIED);
+        AssessmentEventPublisher::PublishEnterExamModeEvent(params, TRACE_ERR_REASON_PERMISSION_DENIED);
+        return false;
+    }
+    return true;
+}
+
+bool AssessmentService::CheckEndPreconditionsLocked(const sptr<IRemoteObject> &token, int32_t &errCode)
+{
+    ExitExamParam params = BuildExitExamParamLockUnsafe();
+    if (token == nullptr) {
+        TAG_LOGE(AAFwkTag::ASSESSMENT, "assessment invalid params");
+        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_INVALID_PARAMS);
+        AssessmentEventPublisher::PublishExitExamModeEvent(
+            params, TRACE_ERR_REASON_INVALID_PARAMS, TRACE_ERR_REASON_INVALID_PARAMS);
+        return false;
+    }
+    
+    if (!AssessmentServiceUtils::CheckDeviceTypeSupported()) {
+        TAG_LOGE(AAFwkTag::ASSESSMENT, "assessment device not supported");
+        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_CAPABILITY_NOT_SUPPORT);
+        AssessmentEventPublisher::PublishExitExamModeEvent(
+            params, TRACE_ERR_REASON_DEVICE_NOT_SUPPORTED, TRACE_ERR_REASON_DEVICE_NOT_SUPPORTED);
+        return false;
+    }
+    if (!AssessmentServiceUtils::VerifyCallingPermission(PERMISSION_ASSESSMENT_CONFIGURATION)) {
+        TAG_LOGE(AAFwkTag::ASSESSMENT, "no permission: ohos.permission.ASSESSMENT_CONFIGURATION");
+        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_PERMISSION_DENIED);
+        AssessmentEventPublisher::PublishExitExamModeEvent(
+            params, TRACE_ERR_REASON_PERMISSION_DENIED, TRACE_ERR_REASON_PERMISSION_DENIED);
         return false;
     }
     return true;
@@ -296,7 +357,7 @@ ErrCode AssessmentService::Begin(const sptr<IRemoteObject> &token,
     TAG_LOGI(AAFwkTag::DEFAULT, "Begin called, duration: %{public}d, allowedApps size: %{public}zu",
         duration, allowedApps.size());
 
-    if (!CheckBeginPreconditions(token, allowedApps, callback, errCode)) {
+    if (!CheckBeginPreconditions(token, duration, allowedApps, callback, errCode)) {
         return ERR_OK;
     }
 
@@ -305,6 +366,8 @@ ErrCode AssessmentService::Begin(const sptr<IRemoteObject> &token,
     if (isActive_) {
         TAG_LOGW(AAFwkTag::ASSESSMENT, "Assessment already active");
         errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_ASSESSMENT_ALREADY_ACTIVE);
+        EnterExamParam params = BuildEnterExamParamLockUnsafe();
+        AssessmentEventPublisher::PublishEnterExamModeEvent(params, TRACE_ERR_REASON_EXAM_ALREADY_STARTED);
         return ERR_OK;
     }
     if (!running_) {
@@ -345,34 +408,27 @@ ErrCode AssessmentService::Begin(const sptr<IRemoteObject> &token,
 ErrCode AssessmentService::End(const sptr<IRemoteObject> &token, int32_t &errCode)
 {
     TAG_LOGI(AAFwkTag::DEFAULT, "End called");
-    if (token == nullptr) {
-        TAG_LOGE(AAFwkTag::ASSESSMENT, "assessment invalid params");
-        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_INVALID_PARAMS);
-        return ERR_OK;
-    }
-    
-    if (!AssessmentServiceUtils::CheckDeviceTypeSupported()) {
-        TAG_LOGE(AAFwkTag::ASSESSMENT, "assessment device not supported");
-        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_CAPABILITY_NOT_SUPPORT);
-        return ERR_OK;
-    }
-    if (!AssessmentServiceUtils::VerifyCallingPermission(PERMISSION_ASSESSMENT_CONFIGURATION)) {
-        TAG_LOGE(AAFwkTag::ASSESSMENT, "no permission: ohos.permission.ASSESSMENT_CONFIGURATION");
-        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_PERMISSION_DENIED);
-        return ERR_OK;
-    }
-
     std::unique_lock<std::mutex> lock(this->mutexSa_);
+    if (!CheckEndPreconditionsLocked(token, errCode)) {
+        TAG_LOGE(AAFwkTag::ASSESSMENT, "check fail, so end fail");
+        return ERR_OK;
+    }
     RemarkSaIdleLockedUnsafe();
     if (!isActive_) {
         TAG_LOGW(AAFwkTag::ASSESSMENT, "Assessment not active");
         errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_ASSESSMENT_NOT_ACTIVE);
+        ExitExamParam params = BuildExitExamParamLockUnsafe();
+        AssessmentEventPublisher::PublishExitExamModeEvent(
+            params, TRACE_ERR_REASON_NO_EXAM, TRACE_ERR_REASON_NO_EXAM);
         return ERR_OK;
     }
     int32_t callingUid = IPCSkeleton::GetCallingUid();
     if (callingUid_ != callingUid) {
         TAG_LOGW(AAFwkTag::ASSESSMENT, "Assessment be called for other app");
         errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_INVALID_OPERATION);
+        ExitExamParam params = BuildExitExamParamLockUnsafe();
+        AssessmentEventPublisher::PublishExitExamModeEvent(
+            params, TRACE_ERR_REASON_NON_OWNER_END, TRACE_ERR_REASON_NON_OWNER_END);
         return ERR_OK;
     }
 
@@ -390,6 +446,9 @@ ErrCode AssessmentService::End(const sptr<IRemoteObject> &token, int32_t &errCod
     CleanupCurrentSession();
     ClearState();
     errCode = ERR_OK;
+    ExitExamParam params = BuildExitExamParamLockUnsafe();
+    AssessmentEventPublisher::PublishExitExamModeEvent(
+        params, TRACE_EXIT_REASON_USER_INITIATED_EXIT, TRACE_ERR_REASON_NO_ERROR);
     return ERR_OK;
 }
 
@@ -654,8 +713,12 @@ void AssessmentService::HandleBegin(const std::string &ticket, uint32_t operatio
     PostCommonEventForSystemDialog(ticket);
     if (operation == AssessmentConfirmationOperation::CANCEL) {
         CancelBeginLockedUnsafe();
+        EnterExamParam params = BuildEnterExamParamLockUnsafe();
+        AssessmentEventPublisher::PublishEnterExamModeEvent(params, TRACE_ERR_REASON_USER_CANCEL);
     } else if (operation == AssessmentConfirmationOperation::CONFIRM) {
         ConfirmationBeginLockedUnsafe();
+        EnterExamParam params = BuildEnterExamParamLockUnsafe();
+        AssessmentEventPublisher::PublishEnterExamModeEvent(params, TRACE_ERR_REASON_USER_CONFIRM);
         condSa_.notify_all();
     }
 }
@@ -698,6 +761,8 @@ void AssessmentService::ConfirmationBeginLockedUnsafe()
     CallbackManager::GetInstance().OnBegin(callerToken_,
         static_cast<int32_t>(AssessmentErrorCode::OK),
         AssessmentErrCodeToErrMsg(AssessmentErrorCode::OK));
+    EnterExamParam params = BuildEnterExamParamLockUnsafe();
+    AssessmentEventPublisher::PublishEnterExamModeEvent(params, TRACE_ERR_REASON_NO_ERROR);
 }
 
 void AssessmentService::CancelBeginLockedUnsafe()
@@ -726,31 +791,38 @@ void AssessmentService::TimeoutLockedUnsafe()
     }
     CleanupCurrentSession();
     ClearState();
+    ExitExamParam params = BuildExitExamParamLockUnsafe();
+    AssessmentEventPublisher::PublishExitExamModeEvent(
+        params, TRACE_EXIT_REASON_TIMEOUT, TRACE_ERR_REASON_NO_ERROR);
 }
 
 ErrCode AssessmentService::EnterKioskModeLockedUnsafe()
 {
-    std::vector<std::string> whiteAppList = GetFinalAppList();
-    std::shared_ptr<OHOS::AAFwk::AbilityManagerClient> abilityManagerClient
-        = OHOS::AAFwk::AbilityManagerClient::GetInstance();
-    ErrCode retSetAppList = abilityManagerClient->AddKioskApplicationList(whiteAppList);
-    if (retSetAppList != ERR_OK) {
-        TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment set application list fail, %{public}d", retSetAppList);
-        return retSetAppList;
-    }
-    TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment set application list succcessfully");
-    ErrCode retEnterKioskMode = abilityManagerClient->EnterKioskMode(callerToken_, 1);
-    if (retEnterKioskMode != ERR_OK) {
-        TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment EnterKioskMode fail, %{public}d", retEnterKioskMode);
-        return retEnterKioskMode;
-    }
-    TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment EnterKioskMode succcessfully");
     ErrCode retRestrictScreenOff = RestrictScreenOff(true);
     if (retRestrictScreenOff != ERR_OK) {
         TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment RestrictScreenOff fail, %{public}d", retRestrictScreenOff);
         return retRestrictScreenOff;
     }
     TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment retRestrictScreenOff succcessfully");
+
+    EnterExamParam params = BuildEnterExamParamLockUnsafe();
+    std::vector<std::string> whiteAppList = GetFinalAppList();
+    std::shared_ptr<OHOS::AAFwk::AbilityManagerClient> abilityManagerClient
+        = OHOS::AAFwk::AbilityManagerClient::GetInstance();
+    ErrCode retSetAppList = abilityManagerClient->AddKioskApplicationList(whiteAppList);
+    if (retSetAppList != ERR_OK) {
+        TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment set application list fail, %{public}d", retSetAppList);
+        AssessmentEventPublisher::PublishEnterExamModeEvent(params, TRACE_ERR_REASON_CALL_KIOSK_FAIL);
+        return retSetAppList;
+    }
+    TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment set application list succcessfully");
+    ErrCode retEnterKioskMode = abilityManagerClient->EnterKioskMode(callerToken_, 1);
+    if (retEnterKioskMode != ERR_OK) {
+        TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment EnterKioskMode fail, %{public}d", retEnterKioskMode);
+        AssessmentEventPublisher::PublishEnterExamModeEvent(params, TRACE_ERR_REASON_CALL_KIOSK_FAIL);
+        return retEnterKioskMode;
+    }
+    TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment EnterKioskMode succcessfully");
     return ERR_OK;
 }
 
@@ -761,6 +833,9 @@ ErrCode AssessmentService::ExitKioskModeLockedUnsafe()
     ErrCode retExitKioskMode = abilityManagerClient->ExitKioskMode(callerToken_);
     if (retExitKioskMode != ERR_OK) {
         TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment exitKioskMode failed, %{public}d", retExitKioskMode);
+        ExitExamParam params = BuildExitExamParamLockUnsafe();
+        AssessmentEventPublisher::PublishExitExamModeEvent(
+            params, TRACE_ERR_REASON_CALL_KIOSK_FAIL, TRACE_ERR_REASON_CALL_KIOSK_FAIL);
         return retExitKioskMode;
     }
     TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment exitKioskMode successfully");
@@ -962,6 +1037,27 @@ std::vector<std::string> AssessmentService::GetFinalAppList()
         TAG_LOGE(AAFwkTag::ASSESSMENT, "assessment fetch ime default: %{public}s", inputName.c_str());
     }
     return result;
+}
+
+EnterExamParam AssessmentService::BuildEnterExamParamLockUnsafe()
+{
+    EnterExamParam params;
+    params.bundleName = bundleName_;
+    params.examId = static_cast<long long>(currentConfig_.examId);
+    params.examStartTime = static_cast<long long>(currentConfig_.examStartTime);
+    params.duration = static_cast<long long>(currentConfig_.duration);
+    params.allowedApps = currentConfig_.allowedApps;
+    params.envCheckResult = false;
+    return params;
+}
+
+ExitExamParam AssessmentService::BuildExitExamParamLockUnsafe()
+{
+    ExitExamParam params;
+    params.bundleName = bundleName_;
+    params.examId = static_cast<long long>(currentConfig_.examId);
+    params.examStartTime = static_cast<long long>(currentConfig_.examStartTime);
+    return params;
 }
 }  // namespace AAFwk
 }  // namespace OHOS
