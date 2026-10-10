@@ -14,6 +14,7 @@
  */
 
 #include <sstream>
+#include <unordered_map>
 #include <sys/time.h>
 #include <input_manager.h>
 #include "assessment_service.h"
@@ -27,6 +28,7 @@
 #include "extension_manager_client.h"
 #include "assessment_utils.h"
 #include "assessment_api_error_code.h"
+#include "assessment_fail_reason.h"
 #include "common_event_subscriber.h"
 #include "common_event_subscribe_info.h"
 #include "common_event_manager.h"
@@ -83,6 +85,34 @@ const char* const TRACE_EXIT_REASON_ENTER_POWER_SAVE_MODE = "ENTER_POWER_SAVE_MO
 const char* const TRACE_EXIT_REASON_SHUTDOWN = "SHUTDOWN";
 const char* const TRACE_EXIT_REASON_DEVICE_REBOOT = "DEVICE_REBOOT";
 const char* const TRACE_EXIT_REASON_LID_CLOSED = "LID_CLOSED";
+
+// Kept in sync with ASSESSMENT_EVENT_CODE_ENV_ANOMALY_DESC in
+// interfaces/inner_api/assessment_service/src/assessment_api_error_code.cpp, which
+// has internal linkage there and therefore cannot be referenced from here.
+const std::string ENV_ANOMALY_FALLBACK_MSG = "Environment Anomaly";
+
+// Translates an environment failure reason into the message reported through the
+// callback. AssessmentErrorCode::ENV_ANOMALY is shared by every such failure, so the
+// concrete cause is conveyed through the message instead of the code. Reasons that
+// are not part of the mapping -- including the ones the closed-source extension
+// produces -- fall back to the generic description, which keeps the message stable
+// for callers that already rely on it.
+std::string AssessmentFailReasonToErrMsg(const std::string &failReason)
+{
+    static const std::unordered_map<std::string, std::string> REASON_TO_MSG_MAP = {
+        { FAIL_REASON_SCREEN_RECORDING, "Screen recording detected" },
+        { FAIL_REASON_SCREEN_CASTING, "Screen casting detected" },
+        { FAIL_REASON_MULTI_SCREEN, "External screen detected" },
+        { FAIL_REASON_IN_CALL, "Phone call in progress" },
+        { FAIL_REASON_VIRTUAL_MACHINE, "Virtual machine running detected" },
+        { FAIL_REASON_EDM_ADMIN, "Device is managed by an EDM administrator" },
+    };
+    auto it = REASON_TO_MSG_MAP.find(failReason);
+    if (it != REASON_TO_MSG_MAP.end()) {
+        return it->second;
+    }
+    return ENV_ANOMALY_FALLBACK_MSG;
+}
 
 enum AssessmentConfirmationOperation : uint32_t {
     CANCEL = 0,
@@ -287,7 +317,21 @@ void AssessmentService::ConfigCurrentSession(const sptr<IRemoteObject> &token, u
 
 void AssessmentService::CleanupCurrentSession()
 {
-    processController_.Deactivate();
+    std::string restoreFailReason;
+    processController_.Deactivate(restoreFailReason);
+    if (!restoreFailReason.empty()) {
+        // The device could not be fully restored after the assessment ended. The
+        // regular exit event has already been published by the caller, because this
+        // function resets currentConfig_ and the event reads examId/examStartTime
+        // from it, so the failure is reported by a dedicated event built here while
+        // the config is still valid. Following the convention for anomalies,
+        // exitReason and errorReason carry the same value.
+        TAG_LOGE(AAFwkTag::ASSESSMENT,
+            "restore after assessment failed, reason: %{public}s", restoreFailReason.c_str());
+        ExitExamParam params = BuildExitExamParamLockUnsafe();
+        AssessmentEventPublisher::PublishExitExamModeEvent(
+            params, restoreFailReason.c_str(), restoreFailReason.c_str());
+    }
     RestrictScreenOff(false);
     if (callerToken_ != nullptr) {
         CallbackManager::GetInstance().UnregisterCallback(callerToken_);
@@ -299,6 +343,7 @@ void AssessmentService::CleanupCurrentSession()
     bundleName_ = "";
     endpointCheckPoint_ = 0;
     callingUid_ = 0;
+    envCheckResult_ = false;
 }
 
 bool AssessmentService::CheckBeginPreconditions(const sptr<IRemoteObject> &token, uint32_t duration,
@@ -733,6 +778,20 @@ void AssessmentService::HandleBegin(const std::string &ticket, uint32_t operatio
     }
 }
 
+void AssessmentService::EnvCheckFailedLockedUnsafe(const std::string &failReason)
+{
+    TAG_LOGE(AAFwkTag::ASSESSMENT,
+        "Environment check failed after user confirmation, reason: %{public}s", failReason.c_str());
+    // Every environment failure keeps reporting ENV_ANOMALY as the code; the concrete
+    // cause is conveyed through the message instead.
+    CallbackManager::GetInstance().OnBegin(callerToken_,
+        static_cast<int32_t>(AssessmentErrorCode::ENV_ANOMALY),
+        AssessmentFailReasonToErrMsg(failReason));
+    EnterExamParam params = BuildEnterExamParamLockUnsafe();
+    AssessmentEventPublisher::PublishEnterExamModeEvent(params, failReason.c_str());
+    CleanupCurrentSession();
+}
+
 void AssessmentService::ConfirmationBeginLockedUnsafe()
 {
     auto cleanUp = [this]() {
@@ -742,17 +801,19 @@ void AssessmentService::ConfirmationBeginLockedUnsafe()
         CleanupCurrentSession();
     };
 
-    if (!envChecker_.CheckAll()) {
-        TAG_LOGE(AAFwkTag::ASSESSMENT, "Environment check failed after user confirmation");
-        CallbackManager::GetInstance().OnBegin(callerToken_,
-            static_cast<int32_t>(AssessmentErrorCode::ENV_ANOMALY),
-            AssessmentErrCodeToErrMsg(AssessmentErrorCode::ENV_ANOMALY));
-        CleanupCurrentSession();
+    std::string failReason;
+    envCheckResult_ = envChecker_.CheckAll(failReason);
+    if (!envCheckResult_) {
+        EnvCheckFailedLockedUnsafe(failReason);
         return;
     }
 
-    if (!processController_.Activate(currentConfig_.allowedApps)) {
+    std::string ctrlFailReason;
+    bool activated = processController_.Activate(currentConfig_.allowedApps, ctrlFailReason);
+    if (!activated) {
         TAG_LOGE(AAFwkTag::ASSESSMENT, "process control activation failed, interrupt assessment");
+        EnterExamParam params = BuildEnterExamParamLockUnsafe();
+        AssessmentEventPublisher::PublishEnterExamModeEvent(params, ctrlFailReason.c_str());
         cleanUp();
         return;
     }
@@ -771,8 +832,12 @@ void AssessmentService::ConfirmationBeginLockedUnsafe()
     CallbackManager::GetInstance().OnBegin(callerToken_,
         static_cast<int32_t>(AssessmentErrorCode::OK),
         AssessmentErrCodeToErrMsg(AssessmentErrorCode::OK));
+    // Sub-items other than the softbus are non-fatal, so the assessment did start.
+    // One event is published, carrying the degraded sub-item in place of NO_ERROR,
+    // which keeps exactly one ENTER_EXAM_MODE event per attempt.
     EnterExamParam params = BuildEnterExamParamLockUnsafe();
-    AssessmentEventPublisher::PublishEnterExamModeEvent(params, TRACE_ERR_REASON_NO_ERROR);
+    AssessmentEventPublisher::PublishEnterExamModeEvent(
+        params, ctrlFailReason.empty() ? TRACE_ERR_REASON_NO_ERROR : ctrlFailReason.c_str());
 }
 
 void AssessmentService::CancelBeginLockedUnsafe()
@@ -999,6 +1064,13 @@ void AssessmentService::OnSwitchEvent(std::shared_ptr<OHOS::MMI::SwitchEvent> ev
 void AssessmentService::OnExternalScreenConnected()
 {
     std::unique_lock<std::mutex> lock(this->mutexSa_);
+    // A callback can still be in flight on the RenderService thread while the
+    // assessment is being torn down. Bail out first, so that neither the blocking
+    // multi-screen check nor a spurious exit event happens for a finished session.
+    if (!isActive_) {
+        TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment not active, ignore external screen event");
+        return;
+    }
     // Re-run the very same judgement used before the assessment started, so the
     // "screen count <= 1" exemption for devices without a built-in screen
     // applies to hotplug as well.
@@ -1007,6 +1079,13 @@ void AssessmentService::OnExternalScreenConnected()
         return;
     }
     TAG_LOGE(AAFwkTag::ASSESSMENT, "external screen connected during assessment, interrupt");
+    // Published before the interruption, because EnvAnomalyLockedUnsafe() ends up in
+    // CleanupCurrentSession() which resets currentConfig_, and the event reads
+    // examId/examStartTime from it. This is an anomaly rather than a check failure,
+    // so errorReason stays NO_ERROR.
+    ExitExamParam params = BuildExitExamParamLockUnsafe();
+    AssessmentEventPublisher::PublishExitExamModeEvent(
+        params, EXIT_REASON_EXTERNAL_MONITOR, TRACE_ERR_REASON_NO_ERROR);
     this->EnvAnomalyLockedUnsafe();
 }
 
@@ -1026,10 +1105,12 @@ AssessmentConfig AssessmentService::GetAssessmentCurrentConfig()
 
 bool AssessmentService::GetEnvCheckResult()
 {
-    std::lock_guard<std::mutex> lock(this->mutexSa_);
+    // Returns the cached result of the check the current session was admitted with.
+    // It deliberately does not re-run CheckAll(): that would repeat a series of
+    // blocking IPC calls and, because mutexSa_ is not recursive, would self-deadlock
+    // whenever the caller already holds that lock.
     TAG_LOGI(AAFwkTag::ASSESSMENT, "GetEnvCheckResult called");
-    bool envCheckResult = envChecker_.CheckAll();
-    return envCheckResult;
+    return envCheckResult_;
 }
 
 void AssessmentService::BeginDialogSystemError(const std::string &ticket)
@@ -1103,7 +1184,10 @@ EnterExamParam AssessmentService::BuildEnterExamParamLockUnsafe()
     params.examStartTime = static_cast<long long>(currentConfig_.examStartTime);
     params.duration = static_cast<long long>(currentConfig_.duration);
     params.allowedApps = currentConfig_.allowedApps;
-    params.envCheckResult = false;
+    // Read the cached result of the check this session was admitted with, rather
+    // than re-running CheckAll() here: this function is called while mutexSa_ is
+    // held, and the checks are blocking IPC calls.
+    params.envCheckResult = envCheckResult_;
     return params;
 }
 

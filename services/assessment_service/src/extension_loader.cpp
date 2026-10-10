@@ -92,7 +92,7 @@ bool ExtensionLoader::LoadInternal()
     return true;
 }
 
-bool ExtensionLoader::InvokeCheckAll(const std::vector<std::string> &allowedApps)
+bool ExtensionLoader::InvokeCheckAll(const std::vector<std::string> &allowedApps, std::string &failReason)
 {
     CHECK_ALL_FUNC checkFunc = nullptr;
     DegradedCallback degradedCb = nullptr;
@@ -106,9 +106,9 @@ bool ExtensionLoader::InvokeCheckAll(const std::vector<std::string> &allowedApps
         if (degradedCb) {
             degradedCb(soPath_, "CheckAll");
         }
-        return true; // default pass
+        return true; // default pass, failReason left untouched
     }
-    return checkFunc(allowedApps);
+    return checkFunc(allowedApps, failReason);
 }
 
 bool ExtensionLoader::InvokeIsAwakeAnco(std::string ancoState)
@@ -143,7 +143,7 @@ bool ExtensionLoader::IsDegrade() const
     return checkAllFunc_ == nullptr;
 }
 
-bool ExtensionLoader::InvokeActivateAll(const std::vector<std::string> &allowedApps)
+bool ExtensionLoader::InvokeActivateAll(const std::vector<std::string> &allowedApps, std::string &failReason)
 {
     ACTIVATE_ALL_FUNC activateFunc = nullptr;
     DegradedCallback degradedCb = nullptr;
@@ -157,12 +157,16 @@ bool ExtensionLoader::InvokeActivateAll(const std::vector<std::string> &allowedA
         if (degradedCb) {
             degradedCb(soPath_, "ActivateAll");
         }
-        return true;
+        return true; // default pass, failReason left untouched
     }
-    return activateFunc(allowedApps);
+    bool ret = activateFunc(allowedApps, failReason);
+    if (!ret) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "ActivateAll failed, reason : %{public}s", failReason.c_str());
+    }
+    return ret;
 }
 
-bool ExtensionLoader::InvokeDeactivateAll()
+bool ExtensionLoader::InvokeDeactivateAll(std::string &failReason)
 {
     DEACTIVATE_ALL_FUNC deactivateFunc = nullptr;
     DegradedCallback degradedCb = nullptr;
@@ -176,9 +180,13 @@ bool ExtensionLoader::InvokeDeactivateAll()
         if (degradedCb) {
             degradedCb(soPath_, "DeactivateAll");
         }
-        return true;
+        return true; // default pass, failReason left untouched
     }
-    return deactivateFunc();
+    bool ret = deactivateFunc(failReason);
+    if (!ret) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "DeactivateAll failed, reason : %{public}s", failReason.c_str());
+    }
+    return ret;
 }
 
 void ExtensionLoader::SetDegradedCallback(DegradedCallback callback)

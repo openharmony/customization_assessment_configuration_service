@@ -48,7 +48,8 @@ namespace AAFwk {
  *   auto loader = std::make_unique<ExtensionLoader>("libassessment_configuration_service_ext.z.so");
  *   loader->SetDegradedCallback([](auto &so, auto &sym) { LOGW("%s:%s degraded", so, sym); });
  *   loader->InitExtensionLoader();
- *   bool safe = loader->InvokeCheckAll(allowedApps);
+ *   std::string failReason;
+ *   bool safe = loader->InvokeCheckAll(allowedApps, failReason);
  * @endcode
  *
  * @note This class is non-copyable and non-movable.
@@ -63,15 +64,21 @@ public:
     ExtensionLoader(ExtensionLoader &&) = delete;
     ExtensionLoader &operator=(ExtensionLoader &&) = delete;
 
-    typedef bool (*CHECK_ALL_FUNC)(const std::vector<std::string> &allowedApps);
+    // The failReason out-parameter carries the reason of the first sub-item that
+    // failed, using the vocabulary declared in assessment_fail_reason.h. It lets a
+    // single closed-source entry point report which of its sub-items (virtual
+    // machine, file transfer, screen reader, ...) failed, so that the trace event
+    // and the callback message can be specific while the error code stays shared.
+    // The extension must leave failReason untouched when it succeeds.
+    typedef bool (*CHECK_ALL_FUNC)(const std::vector<std::string> &allowedApps, std::string &failReason);
 
     typedef bool (*IS_AWAKE_ANCO_FUNC)(std::string ancoState);
 
     typedef void (*RESTRICT_ANCO_APP_FUNC)();
 
-    typedef bool (*ACTIVATE_ALL_FUNC)(const std::vector<std::string> &allowedApps);
+    typedef bool (*ACTIVATE_ALL_FUNC)(const std::vector<std::string> &allowedApps, std::string &failReason);
 
-    typedef bool (*DEACTIVATE_ALL_FUNC)();
+    typedef bool (*DEACTIVATE_ALL_FUNC)(std::string &failReason);
 
     /**
      * @brief Load the shared library and resolve symbols.
@@ -89,9 +96,11 @@ public:
     /**
      * @brief Invoke the closed-source CheckAll function.
      * @param allowedApps Bundle names to pass to the extension's check.
+     * @param failReason Filled by the extension with the reason of the first failed
+     *                   sub-item; left untouched on success and in degraded mode.
      * @return Result of CheckAll, or true (pass) if in degraded mode.
      */
-    bool InvokeCheckAll(const std::vector<std::string> &allowedApps);
+    bool InvokeCheckAll(const std::vector<std::string> &allowedApps, std::string &failReason);
 
     /**
      * @brief Invoke the closed-source IsAwakeAnco function.
@@ -105,9 +114,24 @@ public:
      */
     void InvokeRestrictAncoApp();
 
-    bool InvokeActivateAll(const std::vector<std::string> &allowedApps);
+    /**
+     * @brief Invoke the closed-source ActivateAll function, which applies every
+     *        restriction needed while an assessment is running.
+     * @param allowedApps Bundle names the extension shall keep usable.
+     * @param failReason Filled by the extension with the reason of the first failed
+     *                   sub-item; left untouched on success and in degraded mode.
+     * @return Result of ActivateAll, or true (pass) if in degraded mode.
+     */
+    bool InvokeActivateAll(const std::vector<std::string> &allowedApps, std::string &failReason);
 
-    bool InvokeDeactivateAll();
+    /**
+     * @brief Invoke the closed-source DeactivateAll function, which reverts every
+     *        restriction applied by ActivateAll.
+     * @param failReason Filled by the extension with the reason of the first failed
+     *                   sub-item; left untouched on success and in degraded mode.
+     * @return Result of DeactivateAll, or true (pass) if in degraded mode.
+     */
+    bool InvokeDeactivateAll(std::string &failReason);
 
     /**
      * @brief Check whether the loader is in degraded mode.
