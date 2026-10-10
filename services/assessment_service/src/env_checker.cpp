@@ -17,6 +17,7 @@
 
 #include <cinttypes>
 
+#include "assessment_fail_reason.h"
 #include "assessment_utils.h"
 #include "call_manager_client.h"
 #include "device_manager.h"
@@ -71,36 +72,41 @@ bool EnvChecker::InitDeviceManager()
     return true;
 }
 
-bool EnvChecker::CheckAll()
+bool EnvChecker::CheckAll(std::string &failReason)
 {
     if (IsScreenRecording()) {
+        failReason = FAIL_REASON_SCREEN_RECORDING;
         TAG_LOGE(AAFwkTag::DEFAULT, "Screen recording detected");
         return false;
     }
 
     if (IsScreenCasting()) {
+        failReason = FAIL_REASON_SCREEN_CASTING;
         TAG_LOGE(AAFwkTag::DEFAULT, "Screen casting detected");
         return false;
     }
 
     if (IsMultiScreen()) {
+        failReason = FAIL_REASON_MULTI_SCREEN;
         TAG_LOGE(AAFwkTag::DEFAULT, "Multi-screen detected");
         return false;
     }
 
     if (IsInCall()) {
+        failReason = FAIL_REASON_IN_CALL;
         TAG_LOGE(AAFwkTag::DEFAULT, "In call detected");
         return false;
     }
 
     if (IsPcDevice()) {
-        if (IsVirtualMachine()) {
+        if (IsVirtualMachine(failReason)) {
             TAG_LOGE(AAFwkTag::DEFAULT, "Virtual machine running detected");
             return false;
         }
     }
 
     if (IsEdmAdminPresent()) {
+        failReason = FAIL_REASON_EDM_ADMIN;
         TAG_LOGE(AAFwkTag::DEFAULT, "EDM admin detected, device is managed");
         return false;
     }
@@ -238,13 +244,20 @@ bool EnvChecker::IsPcDevice()
     return false;
 }
 
-bool EnvChecker::IsVirtualMachine()
+bool EnvChecker::IsVirtualMachine(std::string &failReason)
 {
     if (loader_->IsDegrade()) {
         TAG_LOGI(AAFwkTag::DEFAULT, "VM check degraded, skip (pass by default)");
         return false;
     }
-    return !loader_->InvokeCheckAll(std::vector<std::string>{});
+    // The extension fills failReason with the precise sub-item that failed. Fall
+    // back to the generic virtual-machine reason when it reports a failure but
+    // leaves the reason empty, so the callback message is never blank.
+    bool safe = loader_->InvokeCheckAll(std::vector<std::string>{}, failReason);
+    if (!safe && failReason.empty()) {
+        failReason = FAIL_REASON_VIRTUAL_MACHINE;
+    }
+    return !safe;
 }
 
 bool EnvChecker::IsEdmAdminPresent()

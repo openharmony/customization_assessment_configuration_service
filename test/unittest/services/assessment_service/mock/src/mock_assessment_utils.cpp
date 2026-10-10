@@ -80,5 +80,10 @@ bool AssessmentServiceUtils::IsSystemDialogAvailable(const std::string &, const 
 {
     return false;
 }
+
+bool AssessmentServiceUtils::GetApplicationLabel(const std::string &, std::string &)
+{
+    return false;
+}
 }  // namespace AAFwk
 }  // namespace OHOS

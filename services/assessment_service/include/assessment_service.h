@@ -81,6 +81,7 @@ public:
     void DoLoop();
     void DispatchEvent(const OHOS::EventFwk::CommonEventData& data);
     void OnSwitchEvent(std::shared_ptr<OHOS::MMI::SwitchEvent> event);
+    void OnExternalScreenConnected();
 
     std::string GetAssessmentBundleName();
     AssessmentConfig GetAssessmentCurrentConfig();
@@ -110,6 +111,10 @@ private:
     void PostCommonEventForSystemDialog(const std::string &ticket);
     void HandleBegin(const std::string &ticket, uint32_t operation);
     void ConfirmationBeginLockedUnsafe();
+    // Reports an environment check failure of the current session: notifies the
+    // caller with the shared ENV_ANOMALY code plus a message that tells the concrete
+    // cause apart, publishes the matching trace event and tears the session down.
+    void EnvCheckFailedLockedUnsafe(const std::string &failReason);
     void CancelBeginLockedUnsafe();
     void TimeoutLockedUnsafe();
     ErrCode EnterKioskModeLockedUnsafe();
@@ -136,6 +141,13 @@ private:
     std::string bundleName_;
     int32_t callingUid_ = 0;
     uint64_t accumulateIdleTime_ = 0;
+    // Result of the environment check that the current session was admitted with.
+    // Cached instead of re-running the check when the trace event is built, so the
+    // reported value is the one the admission decision was actually based on, and
+    // so building the event never re-enters the blocking checks under mutexSa_.
+    // Atomic because GetEnvCheckResult() reads it without taking mutexSa_, which is
+    // what keeps it safe to call from a path that already holds that lock.
+    std::atomic<bool> envCheckResult_ = false;
 
     std::mutex mutexSa_;
     std::condition_variable condSa_;

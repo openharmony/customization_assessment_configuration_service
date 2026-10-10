@@ -17,12 +17,14 @@
 #define OHOS_AAFWK_ASSESSMENT_PROCESS_CONTROLLER_H
 
 #include <atomic>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <string>
 #include <vector>
 
 #include "extension_loader.h"
+#include "screen_manager.h"
 #include "telephony_observer.h"
 #include "telephony_observer_client.h"
 
@@ -47,6 +49,27 @@ private:
 };
 
 /**
+ * @class AssessmentScreenListener
+ * @brief Screen listener that forwards screen hotplug events to ProcessController.
+ *
+ * Only OnConnect is meaningful: plugging in an external screen while an
+ * assessment is running is an environment anomaly. OnDisconnect and OnChange
+ * are pure virtual in the base class, so they are implemented as log-only.
+ */
+class AssessmentScreenListener : public Rosen::ScreenManager::IScreenListener {
+public:
+    explicit AssessmentScreenListener(ProcessController *controller) : controller_(controller) {}
+    ~AssessmentScreenListener() override = default;
+
+    void OnConnect(Rosen::ScreenId screenId) override;
+    void OnDisconnect(Rosen::ScreenId screenId) override;
+    void OnChange(Rosen::ScreenId screenId) override;
+
+private:
+    ProcessController *controller_;
+};
+
+/**
  * @class ProcessController
  * @brief Process controller that locks down the device during an assessment.
  *
@@ -54,6 +77,10 @@ private:
  * 1. Registers a telephony observer to detect incoming calls.
  * 2. Forwards call-state events to the assessment service for interruption.
  * 3. Disables virtual machines via the closed-source extension.
+ * 4. Stops the distributed softbus service.
+ * 5. Registers a screen listener; an external screen plugged in mid-assessment
+ *    is reported through the environment-anomaly callback so that the service
+ *    can interrupt the assessment.
  */
 class ProcessController {
 public:
@@ -72,17 +99,54 @@ public:
      * @brief Lock down the device for an assessment.
      *
      * Registers the telephony observer that auto-rejects incoming calls.
-     * @return true if process control was fully activated.
+     * @param allowedApps Bundle names that must stay usable during the assessment.
+     * @param failReason Filled with the reason of the first sub-item that failed,
+     *                   using the vocabulary declared in assessment_fail_reason.h.
+     *                   Sub-items other than the softbus are non-fatal, so a reason
+     *                   can be reported while the return value is still true; the
+     *                   caller forwards it to the trace event. Left untouched when
+     *                   every sub-item succeeded.
+     * @return true if process control was activated, false only when the softbus
+     *         could not be stopped, which must prevent the assessment from starting.
      */
-    bool Activate(const std::vector<std::string> &allowedApps);
-    void Deactivate();
+    bool Activate(const std::vector<std::string> &allowedApps, std::string &failReason);
+
+    /**
+     * @brief Revert every restriction applied by Activate().
+     * @param failReason Filled with the reason of the first sub-item that could not
+     *                   be reverted (softbus restart or closed-source DeactivateAll).
+     *                   Left untouched when everything was restored.
+     */
+    void Deactivate(std::string &failReason);
 
     bool IsActivated() const;
 
+    /**
+     * @brief Set the callback invoked when an environment anomaly is detected
+     *        while the assessment is running (currently: external screen plugged in).
+     *
+     * Must be called once at service startup, before any Activate(), and must not
+     * be reassigned later: NotifyScreenConnected() reads it without holding mutex_
+     * so that the RenderService callback thread never acquires mutex_ before the
+     * service lock (the normal path takes the service lock first, then mutex_).
+     */
+    void SetEnvAnomalyCallback(std::function<void()> callback);
+
+    /**
+     * @brief Entry point for AssessmentScreenListener::OnConnect.
+     *
+     * Runs on the RenderService callback thread. Deliberately takes no lock:
+     * the callback it invokes ends up calling back into Deactivate(), which
+     * acquires mutex_ -- holding mutex_ here would self-deadlock.
+     */
+    void NotifyScreenConnected(Rosen::ScreenId screenId);
+
 private:
     bool InitCallManager();
-    void RegisterCallObserver();
+    bool RegisterCallObserver();
     void UnRegisterCallObserver();
+    bool RegisterScreenListener();
+    void UnregisterScreenListener();
 
     // Serializes Activate()/Deactivate(): they may run on different threads
     // (activation from the common-event thread without the service lock,
@@ -91,8 +155,13 @@ private:
     std::atomic<bool> activated_ = false;
     bool callManagerInited_ = false;
     bool callObserverRegistered_ = false;
+    bool screenListenerRegistered_ = false;
     sptr<AssessmentTelephonyObserver> telephonyObserver_;
+    sptr<AssessmentScreenListener> screenListener_;
     std::unique_ptr<ExtensionLoader> extLoader_;
+    // Written once by SetEnvAnomalyCallback() before any Activate(), then only
+    // read; see that method for why it is accessed without mutex_.
+    std::function<void()> envAnomalyCallback_;
 };
 
 } // namespace AAFwk

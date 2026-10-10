@@ -42,6 +42,7 @@ public:
     static const std::string& GetDeviceType();
     static bool CheckDeviceTypeSupported();
     static bool IsSystemDialogAvailable(const std::string &bundleName, const std::string &abilityName);
+    static bool GetApplicationLabel(const std::string &bundleName, std::string &label);
 };
 
 } // namespace AAFwk
