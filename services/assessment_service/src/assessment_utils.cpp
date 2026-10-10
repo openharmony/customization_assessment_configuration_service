@@ -143,5 +143,39 @@ bool AssessmentServiceUtils::IsSystemDialogAvailable(
     return false;
 }
 
+bool AssessmentServiceUtils::GetApplicationLabel(const std::string &bundleName, std::string &label)
+{
+    auto systemAbilityManager =
+        SystemAbilityManagerClient::GetInstance().GetSystemAbilityManager();
+    if (!systemAbilityManager) {
+        return false;
+    }
+    sptr<IRemoteObject> remoteObject =
+        systemAbilityManager->GetSystemAbility(OHOS::BUNDLE_MGR_SERVICE_SYS_ABILITY_ID);
+    if (!remoteObject) {
+        return false;
+    }
+
+    sptr<OHOS::AppExecFwk::IBundleMgr> proxy = iface_cast<OHOS::AppExecFwk::IBundleMgr>(remoteObject);
+    if (proxy == nullptr) {
+        TAG_LOGW(AAFwkTag::ASSESSMENT, "fetch bundleProxy fail");
+        return false;
+    }
+    auto bundleResourceMgr = proxy->GetBundleResourceProxy();
+    if (bundleResourceMgr == nullptr) {
+        TAG_LOGW(AAFwkTag::ASSESSMENT, "fetch bundleResourceMgr fail");
+        return false;
+    }
+
+    OHOS::AppExecFwk::BundleResourceInfo bundleResourceInfo;
+    uint32_t flags = static_cast<uint32_t>(OHOS::AppExecFwk::ResourceFlag::GET_RESOURCE_INFO_WITH_LABEL);
+    auto ret = bundleResourceMgr->GetBundleResourceInfo(bundleName, flags, bundleResourceInfo, 0);
+    if (ret != ERR_OK) {
+        TAG_LOGW(AAFwkTag::ASSESSMENT, "fetch GetApplicationLabel fail, ret: %{public}d", ret);
+        return false;
+    }
+    label = bundleResourceInfo.label;
+    return true;
+}
 }  // namespace AAFwk
 }  // namespace OHOS
