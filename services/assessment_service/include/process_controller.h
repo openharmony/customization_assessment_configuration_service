@@ -99,10 +99,25 @@ public:
      * @brief Lock down the device for an assessment.
      *
      * Registers the telephony observer that auto-rejects incoming calls.
-     * @return true if process control was fully activated.
+     * @param allowedApps Bundle names that must stay usable during the assessment.
+     * @param failReason Filled with the reason of the first sub-item that failed,
+     *                   using the vocabulary declared in assessment_fail_reason.h.
+     *                   Sub-items other than the softbus are non-fatal, so a reason
+     *                   can be reported while the return value is still true; the
+     *                   caller forwards it to the trace event. Left untouched when
+     *                   every sub-item succeeded.
+     * @return true if process control was activated, false only when the softbus
+     *         could not be stopped, which must prevent the assessment from starting.
      */
-    bool Activate(const std::vector<std::string> &allowedApps);
-    void Deactivate();
+    bool Activate(const std::vector<std::string> &allowedApps, std::string &failReason);
+
+    /**
+     * @brief Revert every restriction applied by Activate().
+     * @param failReason Filled with the reason of the first sub-item that could not
+     *                   be reverted (softbus restart or closed-source DeactivateAll).
+     *                   Left untouched when everything was restored.
+     */
+    void Deactivate(std::string &failReason);
 
     bool IsActivated() const;
 
@@ -128,9 +143,9 @@ public:
 
 private:
     bool InitCallManager();
-    void RegisterCallObserver();
+    bool RegisterCallObserver();
     void UnRegisterCallObserver();
-    void RegisterScreenListener();
+    bool RegisterScreenListener();
     void UnregisterScreenListener();
 
     // Serializes Activate()/Deactivate(): they may run on different threads

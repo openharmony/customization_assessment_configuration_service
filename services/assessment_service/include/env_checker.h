@@ -18,6 +18,7 @@
 
 #include <atomic>
 #include <memory>
+#include <string>
 
 #include "device_manager_callback.h"
 #include "extension_loader.h"
@@ -72,9 +73,15 @@ public:
 
     /**
      * @brief Run all environment checks sequentially.
+     * @param failReason Filled with the reason of the first failed check, using the
+     *                   vocabulary declared in assessment_fail_reason.h. Left
+     *                   untouched when every check passes. The reason is forwarded
+     *                   verbatim to the trace event and translated into the callback
+     *                   message, so a single AssessmentErrorCode::ENV_ANOMALY code
+     *                   can still carry the concrete cause.
      * @return true if all checks pass, false if any check fails.
      */
-    bool CheckAll();
+    bool CheckAll(std::string &failReason);
 
     /**
      * @brief Detect non built-in (external/virtual) screens via ScreenManager.
@@ -104,7 +111,7 @@ private:
     bool IsScreenCasting();
     bool IsInCall();
     bool IsPcDevice();
-    bool IsVirtualMachine();
+    bool IsVirtualMachine(std::string &failReason);
     bool IsEdmAdminPresent();
 
     // Atomic because Init() runs on the service startup thread while the
