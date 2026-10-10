@@ -18,12 +18,18 @@
 #include "call_manager_client.h"
 #include "hilog_tag_wrapper.h"
 #include "parameter.h"
+#include "service_control.h"
 #include "singleton.h"
 #include "system_ability_definition.h"
 #include "telephony_observer_broker.h"
 
 namespace OHOS {
 namespace AAFwk {
+namespace {
+const char *const SOFTBUS_SERVICE_NAME = "softbus_server";
+}
+
+const std::string EXTENSION_SO_PATH = "libassessment_configuration_service_ext.z.so";
 
 void AssessmentTelephonyObserver::OnCallStateUpdated(
     int32_t slotId, int32_t callState, const std::u16string &phoneNumber)
@@ -62,6 +68,10 @@ void AssessmentTelephonyObserver::OnCallStateUpdated(
 
 bool ProcessController::Init()
 {
+    extLoader_ = std::make_unique<ExtensionLoader>(EXTENSION_SO_PATH);
+    if (!extLoader_->InitExtensionLoader()) {
+        TAG_LOGW(AAFwkTag::DEFAULT, "Extension loader degraded, VM control will be skipped");
+    }
     return InitCallManager();
 }
 
@@ -70,10 +80,23 @@ bool ProcessController::Activate(const std::vector<std::string> &allowedApps)
     TAG_LOGI(AAFwkTag::DEFAULT, "Activate called, allowedApps size: %{public}zu", allowedApps.size());
     std::lock_guard<std::mutex> lock(mutex_);
 
+    // Distributed softbus must be stopped before the assessment starts, otherwise
+    // assessment content could still be shared with nearby devices.
+    int32_t ret = ServiceControl(SOFTBUS_SERVICE_NAME, ServiceAction::STOP);
+    if (ret != 0) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "Stop %{public}s failed, ret : %{public}d", SOFTBUS_SERVICE_NAME, ret);
+        return false;
+    }
+    TAG_LOGI(AAFwkTag::DEFAULT, "%{public}s stopped", SOFTBUS_SERVICE_NAME);
+
     // Mark activated before registering the observer so that an incoming-call
     // callback arriving during activation already sees the active state.
     activated_ = true;
     RegisterCallObserver();
+
+    if (extLoader_ != nullptr && !extLoader_->InvokeActivateAll(allowedApps)) {
+        TAG_LOGW(AAFwkTag::DEFAULT, "ActivateAll failed, process control degraded");
+    }
 
     return true;
 }
@@ -89,6 +112,17 @@ void ProcessController::Deactivate()
     }
 
     UnRegisterCallObserver();
+
+    if (extLoader_ != nullptr) {
+        extLoader_->InvokeDeactivateAll();
+    }
+
+    int32_t ret = ServiceControl(SOFTBUS_SERVICE_NAME, ServiceAction::START);
+    if (ret != 0) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "Start %{public}s failed, ret : %{public}d", SOFTBUS_SERVICE_NAME, ret);
+    } else {
+        TAG_LOGI(AAFwkTag::DEFAULT, "%{public}s started", SOFTBUS_SERVICE_NAME);
+    }
 
     activated_ = false;
 }

@@ -84,13 +84,18 @@ public:
 
     std::string GetAssessmentBundleName();
     AssessmentConfig GetAssessmentCurrentConfig();
+    bool GetEnvCheckResult();
+
+    EnterExamParam BuildEnterExamParamLockUnsafe();
+    ExitExamParam BuildExitExamParamLockUnsafe();
 private:
     void ConfigCurrentSession(const sptr<IRemoteObject> &token, uint32_t duration,
                               const std::vector<std::string> &allowedApps,
                               const sptr<IRemoteObject> &callback);
-    bool CheckBeginPreconditions(const sptr<IRemoteObject> &token,
+    bool CheckBeginPreconditions(const sptr<IRemoteObject> &token, uint32_t duration,
                                  const std::vector<std::string> &allowedApps,
                                  const sptr<IRemoteObject> &callback, int32_t &errCode);
+    bool CheckEndPreconditionsLocked(const sptr<IRemoteObject> &token, int32_t &errCode);
     void CleanupCurrentSession();
     bool InitSubsystems();
 
@@ -107,6 +112,7 @@ private:
     void ConfirmationBeginLockedUnsafe();
     void CancelBeginLockedUnsafe();
     void TimeoutLockedUnsafe();
+    ErrCode EnterKioskModeLockedUnsafe();
     ErrCode ExitKioskModeLockedUnsafe();
     void AppDieHandle(const std::string &bundleName);
     void EnvAnomalyLockedUnsafe();
@@ -114,6 +120,7 @@ private:
     void CheckAndHandleSaIdleLockedUnsafe(int32_t delta);
     void BeginDialogSystemError(const std::string &ticket);
     int32_t RestrictScreenOff(bool enable);
+    std::vector<std::string> GetFinalAppList();
 
     static std::mutex mutex_;
     static sptr<AssessmentService> instance_;
@@ -136,7 +143,6 @@ private:
     std::thread thread_;
 
     std::shared_ptr<AssessmentEventObserver> assessmentEventObserver_;
-    std::shared_ptr<AssessmentEventPublisher> assessmentEventPublisher_;
     sptr<AAFwk::AssessmentServiceAppStateCb> appStateObserver_;
     EnvChecker envChecker_;
     ProcessController processController_;

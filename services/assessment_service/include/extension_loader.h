@@ -45,7 +45,7 @@ namespace AAFwk {
  *
  * Typical usage:
  * @code
- *   auto loader = std::make_unique<ExtensionLoader>("libassessment_ext.z.so");
+ *   auto loader = std::make_unique<ExtensionLoader>("libassessment_configuration_service_ext.z.so");
  *   loader->SetDegradedCallback([](auto &so, auto &sym) { LOGW("%s:%s degraded", so, sym); });
  *   loader->InitExtensionLoader();
  *   bool safe = loader->InvokeCheckAll(allowedApps);
@@ -68,6 +68,10 @@ public:
     typedef bool (*IS_AWAKE_ANCO_FUNC)(std::string ancoState);
 
     typedef void (*RESTRICT_ANCO_APP_FUNC)();
+
+    typedef bool (*ACTIVATE_ALL_FUNC)(const std::vector<std::string> &allowedApps);
+
+    typedef bool (*DEACTIVATE_ALL_FUNC)();
 
     /**
      * @brief Load the shared library and resolve symbols.
@@ -101,6 +105,10 @@ public:
      */
     void InvokeRestrictAncoApp();
 
+    bool InvokeActivateAll(const std::vector<std::string> &allowedApps);
+
+    bool InvokeDeactivateAll();
+
     /**
      * @brief Check whether the loader is in degraded mode.
      * @return true if the CheckAll symbol could not be resolved.
@@ -125,6 +133,8 @@ private:
     CHECK_ALL_FUNC checkAllFunc_ = nullptr;
     IS_AWAKE_ANCO_FUNC isAwakeAncoFunc_ = nullptr;
     RESTRICT_ANCO_APP_FUNC restrictAncoAppFunc = nullptr;
+    ACTIVATE_ALL_FUNC activateAllFunc_ = nullptr;
+    DEACTIVATE_ALL_FUNC deactivateAllFunc_ = nullptr;
 };
 
 } // namespace AAFwk

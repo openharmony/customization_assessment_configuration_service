@@ -17,14 +17,31 @@
 #define OHOS_ASSESSMENT_EVENT_PUBLISHER_H
 
 #include <string>
+#include <vector>
 
 namespace OHOS {
 namespace AAFwk {
 
+struct EnterExamParam {
+    std::string bundleName;
+    long long examId = 0;
+    long long examStartTime = 0;
+    long long duration = 0;
+    std::vector<std::string> allowedApps;
+    bool envCheckResult = false;
+};
+
+struct ExitExamParam {
+    std::string bundleName;
+    long long examId = 0;
+    long long examStartTime = 0;
+};
+
 class AssessmentEventPublisher {
 public:
-    void PublishEnterExamModeEvent(const char* errorReason);
-    void PublishExitExamModeEvent(const char* exitReason, const char* errorReason);
+    static void PublishEnterExamModeEvent(const EnterExamParam &params, const char* errorReason);
+    static void PublishExitExamModeEvent(const ExitExamParam &params,
+        const char* exitReason, const char* errorReason);
 };
 
 } // namespace AAFwk

@@ -21,16 +21,18 @@
 #include "call_manager_client.h"
 #include "device_manager.h"
 #include "display_manager.h"
+#include "enterprise_device_mgr_proxy.h"
 #include "hilog_tag_wrapper.h"
 #include "screen_info.h"
 #include "screen_manager.h"
 #include "singleton.h"
 #include "system_ability_definition.h"
+#include "want.h"
 
 namespace OHOS {
 namespace AAFwk {
 
-const std::string EXTENSION_SO_PATH = "libassessment_ext.z.so";
+const std::string EXTENSION_SO_PATH = "libassessment_configuration_service_ext.z.so";
 
 void AssessmentDmInitCallback::OnRemoteDied()
 {
@@ -98,6 +100,11 @@ bool EnvChecker::CheckAll()
         }
     }
 
+    if (IsEdmAdminPresent()) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "EDM admin detected, device is managed");
+        return false;
+    }
+
     return true;
 }
 
@@ -115,7 +122,7 @@ bool EnvChecker::IsScreenRecording()
 {
     bool isCaptured = Rosen::DisplayManager::GetInstance().IsCaptured();
     if (isCaptured) {
-        TAG_LOGE(AAFwkTag::DEFAULT, "Screen recording detected: isCaptured = true");
+        TAG_LOGE(AAFwkTag::DEFAULT, "Screen recording detected: isCaptured = true, screen recording check failed");
         return true;
     }
     return false;
@@ -145,8 +152,8 @@ bool EnvChecker::IsScreenCasting()
         if (!localDeviceId.empty() && std::string(device.deviceId) == localDeviceId) {
             continue;
         }
-        TAG_LOGE(AAFwkTag::DEFAULT, "Remote device detected on soft bus, device count: %{public}d",
-            static_cast<int32_t>(devList.size()));
+        TAG_LOGE(AAFwkTag::DEFAULT, "Screen casting check failed, remote device detected on soft bus,"
+            " device count: %{public}d", static_cast<int32_t>(devList.size()));
         return true;
     }
     return false;
@@ -177,8 +184,9 @@ bool EnvChecker::IsMultiScreen()
         }
         Rosen::ScreenTypeInfo screenType = screenInfo->GetScreenTypeInfo();
         if (screenType != Rosen::ScreenTypeInfo::BUILT_IN) {
-            TAG_LOGE(AAFwkTag::DEFAULT, "Non built-in screen detected, screenId: %{public}" PRIu64
-                ", screenType: %{public}d", screen->GetId(), static_cast<int32_t>(screenType));
+            TAG_LOGE(AAFwkTag::DEFAULT, "Multi screen check failed, non built-in screen detected,"
+                " screenId: %{public}" PRIu64 ", screenType: %{public}d",
+                screen->GetId(), static_cast<int32_t>(screenType));
             return true;
         }
     }
@@ -214,7 +222,7 @@ bool EnvChecker::IsInCall()
     }
     bool hasCall = callClient->HasCall(true);
     if (hasCall) {
-        TAG_LOGE(AAFwkTag::DEFAULT, "has call detected");
+        TAG_LOGE(AAFwkTag::DEFAULT, "has call detected, in call check failed");
         return true;
     }
     return false;
@@ -237,6 +245,26 @@ bool EnvChecker::IsVirtualMachine()
         return false;
     }
     return !loader_->InvokeCheckAll(std::vector<std::string>{});
+}
+
+bool EnvChecker::IsEdmAdminPresent()
+{
+    auto proxy = OHOS::EDM::EnterpriseDeviceMgrProxy::GetInstance();
+    if (proxy == nullptr) {
+        TAG_LOGW(AAFwkTag::DEFAULT, "EDM proxy is null, skip EDM admin check");
+        return false;
+    }
+    std::vector<std::shared_ptr<OHOS::AAFwk::Want>> wants;
+    ErrCode err = proxy->GetAdmins(wants);
+    if (err != ERR_OK) {
+        TAG_LOGW(AAFwkTag::DEFAULT, "GetAdmins failed, err: %{public}d, skip EDM admin check", err);
+        return false;
+    }
+    if (!wants.empty()) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "EDM admin count: %{public}d", static_cast<int32_t>(wants.size()));
+        return true;
+    }
+    return false;
 }
 
 } // namespace AAFwk
