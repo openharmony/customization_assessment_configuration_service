@@ -40,6 +40,9 @@
 #include "power_mode_info.h"
 #include "power_mgr_client.h"
 
+#include "nlohmann/json.hpp"
+using json = nlohmann::json;
+
 namespace OHOS {
 namespace AAFwk {
 namespace {
@@ -673,11 +676,20 @@ void AssessmentService::PostCommonEventForSystemDialog(const std::string &ticket
 
 int32_t AssessmentService::InvokeSystemDialog()
 {
+    std::string label;
+    if (!AssessmentServiceUtils::GetApplicationLabel(bundleName_, label)) {
+        TAG_LOGE(AAFwkTag::ASSESSMENT, "GetApplicationLabel fail");
+    }
+
     OHOS::AAFwk::Want want;
     want.SetElementName(SCENEBOARD_BUNDLE_NAME, SCENEBOARD_ABILITY_NAME);
-    std::string parameters =
-        "{\"ability.want.params.uiExtensionType\":\"sysDialog/common\","
-        "\"ticket\":\"" + ticket_ + "\",\"bundleName\":\"" + bundleName_ + "\"}";
+    json root;
+    root["ability.want.params.uiExtensionType"] = "sysDialog/common";
+    root["ticket"] = ticket_;
+    root["bundleName"] = bundleName_;
+    root["appName"] = label;
+    std::string parameters = root.dump();
+
     std::string ticket = ticket_;
     sptr<AssessmentAbilityConnection> connection = sptr<AssessmentAbilityConnection>(
         new (std::nothrow)AssessmentAbilityConnection(
