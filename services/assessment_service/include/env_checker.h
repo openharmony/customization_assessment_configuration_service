@@ -85,7 +85,7 @@ public:
     /**
      * @brief Restrict anco app.
      */
-    void RestrictAncoApp();
+    int32_t RestrictAncoApp();
 
 private:
     bool InitDeviceManager();

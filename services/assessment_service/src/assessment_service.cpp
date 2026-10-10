@@ -74,6 +74,7 @@ const char* const TRACE_ERR_REASON_NO_EXAM = "NO_EXAM";
 const char* const TRACE_ERR_REASON_RESET_SYSPARAM_FAIL = "RESET_SYSPARAM_FAIL";
 const char* const TRACE_ERR_REASON_NON_OWNER_END = "NON_OWNER_END";
 const char* const TRACE_ERR_REASON_LOCK_SCREENOFF_FAILED = "LOCK_SCREENOFF_FAILED";
+const char* const TRACE_ERR_REASON_KILL_ANCO_APP_FAILED = "KILL_ANCO_APP_FAILED";
 const char* const TRACE_ERR_REASON_APP_DIED = "APP_DIED";
 
 const char* const TRACE_EXIT_REASON_TIMEOUT = "TIMEOUT";
@@ -243,7 +244,12 @@ void AssessmentService::SaveState()
     std::string ancoState = system::GetParameter(PARAM_ANCO_STATE, "2");
     isWaittingAncoActive_ = envChecker_.IsAwakeAnco(ancoState);
     if (isActive_) {
-        envChecker_.RestrictAncoApp();
+        int32_t retCode = envChecker_.RestrictAncoApp();
+        constexpr int32_t RESTRICT_ANCO_APP_FAILED = 1;
+        if (retCode == RESTRICT_ANCO_APP_FAILED) {
+            EnterExamParam params = BuildEnterExamParamLockUnsafe();
+            AssessmentEventPublisher::PublishEnterExamModeEvent(params, TRACE_ERR_REASON_KILL_ANCO_APP_FAILED);
+        }
     }
     TAG_LOGD(AAFwkTag::DEFAULT, "State saved");
 }
@@ -285,7 +291,13 @@ void AssessmentService::ConfigCurrentSession(const sptr<IRemoteObject> &token, u
 void AssessmentService::CleanupCurrentSession()
 {
     processController_.Deactivate();
-    RestrictScreenOff(false);
+    ErrCode retRestrictScreenOff = RestrictScreenOff(false);
+    if (retRestrictScreenOff != ERR_OK) {
+        TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment RestrictScreenOff fail, %{public}d", retRestrictScreenOff);
+        ExitExamParam params = BuildExitExamParamLockUnsafe();
+        AssessmentEventPublisher::PublishExitExamModeEvent(
+            params, TRACE_ERR_REASON_LOCK_SCREENOFF_FAILED, TRACE_ERR_REASON_LOCK_SCREENOFF_FAILED);
+    }
     if (callerToken_ != nullptr) {
         CallbackManager::GetInstance().UnregisterCallback(callerToken_);
     }
@@ -808,6 +820,8 @@ ErrCode AssessmentService::EnterKioskModeLockedUnsafe()
     ErrCode retRestrictScreenOff = RestrictScreenOff(true);
     if (retRestrictScreenOff != ERR_OK) {
         TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment RestrictScreenOff fail, %{public}d", retRestrictScreenOff);
+        EnterExamParam params = BuildEnterExamParamLockUnsafe();
+        AssessmentEventPublisher::PublishEnterExamModeEvent(params, TRACE_ERR_REASON_LOCK_SCREENOFF_FAILED);
         return retRestrictScreenOff;
     }
     TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment retRestrictScreenOff succcessfully");
@@ -1038,25 +1052,25 @@ ErrCode AssessmentService::RestrictScreenOff(bool enable)
 {
     auto &powerClient = PowerMgr::PowerMgrClient::GetInstance();
     PowerMgr::PowerErrors powerError = powerClient.LockScreenAfterTimingOut(!enable, !enable);
+    if (powerError != PowerMgr::PowerErrors::ERR_OK) {
+        return static_cast<int32_t>(AssessmentErrorCode::SYSTEM_ERROR);
+    }
     powerError = powerClient.SetInterfaceCallFilteringStrategy(enable ?
         PowerMgr::InterfaceCallFilteringStrategy::SUSPEND_DEVICE_FILTERING :
         PowerMgr::InterfaceCallFilteringStrategy::SUSPEND_DEVICE_NOT_FILTERING);
+    if (powerError != PowerMgr::PowerErrors::ERR_OK) {
+        return static_cast<int32_t>(AssessmentErrorCode::SYSTEM_ERROR);
+    }
     powerError = powerClient.SetLidFilteringStrategy(enable ?
         PowerMgr::LidFilteringStrategy::LID_CLOSE_FILTERING :
         PowerMgr::LidFilteringStrategy::LID_CLOSE_NOT_FILTERING);
+    if (powerError != PowerMgr::PowerErrors::ERR_OK) {
+        return static_cast<int32_t>(AssessmentErrorCode::SYSTEM_ERROR);
+    }
     powerError = powerClient.SetPowerKeyFilteringStrategy(enable ?
         PowerMgr::PowerKeyFilteringStrategy::POWER_KEY_UP_SHORT_PRESS_FILTERING :
         PowerMgr::PowerKeyFilteringStrategy::POWER_KEY_UP_SHORT_PRESS_NOT_FILTERING);
     if (powerError != PowerMgr::PowerErrors::ERR_OK) {
-        TAG_LOGE(AAFwkTag::ASSESSMENT, "assessment EnableScreenOff failed, error: %{public}d", powerError);
-        if (enable) {
-            EnterExamParam params = BuildEnterExamParamLockUnsafe();
-            AssessmentEventPublisher::PublishEnterExamModeEvent(params, TRACE_ERR_REASON_LOCK_SCREENOFF_FAILED);
-        } else {
-            ExitExamParam params = BuildExitExamParamLockUnsafe();
-            AssessmentEventPublisher::PublishExitExamModeEvent(
-                params, TRACE_ERR_REASON_LOCK_SCREENOFF_FAILED, TRACE_ERR_REASON_LOCK_SCREENOFF_FAILED);
-        }
         return static_cast<int32_t>(AssessmentErrorCode::SYSTEM_ERROR);
     }
     return ERR_OK;

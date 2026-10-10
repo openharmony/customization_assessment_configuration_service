@@ -67,7 +67,7 @@ public:
 
     typedef bool (*IS_AWAKE_ANCO_FUNC)(std::string ancoState);
 
-    typedef void (*RESTRICT_ANCO_APP_FUNC)();
+    typedef int32_t (*RESTRICT_ANCO_APP_FUNC)();
 
     typedef bool (*ACTIVATE_ALL_FUNC)(const std::vector<std::string> &allowedApps);
 
@@ -103,7 +103,7 @@ public:
     /**
      * @brief Invoke the closed-source RestrictAncoApp function.
      */
-    void InvokeRestrictAncoApp();
+    int32_t InvokeRestrictAncoApp();
 
     bool InvokeActivateAll(const std::vector<std::string> &allowedApps);
 
