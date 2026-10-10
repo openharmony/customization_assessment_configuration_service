@@ -364,9 +364,9 @@ The values in the system parameters `persist.assessment.*` are kept, but the ass
 
 ## Guide
 
-[Assessment Configuration Service application development guide](https://gitcode.com/weredust/docs_1670/blob/master/zh-cn/application-dev/assessment/assessment-guide.md)
+[Assessment Configuration Service application development guide](https://gitcode.com/openharmony/docs/blob/master/zh-cn/application-dev/assessment/assessment-guide.md)
 
-[Assessment Configuration Service application development APIs](https://gitcode.com/weredust/docs_1670/blob/master/zh-cn/application-dev/reference/apis-assessment-kit/js-apis-customization-assessment.md)
+[Assessment Configuration Service application development APIs](https://gitcode.com/openharmony/docs/blob/master/zh-cn/application-dev/reference/apis-assessment-kit/js-apis-customization-assessment.md)
 
 ## Contribution
 

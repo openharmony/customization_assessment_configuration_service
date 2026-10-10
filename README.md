@@ -364,9 +364,9 @@
 
 ## 开发指南
 
-[评估配置服务应用开发指南](https://gitcode.com/weredust/docs_1670/blob/master/zh-cn/application-dev/assessment/assessment-guide.md)
+[评估配置服务应用开发指南](https://gitcode.com/openharmony/docs/blob/master/zh-cn/application-dev/assessment/assessment-guide.md)
 
-[评估配置服务应用开发API](https://gitcode.com/weredust/docs_1670/blob/master/zh-cn/application-dev/reference/apis-assessment-kit/js-apis-customization-assessment.md)
+[评估配置服务应用开发API](https://gitcode.com/openharmony/docs/blob/master/zh-cn/application-dev/reference/apis-assessment-kit/js-apis-customization-assessment.md)
 
 ## 参与贡献
 

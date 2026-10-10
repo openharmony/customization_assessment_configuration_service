@@ -15,6 +15,8 @@
 
 #include "process_controller.h"
 
+#include <cinttypes>
+
 #include "call_manager_client.h"
 #include "hilog_tag_wrapper.h"
 #include "parameter.h"
@@ -66,6 +68,35 @@ void AssessmentTelephonyObserver::OnCallStateUpdated(
     }
 }
 
+void AssessmentScreenListener::OnConnect(Rosen::ScreenId screenId)
+{
+    if (controller_ == nullptr) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "controller_ is null");
+        return;
+    }
+
+    if (!controller_->IsActivated()) {
+        TAG_LOGW(AAFwkTag::DEFAULT, "controller_ not activated, skip screen connect");
+        return;
+    }
+
+    TAG_LOGI(AAFwkTag::DEFAULT, "OnConnect screenId: %{public}" PRIu64, screenId);
+    controller_->NotifyScreenConnected(screenId);
+}
+
+void AssessmentScreenListener::OnDisconnect(Rosen::ScreenId screenId)
+{
+    // Unplugging a screen does not end the assessment; the anomaly has already
+    // been reported by OnConnect if the screen was an external one.
+    TAG_LOGI(AAFwkTag::DEFAULT, "OnDisconnect screenId: %{public}" PRIu64, screenId);
+}
+
+void AssessmentScreenListener::OnChange(Rosen::ScreenId screenId)
+{
+    // Resolution/rotation changes are not an environment anomaly.
+    TAG_LOGI(AAFwkTag::DEFAULT, "OnChange screenId: %{public}" PRIu64, screenId);
+}
+
 bool ProcessController::Init()
 {
     extLoader_ = std::make_unique<ExtensionLoader>(EXTENSION_SO_PATH);
@@ -93,6 +124,7 @@ bool ProcessController::Activate(const std::vector<std::string> &allowedApps)
     // callback arriving during activation already sees the active state.
     activated_ = true;
     RegisterCallObserver();
+    RegisterScreenListener();
 
     if (extLoader_ != nullptr && !extLoader_->InvokeActivateAll(allowedApps)) {
         TAG_LOGW(AAFwkTag::DEFAULT, "ActivateAll failed, process control degraded");
@@ -111,6 +143,13 @@ void ProcessController::Deactivate()
         return;
     }
 
+    // Clear the flag before unregistering, so that a screen-connect callback
+    // already in flight on the RenderService thread bails out at IsActivated()
+    // instead of re-entering Deactivate() through the anomaly callback while
+    // mutex_ is held here.
+    activated_ = false;
+
+    UnregisterScreenListener();
     UnRegisterCallObserver();
 
     if (extLoader_ != nullptr) {
@@ -123,13 +162,33 @@ void ProcessController::Deactivate()
     } else {
         TAG_LOGI(AAFwkTag::DEFAULT, "%{public}s started", SOFTBUS_SERVICE_NAME);
     }
-
-    activated_ = false;
 }
 
 bool ProcessController::IsActivated() const
 {
     return activated_;
+}
+
+void ProcessController::SetEnvAnomalyCallback(std::function<void()> callback)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    envAnomalyCallback_ = std::move(callback);
+}
+
+void ProcessController::NotifyScreenConnected(Rosen::ScreenId screenId)
+{
+    // No mutex_ here on purpose: the callback ends up calling Deactivate(),
+    // which takes mutex_. See the header comment on NotifyScreenConnected().
+    if (!activated_) {
+        TAG_LOGW(AAFwkTag::DEFAULT, "not activated, skip screen connect %{public}" PRIu64, screenId);
+        return;
+    }
+    if (envAnomalyCallback_ == nullptr) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "envAnomalyCallback_ is null, cannot report screen connect");
+        return;
+    }
+    TAG_LOGE(AAFwkTag::DEFAULT, "screen connected during assessment, screenId: %{public}" PRIu64, screenId);
+    envAnomalyCallback_();
 }
 
 bool ProcessController::InitCallManager()
@@ -179,6 +238,38 @@ void ProcessController::UnRegisterCallObserver()
         telephonyObserver_ = nullptr;
         callObserverRegistered_ = false;
         TAG_LOGI(AAFwkTag::DEFAULT, "CallObserver unregistered");
+    }
+}
+
+void ProcessController::RegisterScreenListener()
+{
+    if (screenListenerRegistered_) {
+        return;
+    }
+    if (screenListener_ == nullptr) {
+        screenListener_ = new AssessmentScreenListener(this);
+    }
+    Rosen::DMError ret = Rosen::ScreenManager::GetInstance().RegisterScreenListener(screenListener_);
+    if (ret != Rosen::DMError::DM_OK) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "RegisterScreenListener failed, ret : %{public}d", static_cast<int32_t>(ret));
+    } else {
+        screenListenerRegistered_ = true;
+        TAG_LOGI(AAFwkTag::DEFAULT, "ScreenListener registered");
+    }
+}
+
+void ProcessController::UnregisterScreenListener()
+{
+    if (!screenListenerRegistered_) {
+        return;
+    }
+    Rosen::DMError ret = Rosen::ScreenManager::GetInstance().UnregisterScreenListener(screenListener_);
+    if (ret != Rosen::DMError::DM_OK) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "UnregisterScreenListener failed, ret : %{public}d", static_cast<int32_t>(ret));
+    } else {
+        screenListener_ = nullptr;
+        screenListenerRegistered_ = false;
+        TAG_LOGI(AAFwkTag::DEFAULT, "ScreenListener unregistered");
     }
 }
 

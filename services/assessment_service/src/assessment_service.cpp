@@ -144,6 +144,9 @@ bool AssessmentService::Init()
         TAG_LOGE(AAFwkTag::DEFAULT, "EnvChecker init incomplete, some env checks may be skipped");
         return false;
     }
+    this->processController_.SetEnvAnomalyCallback([this]() {
+        this->OnExternalScreenConnected();
+    });
     if (!this->processController_.Init()) {
         TAG_LOGE(AAFwkTag::DEFAULT, "ProcessController init failed");
         return false;
@@ -991,6 +994,20 @@ void AssessmentService::OnSwitchEvent(std::shared_ptr<OHOS::MMI::SwitchEvent> ev
             params, TRACE_EXIT_REASON_LID_CLOSED, TRACE_ERR_REASON_NO_ERROR);
         this->EnvAnomalyLockedUnsafe();
     }
+}
+
+void AssessmentService::OnExternalScreenConnected()
+{
+    std::unique_lock<std::mutex> lock(this->mutexSa_);
+    // Re-run the very same judgement used before the assessment started, so the
+    // "screen count <= 1" exemption for devices without a built-in screen
+    // applies to hotplug as well.
+    if (!this->envChecker_.IsMultiScreen()) {
+        TAG_LOGI(AAFwkTag::ASSESSMENT, "screen connected but still not multi-screen, keep assessment");
+        return;
+    }
+    TAG_LOGE(AAFwkTag::ASSESSMENT, "external screen connected during assessment, interrupt");
+    this->EnvAnomalyLockedUnsafe();
 }
 
 std::string AssessmentService::GetAssessmentBundleName()
