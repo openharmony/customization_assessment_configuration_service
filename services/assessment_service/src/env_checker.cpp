@@ -119,7 +119,7 @@ bool EnvChecker::IsAwakeAnco(std::string ancoState)
     return loader_->InvokeIsAwakeAnco(ancoState);
 }
 
-void EnvChecker::RestrictAncoApp()
+int32_t EnvChecker::RestrictAncoApp()
 {
     return loader_->InvokeRestrictAncoApp();
 }

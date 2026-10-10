@@ -124,7 +124,7 @@ bool ExtensionLoader::InvokeIsAwakeAnco(std::string ancoState)
     return isAwakeAncoFunc_(ancoState);
 }
 
-void ExtensionLoader::InvokeRestrictAncoApp()
+int32_t ExtensionLoader::InvokeRestrictAncoApp()
 {
     std::lock_guard<std::mutex> lock(mutex_);
     if (restrictAncoAppFunc == nullptr) {
@@ -132,8 +132,9 @@ void ExtensionLoader::InvokeRestrictAncoApp()
         if (degradedCallback_) {
             degradedCallback_(soPath_, "RestrictAncoApp");
         }
+        return -1;
     } else {
-        restrictAncoAppFunc();
+        return restrictAncoAppFunc();
     }
 }
 
