@@ -25,7 +25,7 @@ namespace OHOS {
 namespace AbilityRuntime {
 namespace {
     constexpr uint32_t MAX_ALLOWED_APPS_COUNT = 10;
-    const char* CLASS_NAME_ASSESSMENTCONFIF = "@ohos.customization.assessment.assessment.AssessmentConfigInner";
+    const char* CLASS_NAME_ASSESSMENTCONFIG = "@ohos.customization.assessment.assessment.AssessmentConfigInner";
 } // namespace
 
 AniAssessment::AniAssessment() { TAG_LOGI(AAFwkTag::ASSESSMENT, "AniAssessment constructor"); }
@@ -97,7 +97,7 @@ ani_object AniAssessment::CreateAssessmentConfigObject(ani_env* env,
 {
     TAG_LOGI(AAFwkTag::DEFAULT, "CreateAssessmentConfigObject start");
     // create ets object of Configuration
-    ani_object configObj = AAFwk::CreateEtsObject(env, CLASS_NAME_ASSESSMENTCONFIF);
+    ani_object configObj = AAFwk::CreateEtsObject(env, CLASS_NAME_ASSESSMENTCONFIG);
 
     // set duration of ets object of Configuration
     ani_status status = env->Object_SetFieldByName_Int(configObj, "duration", static_cast<ani_int>(duration));

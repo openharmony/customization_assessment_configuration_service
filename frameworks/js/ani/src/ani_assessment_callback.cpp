@@ -52,6 +52,10 @@ AniAssessmentCallback::AniAssessmentCallback(ani_env* env,
 AniAssessmentCallback::~AniAssessmentCallback()
 {
     TAG_LOGI(AAFwkTag::ASSESSMENT, "AniAssessmentCallback destructor start");
+    if (vm_ == nullptr) {
+        TAG_LOGE(AAFwkTag::ASSESSMENT, "AniAssessmentCallback destructor, vm_ is nullptr");
+        return;
+    }
     ani_env* env = nullptr;
     ani_status ret = vm_->GetEnv(ANI_VERSION_1, &env);
     if (ret != ANI_OK || env == nullptr) {
