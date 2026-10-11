@@ -70,6 +70,8 @@ public:
     ErrCode GetConfiguration(
         uint32_t &duration, std::vector<std::string> &allowedApps, int32_t &errCode) override;
 
+    void OnRemoteDied(const wptr<OHOS::IRemoteObject> &remoteObject);
+
     void NotifyBegin(int32_t code, const std::string &message);
     void NotifyInterrupted(int32_t reason, const std::string &message);
     void NotifyEnd();
@@ -83,8 +85,6 @@ public:
     void OnSwitchEvent(std::shared_ptr<OHOS::MMI::SwitchEvent> event);
     void OnExternalScreenConnected();
 
-    std::string GetAssessmentBundleName();
-    AssessmentConfig GetAssessmentCurrentConfig();
     bool GetEnvCheckResult();
 
     EnterExamParam BuildEnterExamParamLockUnsafe();
@@ -120,6 +120,7 @@ private:
     ErrCode EnterKioskModeLockedUnsafe();
     ErrCode ExitKioskModeLockedUnsafe();
     void AppDieHandle(const std::string &bundleName);
+    void AppDieLockedUnsafe();
     void EnvAnomalyLockedUnsafe();
     void RemarkSaIdleLockedUnsafe();
     void CheckAndHandleSaIdleLockedUnsafe(int32_t delta);
@@ -134,6 +135,7 @@ private:
 
     bool isActive_ = false;
     sptr<IRemoteObject> callerToken_;
+    sptr<IRemoteObject> callback_;
     AssessmentConfig currentConfig_;
     uint64_t endpointCheckPoint_ = 0;
     AssessmentExamStatus examStatus_ = AssessmentExamStatus::IDLE;
@@ -165,6 +167,16 @@ private:
     bool isWaittingAncoActive_ = false;
     void RestrictAncoApp();
     static void AncoStateChangeCallback(const char *key, const char *value, void *context);
+
+    class ExamDeathRecipient : public OHOS::IRemoteObject::DeathRecipient {
+    public:
+        ExamDeathRecipient(sptr<AssessmentService> service) : service_(service) {}
+        void OnRemoteDied(const wptr<IRemoteObject> &remoteObject) override;
+    private:
+        wptr<AssessmentService> service_;
+    };
+
+    sptr<OHOS::IRemoteObject::DeathRecipient> examDeathRecipient_;
 };
 } // namespace AAFwk
 } // namespace OHOS
