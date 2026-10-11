@@ -56,11 +56,6 @@ ani_status AniAssessment::Init(ani_env* env, ani_namespace nsp)
         delete releasedRef;
         return ret;
     }
-    TAG_LOGI(AAFwkTag::DEFAULT, "AniAssessment Init, Function_Call_Void ret=%{public}u", ret);
-    if (ret != ANI_OK) {
-        TAG_LOGE(AAFwkTag::DEFAULT, "AniAssessment Init, call setNativeObj func failed %{public}u", ret);
-        return ret;
-    }
     TAG_LOGI(AAFwkTag::DEFAULT, "AniAssessment AniAssessment::Init, finish");
     return ret;
 }
