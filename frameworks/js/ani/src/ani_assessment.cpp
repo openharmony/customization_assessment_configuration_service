@@ -51,6 +51,11 @@ ani_status AniAssessment::Init(ani_env* env, ani_namespace nsp)
     }
     AniAssessment* releasedRef = aniAssessment.release();
     ret = env->Function_Call_Void(setObjFunc, releasedRef);
+    if (ret != ANI_OK) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "AniAssessment Init, call setNativeObj func failed %{public}u", ret);
+        delete releasedRef;
+        return ret;
+    }
     TAG_LOGI(AAFwkTag::DEFAULT, "AniAssessment Init, Function_Call_Void ret=%{public}u", ret);
     if (ret != ANI_OK) {
         TAG_LOGE(AAFwkTag::DEFAULT, "AniAssessment Init, call setNativeObj func failed %{public}u", ret);
@@ -319,6 +324,7 @@ sptr<AAFwk::AniAssessmentCallback> AniAssessment::CreateAniAssessmentCallback(an
     if (interruptedCallback == nullptr ||
         env->GlobalReference_Create(interruptedCallback, &onInterruptedRef) != ANI_OK) {
         TAG_LOGE(AAFwkTag::DEFAULT, "AniAssessmentCallback, create global onInterruptedRef fail");
+        env->GlobalReference_Delete(onBeginRef);
         return nullptr;
     }
 
@@ -326,6 +332,8 @@ sptr<AAFwk::AniAssessmentCallback> AniAssessment::CreateAniAssessmentCallback(an
     if (endCallback == nullptr ||
         env->GlobalReference_Create(endCallback, &onEndRef) != ANI_OK) {
         TAG_LOGE(AAFwkTag::DEFAULT, "AniAssessmentCallback, create global onEndRef fail");
+        env->GlobalReference_Delete(onBeginRef);
+        env->GlobalReference_Delete(onInterruptedRef);
         return nullptr;
     }
 
