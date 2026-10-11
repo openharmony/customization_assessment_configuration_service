@@ -42,6 +42,7 @@ AniAssessmentCallback::AniAssessmentCallback(ani_env* env,
     auto mainRunner = AppExecFwk::EventRunner::GetMainEventRunner();
     if (mainRunner == nullptr) {
         TAG_LOGE(AAFwkTag::DEFAULT, "AniAssessmentCallback, GetMainEventRunner failed");
+        return;
     }
     // set eventHandler of main Thread
     eventHandler_ = std::make_shared<AppExecFwk::EventHandler>(mainRunner);
