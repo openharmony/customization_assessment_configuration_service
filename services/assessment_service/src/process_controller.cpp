@@ -112,6 +112,10 @@ bool ProcessController::Activate(const std::vector<std::string> &allowedApps, st
     TAG_LOGI(AAFwkTag::DEFAULT, "Activate called, allowedApps size: %{public}zu", allowedApps.size());
     std::lock_guard<std::mutex> lock(mutex_);
 
+    // Each stage that succeeds appends how to undo itself, so a later failure can be
+    // rolled back without this function keeping track of which stages ran.
+    std::vector<std::function<void()>> undoActions;
+
     // Distributed softbus must be stopped before the assessment starts, otherwise
     // assessment content could still be shared with nearby devices.
     int32_t ret = ServiceControl(SOFTBUS_SERVICE_NAME, ServiceAction::STOP);
@@ -120,30 +124,83 @@ bool ProcessController::Activate(const std::vector<std::string> &allowedApps, st
         failReason = FAIL_REASON_SOFTBUS_CONTROL;
         return false;
     }
+    undoActions.push_back([this]() { StartSoftBusForRollback(); });
     TAG_LOGI(AAFwkTag::DEFAULT, "%{public}s stopped", SOFTBUS_SERVICE_NAME);
 
     // Mark activated before registering the observer so that an incoming-call
     // callback arriving during activation already sees the active state.
     activated_ = true;
 
-    // The remaining sub-items are non-fatal: the assessment still starts, but the
-    // first failure is reported so that it reaches the trace event. Keeping the
-    // first one only, because a single reason string cannot carry several.
-    if (!RegisterCallObserver() && failReason.empty()) {
+    // Every sub-item is fatal: an assessment must not run without a restriction it
+    // asked for, so a failure rolls back the stages already completed.
+    if (!RegisterCallObserver()) {
         failReason = FAIL_REASON_CALL_OBSERVER;
+        RollbackActivateLockedUnsafe(undoActions);
+        return false;
     }
-    if (!RegisterScreenListener() && failReason.empty()) {
-        failReason = FAIL_REASON_SCREEN_LISTENER;
-    }
+    undoActions.push_back([this]() { UnRegisterCallObserver(); });
 
-    if (extLoader_ != nullptr && !extLoader_->InvokeActivateAll(allowedApps, failReason)) {
-        TAG_LOGW(AAFwkTag::DEFAULT, "ActivateAll failed, process control degraded");
-        if (failReason.empty()) {
-            failReason = FAIL_REASON_ENABLE_VM;
-        }
+    if (!RegisterScreenListener()) {
+        failReason = FAIL_REASON_SCREEN_LISTENER;
+        RollbackActivateLockedUnsafe(undoActions);
+        return false;
+    }
+    undoActions.push_back([this]() { UnregisterScreenListener(); });
+
+    if (!ActivateExtensionLockedUnsafe(allowedApps, failReason, undoActions)) {
+        RollbackActivateLockedUnsafe(undoActions);
+        return false;
     }
 
     return true;
+}
+
+bool ProcessController::ActivateExtensionLockedUnsafe(const std::vector<std::string> &allowedApps,
+    std::string &failReason, std::vector<std::function<void()>> &undoActions)
+{
+    if (extLoader_ == nullptr) {
+        // No closed-source extension on this device: nothing to apply, nothing to undo.
+        return true;
+    }
+    // ActivateAll fails fast internally, so it may already have applied some of its
+    // sub-items by the time it reports a failure: append the undo before calling it.
+    undoActions.push_back([this]() { RevertExtensionForRollback(); });
+    if (extLoader_->InvokeActivateAll(allowedApps, failReason)) {
+        return true;
+    }
+    TAG_LOGE(AAFwkTag::DEFAULT, "ActivateAll failed");
+    if (failReason.empty()) {
+        failReason = FAIL_REASON_ENABLE_VM;
+    }
+    return false;
+}
+
+void ProcessController::RollbackActivateLockedUnsafe(std::vector<std::function<void()>> &undoActions)
+{
+    TAG_LOGW(AAFwkTag::DEFAULT, "Activate failed, rolling back %{public}zu stage(s)", undoActions.size());
+    // Clear the active flag first so that a callback firing during the rollback, for
+    // instance a screen hotplug event, already sees the assessment as inactive.
+    activated_ = false;
+    while (!undoActions.empty()) {
+        undoActions.back()();
+        undoActions.pop_back();
+    }
+}
+
+void ProcessController::StartSoftBusForRollback()
+{
+    if (ServiceControl(SOFTBUS_SERVICE_NAME, ServiceAction::START) != 0) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "Start %{public}s failed during rollback", SOFTBUS_SERVICE_NAME);
+    }
+}
+
+void ProcessController::RevertExtensionForRollback()
+{
+    if (extLoader_ == nullptr) {
+        return;
+    }
+    std::string discard;
+    extLoader_->InvokeDeactivateAll(discard);
 }
 
 void ProcessController::Deactivate(std::string &failReason)

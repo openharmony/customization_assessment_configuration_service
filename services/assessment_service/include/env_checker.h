@@ -20,16 +20,10 @@
 #include <memory>
 #include <string>
 
-#include "device_manager_callback.h"
 #include "extension_loader.h"
 
 namespace OHOS {
 namespace AAFwk {
-
-class AssessmentDmInitCallback : public DistributedHardware::DmInitCallback {
-public:
-    void OnRemoteDied() override;
-};
 
 /**
  * @class EnvChecker
@@ -41,21 +35,24 @@ public:
  * and PC virtual-machine detection.
  *
  * The check logic is organized as follows:
- * 1. IsScreenRecording  - Detects screen capture via DisplayManager.
- * 2. IsScreenCasting    - Detects remote devices via DeviceManager (soft bus).
- * 3. IsMultiScreen      - Detects non built-in (external/virtual) screens via ScreenManager.
+ * 1. IsScreenRecording  - Detects screen capture and casting via DisplayManager.
+ *                        - IsCaptured() reports both, so no separate soft-bus device
+ *                          query is needed; querying remote devices caused problems
+ *                          of its own and has been removed.
+ * 2. IsMultiScreen      - Detects non built-in (external/virtual) screens via ScreenManager.
  *                        - Only checked when screen count > 1 (some devices have no built-in screen).
- * 4. IsInCall           - Detects active phone call via CallManagerClient.
- * 5. IsPcDevice         - Checks if the device type is "2in1" (PC form factor).
+ * 3. IsInCall           - Detects active phone call via CallManagerClient.
+ * 4. IsPcDevice         - Checks if the device type is "2in1" (PC form factor).
  *    `-- IsVirtualMachine - Delegates to ExtensionLoader for closed-source VM check.
  *
  * All checks must pass (return true from CheckAll) for the assessment to proceed.
  * Any single failure causes CheckAll to return false immediately.
  *
- * @note Heavyweight dependencies (extension loader, DeviceManager, CallManager)
- *       are initialized once via Init() at service startup rather than lazily on
- *       each check. If a dependency fails to initialize, the corresponding check
- *       is skipped (fails open) and a warning is logged.
+ * @note Heavyweight dependencies (extension loader, CallManager) are initialized
+ *       once via Init() at service startup rather than lazily on each check. If a
+ *       dependency fails to initialize, the corresponding check is skipped (fails
+ *       open) and a warning is logged. Nothing here may hard-depend on the
+ *       closed-source extension: some devices do not ship it.
  */
 class EnvChecker {
 public:
@@ -64,10 +61,12 @@ public:
 
     /**
      * @brief Initialize heavyweight dependencies: the closed-source extension
-     *        loader, DeviceManager, and CallManager. Intended to be called once
-     *        at service startup.
-     * @return true if DeviceManager and CallManager both initialized; false if
-     *         either failed (extension-loader degradation is non-fatal).
+     *        loader and CallManager. Intended to be called once at service startup.
+     *
+     * A false return only means CallManager is unavailable, so IsInCall() will be
+     * skipped. Callers must not treat it as fatal: the SA has to start on devices
+     * without telephony and without the closed-source extension alike.
+     * @return true if CallManager initialized; false otherwise (non-fatal).
      */
     bool Init();
 
@@ -105,10 +104,8 @@ public:
     int32_t RestrictAncoApp();
 
 private:
-    bool InitDeviceManager();
     bool InitCallManager();
     bool IsScreenRecording();
-    bool IsScreenCasting();
     bool IsInCall();
     bool IsPcDevice();
     bool IsVirtualMachine(std::string &failReason);
@@ -116,10 +113,8 @@ private:
 
     // Atomic because Init() runs on the service startup thread while the
     // check methods may run concurrently on IPC threads.
-    std::atomic<bool> deviceManagerInited_ = false;
     std::atomic<bool> callManagerInited_ = false;
 
-    std::shared_ptr<AssessmentDmInitCallback> dmInitCallback_;
     std::unique_ptr<ExtensionLoader> loader_;
 };
 

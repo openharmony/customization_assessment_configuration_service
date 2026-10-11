@@ -104,8 +104,7 @@ const std::string ENV_ANOMALY_FALLBACK_MSG = "Environment Anomaly";
 std::string AssessmentFailReasonToErrMsg(const std::string &failReason)
 {
     static const std::unordered_map<std::string, std::string> REASON_TO_MSG_MAP = {
-        { FAIL_REASON_SCREEN_RECORDING, "Screen recording detected" },
-        { FAIL_REASON_SCREEN_CASTING, "Screen casting detected" },
+        { FAIL_REASON_SCREEN_RECORDING, "Screen recording or casting detected" },
         { FAIL_REASON_MULTI_SCREEN, "External screen detected" },
         { FAIL_REASON_IN_CALL, "Phone call in progress" },
         { FAIL_REASON_VIRTUAL_MACHINE, "Virtual machine running detected" },
@@ -170,20 +169,20 @@ bool AssessmentService::Init()
         TAG_LOGE(AAFwkTag::DEFAULT, "InitSubsystems fail");
         return false;
     }
-    // Heavy dependency init (extension-loader dlopen, DeviceManager and
-    // CallManager IPC) runs on the service thread so that SA OnStart is not
-    // blocked on external services. Until it completes, the affected env
-    // checks are skipped (fail-open, documented in EnvChecker).
+    // Heavy dependency init (extension-loader dlopen and CallManager IPC) runs on
+    // the service thread so that SA OnStart is not blocked on external services.
+    // A failure here only degrades the affected checks: some devices ship without
+    // the closed-source extension, and telephony may be absent or not ready yet,
+    // so neither may prevent the SA from starting. Every consumer of these
+    // dependencies fails open on its own (see EnvChecker and ProcessController).
     if (!this->envChecker_.Init()) {
-        TAG_LOGE(AAFwkTag::DEFAULT, "EnvChecker init incomplete, some env checks may be skipped");
-        return false;
+        TAG_LOGE(AAFwkTag::DEFAULT, "EnvChecker init incomplete, some env checks will be skipped");
     }
     this->processController_.SetEnvAnomalyCallback([this]() {
         this->OnExternalScreenConnected();
     });
     if (!this->processController_.Init()) {
-        TAG_LOGE(AAFwkTag::DEFAULT, "ProcessController init failed");
-        return false;
+        TAG_LOGE(AAFwkTag::DEFAULT, "ProcessController init incomplete, call restriction will be skipped");
     }
 
     this->running_ = true;
@@ -835,7 +834,8 @@ void AssessmentService::ConfirmationBeginLockedUnsafe()
     std::string ctrlFailReason;
     bool activated = processController_.Activate(currentConfig_.allowedApps, ctrlFailReason);
     if (!activated) {
-        TAG_LOGE(AAFwkTag::ASSESSMENT, "process control activation failed, interrupt assessment");
+        TAG_LOGE(AAFwkTag::ASSESSMENT, "process control failed, reason: %{public}s, interrupt assessment",
+            ctrlFailReason.c_str());
         EnterExamParam params = BuildEnterExamParamLockUnsafe();
         AssessmentEventPublisher::PublishEnterExamModeEvent(params, ctrlFailReason.c_str());
         cleanUp();
@@ -856,12 +856,10 @@ void AssessmentService::ConfirmationBeginLockedUnsafe()
     CallbackManager::GetInstance().OnBegin(callerToken_,
         static_cast<int32_t>(AssessmentErrorCode::OK),
         AssessmentErrCodeToErrMsg(AssessmentErrorCode::OK));
-    // Sub-items other than the softbus are non-fatal, so the assessment did start.
-    // One event is published, carrying the degraded sub-item in place of NO_ERROR,
-    // which keeps exactly one ENTER_EXAM_MODE event per attempt.
+    // Every sub-item of Activate() is fatal, so reaching this point means they all
+    // succeeded: a failure was already published where it happened and returned.
     EnterExamParam params = BuildEnterExamParamLockUnsafe();
-    AssessmentEventPublisher::PublishEnterExamModeEvent(
-        params, ctrlFailReason.empty() ? TRACE_ERR_REASON_NO_ERROR : ctrlFailReason.c_str());
+    AssessmentEventPublisher::PublishEnterExamModeEvent(params, TRACE_ERR_REASON_NO_ERROR);
 }
 
 void AssessmentService::CancelBeginLockedUnsafe()
