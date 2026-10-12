@@ -34,7 +34,6 @@
                 "call_manager",
                 "core_service",
                 "state_registry",
-                "device_manager",
                 "enterprise_device_management",
                 "graphic_2d",
                 "window_manager",

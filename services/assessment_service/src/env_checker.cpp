@@ -20,7 +20,6 @@
 #include "assessment_fail_reason.h"
 #include "assessment_utils.h"
 #include "call_manager_client.h"
-#include "device_manager.h"
 #include "display_manager.h"
 #include "enterprise_device_mgr_proxy.h"
 #include "hilog_tag_wrapper.h"
@@ -35,14 +34,8 @@ namespace AAFwk {
 
 const std::string EXTENSION_SO_PATH = "libassessment_configuration_service_ext.z.so";
 
-void AssessmentDmInitCallback::OnRemoteDied()
-{
-    TAG_LOGI(AAFwkTag::DEFAULT, "DeviceManager service remote died");
-}
-
 EnvChecker::EnvChecker()
 {
-    dmInitCallback_ = std::make_shared<AssessmentDmInitCallback>();
     loader_ = std::make_unique<ExtensionLoader>(EXTENSION_SO_PATH);
 }
 
@@ -51,38 +44,16 @@ bool EnvChecker::Init()
     if (!loader_->InitExtensionLoader()) {
         TAG_LOGW(AAFwkTag::DEFAULT, "Extension loader degraded, VM check will pass by default");
     }
-    bool dmOk = InitDeviceManager();
-    bool cmOk = InitCallManager();
-    return dmOk && cmOk;
-}
-
-bool EnvChecker::InitDeviceManager()
-{
-    if (deviceManagerInited_) {
-        return true;
-    }
-    int32_t ret = DistributedHardware::DeviceManager::GetInstance().InitDeviceManager(
-        "assessment_service", dmInitCallback_);
-    if (ret != 0) {
-        TAG_LOGE(AAFwkTag::DEFAULT, "InitDeviceManager failed, ret: %{public}d", ret);
-        return false;
-    }
-    deviceManagerInited_ = true;
-    TAG_LOGI(AAFwkTag::DEFAULT, "DeviceManager Init done");
-    return true;
+    // CallManager may be absent on devices without telephony; IsInCall() fails
+    // open on its own, so an incomplete init must not block the caller.
+    return InitCallManager();
 }
 
 bool EnvChecker::CheckAll(std::string &failReason)
 {
     if (IsScreenRecording()) {
         failReason = FAIL_REASON_SCREEN_RECORDING;
-        TAG_LOGE(AAFwkTag::DEFAULT, "Screen recording detected");
-        return false;
-    }
-
-    if (IsScreenCasting()) {
-        failReason = FAIL_REASON_SCREEN_CASTING;
-        TAG_LOGE(AAFwkTag::DEFAULT, "Screen casting detected");
+        TAG_LOGE(AAFwkTag::DEFAULT, "Screen recording or casting detected");
         return false;
     }
 
@@ -128,38 +99,7 @@ bool EnvChecker::IsScreenRecording()
 {
     bool isCaptured = Rosen::DisplayManager::GetInstance().IsCaptured();
     if (isCaptured) {
-        TAG_LOGE(AAFwkTag::DEFAULT, "Screen recording detected: isCaptured = true, screen recording check failed");
-        return true;
-    }
-    return false;
-}
-
-bool EnvChecker::IsScreenCasting()
-{
-    if (!deviceManagerInited_) {
-        TAG_LOGW(AAFwkTag::DEFAULT, "DeviceManager not init, skip screen casting check");
-        return false;
-    }
-    std::vector<DistributedHardware::DmDeviceBasicInfo> devList;
-    int32_t ret = DistributedHardware::DeviceManager::GetInstance().GetAvailableDeviceList(
-        "assessment_service", devList);
-    if (ret != 0) {
-        TAG_LOGW(AAFwkTag::DEFAULT, "GetAvailableDeviceList failed, ret: %{public}d", ret);
-        return false;
-    }
-
-    // Exclude the local device: GetAvailableDeviceList may include self.
-    DistributedHardware::DmDeviceInfo localDeviceInfo;
-    ret = DistributedHardware::DeviceManager::GetInstance().GetLocalDeviceInfo(
-        "assessment_service", localDeviceInfo);
-    std::string localDeviceId = (ret == 0) ? std::string(localDeviceInfo.deviceId) : "";
-
-    for (const auto &device : devList) {
-        if (!localDeviceId.empty() && std::string(device.deviceId) == localDeviceId) {
-            continue;
-        }
-        TAG_LOGE(AAFwkTag::DEFAULT, "Screen casting check failed, remote device detected on soft bus,"
-            " device count: %{public}d", static_cast<int32_t>(devList.size()));
+        TAG_LOGE(AAFwkTag::DEFAULT, "Screen recording or casting detected, isCaptured = true");
         return true;
     }
     return false;
