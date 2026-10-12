@@ -40,7 +40,6 @@
 #include "ipc_skeleton.h"
 #include "ability_manager_client.h"
 #include "power_mode_info.h"
-#include "power_mgr_client.h"
 
 #include "nlohmann/json.hpp"
 using json = nlohmann::json;
@@ -129,12 +128,12 @@ sptr<AssessmentService> AssessmentService::instance_;
 
 AssessmentService::AssessmentService()
 {
-    TAG_LOGE(AAFwkTag::DEFAULT, "assessment service created");
+    TAG_LOGI(AAFwkTag::DEFAULT, "assessment service created");
 }
 
 AssessmentService::~AssessmentService()
 {
-    TAG_LOGE(AAFwkTag::DEFAULT, "assessment service destroy");
+    TAG_LOGI(AAFwkTag::DEFAULT, "assessment service destroy");
 }
 
 sptr<AssessmentService> AssessmentService::GetInstance()
@@ -341,13 +340,6 @@ void AssessmentService::CleanupCurrentSession()
         AssessmentEventPublisher::PublishExitExamModeEvent(
             params, restoreFailReason.c_str(), restoreFailReason.c_str());
     }
-    ErrCode retRestrictScreenOff = RestrictScreenOff(false);
-    if (retRestrictScreenOff != ERR_OK) {
-        TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment RestrictScreenOff fail, %{public}d", retRestrictScreenOff);
-        ExitExamParam params = BuildExitExamParamLockUnsafe();
-        AssessmentEventPublisher::PublishExitExamModeEvent(
-            params, TRACE_ERR_REASON_LOCK_SCREENOFF_FAILED, TRACE_ERR_REASON_LOCK_SCREENOFF_FAILED);
-    }
     if (callerToken_ != nullptr) {
         CallbackManager::GetInstance().UnregisterCallback(callerToken_);
     }
@@ -359,6 +351,7 @@ void AssessmentService::CleanupCurrentSession()
     endpointCheckPoint_ = 0;
     callingUid_ = 0;
     envCheckResult_ = false;
+    powerRunningLocker_ = nullptr;
 }
 
 bool AssessmentService::CheckBeginPreconditions(const sptr<IRemoteObject> &token, uint32_t duration,
@@ -897,12 +890,12 @@ void AssessmentService::TimeoutLockedUnsafe()
 
 ErrCode AssessmentService::EnterKioskModeLockedUnsafe()
 {
-    ErrCode retRestrictScreenOff = RestrictScreenOff(true);
-    if (retRestrictScreenOff != ERR_OK) {
-        TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment RestrictScreenOff fail, %{public}d", retRestrictScreenOff);
+    bool retHoldScreenRunning = HoldScreenRunning();
+    bool retRestrictScreenOff = RestrictScreenOff(true);
+    if (!retHoldScreenRunning || !retRestrictScreenOff) {
         EnterExamParam params = BuildEnterExamParamLockUnsafe();
         AssessmentEventPublisher::PublishEnterExamModeEvent(params, TRACE_ERR_REASON_LOCK_SCREENOFF_FAILED);
-        return retRestrictScreenOff;
+        return static_cast<int32_t>(AssessmentErrorCode::SYSTEM_ERROR);
     }
     TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment retRestrictScreenOff succcessfully");
 
@@ -929,6 +922,17 @@ ErrCode AssessmentService::EnterKioskModeLockedUnsafe()
 
 ErrCode AssessmentService::ExitKioskModeLockedUnsafe()
 {
+    if (powerRunningLocker_ != nullptr) {
+        powerRunningLocker_->UnLock();
+    }
+    bool retRestrictScreenOff = RestrictScreenOff(false);
+    if (!retRestrictScreenOff) {
+        TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment RestrictScreenOff fail, %{public}d", retRestrictScreenOff);
+        ExitExamParam params = BuildExitExamParamLockUnsafe();
+        AssessmentEventPublisher::PublishExitExamModeEvent(
+            params, TRACE_ERR_REASON_LOCK_SCREENOFF_FAILED, TRACE_ERR_REASON_LOCK_SCREENOFF_FAILED);
+        return static_cast<int32_t>(AssessmentErrorCode::SYSTEM_ERROR);
+    }
     std::shared_ptr<OHOS::AAFwk::AbilityManagerClient> abilityManagerClient
         = OHOS::AAFwk::AbilityManagerClient::GetInstance();
     ErrCode retExitKioskMode = abilityManagerClient->ExitKioskMode(callerToken_);
@@ -1158,32 +1162,40 @@ void AssessmentService::BeginDialogSystemError(const std::string &ticket)
     TAG_LOGI(AAFwkTag::ASSESSMENT, "BeginDialogSystemError called");
 }
 
-ErrCode AssessmentService::RestrictScreenOff(bool enable)
+bool AssessmentService::HoldScreenRunning()
 {
     auto &powerClient = PowerMgr::PowerMgrClient::GetInstance();
-    PowerMgr::PowerErrors powerError = powerClient.LockScreenAfterTimingOut(!enable, !enable);
-    if (powerError != PowerMgr::PowerErrors::ERR_OK) {
-        return static_cast<int32_t>(AssessmentErrorCode::SYSTEM_ERROR);
+    powerRunningLocker_ = powerClient.CreateRunningLock("AssessmentRequest", PowerMgr::RunningLockType::RUNNINGLOCK_SCREEN);
+    if (powerRunningLocker_ == nullptr) {
+        return false;
     }
-    powerError = powerClient.SetInterfaceCallFilteringStrategy(enable ?
+    powerRunningLocker_->Lock();
+    bool isHolding = powerRunningLocker_->IsUsed();
+    return isHolding;
+}
+
+bool AssessmentService::RestrictScreenOff(bool enable)
+{
+    auto &powerClient = PowerMgr::PowerMgrClient::GetInstance();
+    PowerMgr::PowerErrors powerError = powerClient.SetInterfaceCallFilteringStrategy(enable ?
         PowerMgr::InterfaceCallFilteringStrategy::SUSPEND_DEVICE_FILTERING :
         PowerMgr::InterfaceCallFilteringStrategy::SUSPEND_DEVICE_NOT_FILTERING);
     if (powerError != PowerMgr::PowerErrors::ERR_OK) {
-        return static_cast<int32_t>(AssessmentErrorCode::SYSTEM_ERROR);
+        return false;
     }
     powerError = powerClient.SetLidFilteringStrategy(enable ?
         PowerMgr::LidFilteringStrategy::LID_CLOSE_FILTERING :
         PowerMgr::LidFilteringStrategy::LID_CLOSE_NOT_FILTERING);
     if (powerError != PowerMgr::PowerErrors::ERR_OK) {
-        return static_cast<int32_t>(AssessmentErrorCode::SYSTEM_ERROR);
+        return false;
     }
     powerError = powerClient.SetPowerKeyFilteringStrategy(enable ?
         PowerMgr::PowerKeyFilteringStrategy::POWER_KEY_UP_SHORT_PRESS_FILTERING :
         PowerMgr::PowerKeyFilteringStrategy::POWER_KEY_UP_SHORT_PRESS_NOT_FILTERING);
     if (powerError != PowerMgr::PowerErrors::ERR_OK) {
-        return static_cast<int32_t>(AssessmentErrorCode::SYSTEM_ERROR);
+        return false;
     }
-    return ERR_OK;
+    return true;
 }
 
 std::vector<std::string> AssessmentService::GetFinalAppList()
