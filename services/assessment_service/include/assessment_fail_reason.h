@@ -37,9 +37,14 @@ namespace AAFwk {
 // screen reader, ...) failed without the open-source side knowing about them.
 
 // Environment checks implemented in the open-source tree.
-// SCREEN_RECORDING covers screen casting too: DisplayManager::IsCaptured() reports
-// both, so no separate casting reason exists.
+// SCREEN_RECORDING and SCREEN_CASTING are separate reasons because they are now
+// detected through different interfaces: recording through
+// ScreenCaptureMonitor::IsScreenCaptureWorking(), casting through
+// DisplayManager::IsCaptured(). IsCaptured() reports false once a PC screen
+// recording is paused, so it cannot be relied on for recording detection; the
+// monitor interface keeps listing the capturing pid while the capture is paused.
 inline constexpr const char *const FAIL_REASON_SCREEN_RECORDING = "SCREEN_RECORDING_DETECTED";
+inline constexpr const char *const FAIL_REASON_SCREEN_CASTING = "SCREEN_CASTING_DETECTED";
 inline constexpr const char *const FAIL_REASON_MULTI_SCREEN = "MULTI_SCREEN_DETECTED";
 inline constexpr const char *const FAIL_REASON_IN_CALL = "IN_CALL_DETECTED";
 inline constexpr const char *const FAIL_REASON_VIRTUAL_MACHINE = "VM_DETECTED";

@@ -35,14 +35,24 @@ namespace AAFwk {
  * and PC virtual-machine detection.
  *
  * The check logic is organized as follows:
- * 1. IsScreenRecording  - Detects screen capture and casting via DisplayManager.
- *                        - IsCaptured() reports both, so no separate soft-bus device
- *                          query is needed; querying remote devices caused problems
- *                          of its own and has been removed.
- * 2. IsMultiScreen      - Detects non built-in (external/virtual) screens via ScreenManager.
+ * 1. IsScreenRecording  - Detects a running or paused screen recording through
+ *                        ScreenCaptureMonitor::IsScreenCaptureWorking(), which
+ *                        returns the pid list of the processes holding a capture.
+ *                        - DisplayManager::IsCaptured() cannot serve here: on PC it
+ *                          reports false while a recording is paused, which allowed a
+ *                          paused recorder to enter the assessment unnoticed.
+ *                        - The monitor adds a pid only when a capture starts and
+ *                          drops it only when the capture stops, so a paused capture
+ *                          stays listed.
+ * 2. IsScreenCasting    - Detects screen casting through DisplayManager::IsCaptured().
+ *                        - Kept separate from recording so the trace event can tell
+ *                          the two apart. The earlier soft-bus remote-device query is
+ *                          still gone: querying remote devices caused problems of its
+ *                          own and IsCaptured() already covers casting.
+ * 3. IsMultiScreen      - Detects non built-in (external/virtual) screens via ScreenManager.
  *                        - Only checked when screen count > 1 (some devices have no built-in screen).
- * 3. IsInCall           - Detects active phone call via CallManagerClient.
- * 4. IsPcDevice         - Checks if the device type is "2in1" (PC form factor).
+ * 4. IsInCall           - Detects active phone call via CallManagerClient.
+ * 5. IsPcDevice         - Checks if the device type is "2in1" (PC form factor).
  *    `-- IsVirtualMachine - Delegates to ExtensionLoader for closed-source VM check.
  *
  * All checks must pass (return true from CheckAll) for the assessment to proceed.
@@ -106,6 +116,7 @@ public:
 private:
     bool InitCallManager();
     bool IsScreenRecording();
+    bool IsScreenCasting();
     bool IsInCall();
     bool IsPcDevice();
     bool IsVirtualMachine(std::string &failReason);
