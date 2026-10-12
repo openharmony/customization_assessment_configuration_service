@@ -72,7 +72,6 @@ ohos_unittest("AssessmentServiceTest") {
     "call_manager:tel_call_manager_api",
     "core_service:tel_core_service_api",
     "state_registry:tel_state_registry_api",
-    "device_manager:devicemanagersdk",
     "enterprise_device_management:edmservice_kits",
     "eventhandler:libeventhandler",
     "graphic_2d:librender_service_base",
@@ -86,7 +85,8 @@ ohos_unittest("AssessmentServiceTest") {
     "input:libmmi-client",
     "ability_runtime:app_manager",
     "window_manager:libdm",
-    "power_manager:powermgr_client"
+    "power_manager:powermgr_client",
+    "player_framework:media_client"
   ]
 
   sanitize = {
@@ -148,7 +148,6 @@ ohos_unittest("AssessmentUtilsTest") {
     "call_manager:tel_call_manager_api",
     "core_service:tel_core_service_api",
     "state_registry:tel_state_registry_api",
-    "device_manager:devicemanagersdk",
     "enterprise_device_management:edmservice_kits",
     "eventhandler:libeventhandler",
     "graphic_2d:librender_service_base",
@@ -162,7 +161,8 @@ ohos_unittest("AssessmentUtilsTest") {
     "input:libmmi-client",
     "ability_runtime:app_manager",
     "window_manager:libdm",
-    "power_manager:powermgr_client"
+    "power_manager:powermgr_client",
+    "player_framework:media_client"
   ]
 
   sanitize = {
@@ -224,7 +224,6 @@ ohos_unittest("AssessmentCallbackManagerTest") {
     "call_manager:tel_call_manager_api",
     "core_service:tel_core_service_api",
     "state_registry:tel_state_registry_api",
-    "device_manager:devicemanagersdk",
     "enterprise_device_management:edmservice_kits",
     "eventhandler:libeventhandler",
     "graphic_2d:librender_service_base",
@@ -238,7 +237,8 @@ ohos_unittest("AssessmentCallbackManagerTest") {
     "input:libmmi-client",
     "ability_runtime:app_manager",
     "window_manager:libdm",
-    "power_manager:powermgr_client"
+    "power_manager:powermgr_client",
+    "player_framework:media_client"
   ]
 
   sanitize = {
@@ -300,7 +300,6 @@ ohos_unittest("AssessmentEventManagerTest") {
     "call_manager:tel_call_manager_api",
     "core_service:tel_core_service_api",
     "state_registry:tel_state_registry_api",
-    "device_manager:devicemanagersdk",
     "enterprise_device_management:edmservice_kits",
     "eventhandler:libeventhandler",
     "graphic_2d:librender_service_base",
@@ -314,7 +313,8 @@ ohos_unittest("AssessmentEventManagerTest") {
     "input:libmmi-client",
     "ability_runtime:app_manager",
     "window_manager:libdm",
-    "power_manager:powermgr_client"
+    "power_manager:powermgr_client",
+    "player_framework:media_client"
   ]
 
   sanitize = {
@@ -376,7 +376,6 @@ ohos_unittest("AssessmentServiceAbilityTest") {
     "call_manager:tel_call_manager_api",
     "core_service:tel_core_service_api",
     "state_registry:tel_state_registry_api",
-    "device_manager:devicemanagersdk",
     "enterprise_device_management:edmservice_kits",
     "eventhandler:libeventhandler",
     "graphic_2d:librender_service_base",
@@ -390,7 +389,8 @@ ohos_unittest("AssessmentServiceAbilityTest") {
     "input:libmmi-client",
     "ability_runtime:app_manager",
     "window_manager:libdm",
-    "power_manager:powermgr_client"
+    "power_manager:powermgr_client",
+    "player_framework:media_client"
   ]
 
   sanitize = {
@@ -452,7 +452,6 @@ ohos_unittest("AssessmentServiceAppStateCBTest") {
     "call_manager:tel_call_manager_api",
     "core_service:tel_core_service_api",
     "state_registry:tel_state_registry_api",
-    "device_manager:devicemanagersdk",
     "enterprise_device_management:edmservice_kits",
     "eventhandler:libeventhandler",
     "graphic_2d:librender_service_base",
@@ -466,7 +465,37 @@ ohos_unittest("AssessmentServiceAppStateCBTest") {
     "input:libmmi-client",
     "ability_runtime:app_manager",
     "window_manager:libdm",
-    "power_manager:powermgr_client"
+    "power_manager:powermgr_client",
+    "player_framework:media_client"
+  ]
+
+  sanitize = {
+    boundary_sanitize = true
+    cfi = true
+    cfi_cross_dso = true
+    debug = false
+    integer_overflow = true
+    ubsan = true
+  }
+  branch_protector_ret = "pac_ret"
+  subsystem_name = "customization"
+  part_name = "assessment_configuration_service"
+}
+
+ohos_unittest("AssessmentExtensionLoaderTest") {
+  module_out_path = module_output_path
+
+  sources = [
+    "${assessment_services_path}/assessment_service/src/extension_loader.cpp",
+    "./src/extension_loader_test.cpp",
+  ]
+
+  configs = [
+    ":module_private_config",
+  ]
+
+  external_deps = [
+    "hilog:libhilog",
   ]
 
   sanitize = {
@@ -492,5 +521,6 @@ group("unittest") {
     ":AssessmentEventManagerTest",
     ":AssessmentServiceAbilityTest",
     ":AssessmentServiceAppStateCBTest",
+    ":AssessmentExtensionLoaderTest",
   ]
 }

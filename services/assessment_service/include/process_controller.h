@@ -98,16 +98,21 @@ public:
     /**
      * @brief Lock down the device for an assessment.
      *
-     * Registers the telephony observer that auto-rejects incoming calls.
+     * Stops the distributed softbus, registers the telephony observer that
+     * auto-rejects incoming calls, registers the screen hotplug listener, then asks
+     * the closed-source extension to apply its own restrictions.
+     *
+     * Every sub-item is fatal: an assessment must not run without a restriction it
+     * asked for. The first failure stops the sequence, the stages already completed
+     * are rolled back in reverse order, and the assessment does not start.
      * @param allowedApps Bundle names that must stay usable during the assessment.
-     * @param failReason Filled with the reason of the first sub-item that failed,
-     *                   using the vocabulary declared in assessment_fail_reason.h.
-     *                   Sub-items other than the softbus are non-fatal, so a reason
-     *                   can be reported while the return value is still true; the
-     *                   caller forwards it to the trace event. Left untouched when
-     *                   every sub-item succeeded.
-     * @return true if process control was activated, false only when the softbus
-     *         could not be stopped, which must prevent the assessment from starting.
+     * @param failReason Filled with the reason of the sub-item that aborted the
+     *                   activation, using the vocabulary declared in
+     *                   assessment_fail_reason.h. The closed-source extension fails
+     *                   fast internally, so it reports at most one reason and a
+     *                   single string carries it. Left untouched on success.
+     * @return true if every sub-item was applied; false otherwise, in which case
+     *         nothing is left applied.
      */
     bool Activate(const std::vector<std::string> &allowedApps, std::string &failReason);
 
@@ -147,6 +152,54 @@ private:
     void UnRegisterCallObserver();
     bool RegisterScreenListener();
     void UnregisterScreenListener();
+
+    /**
+     * @brief Undo the stages Activate() already completed, in reverse order.
+     *
+     * Must be called with mutex_ held, from Activate() only. Each stage that
+     * Activate() completes appends its own undo action to the list, so the list is
+     * exactly what has to be reverted and this helper needs no knowledge of the
+     * stage order or of how many stages there are. The closed-source extension
+     * appends its undo *before* ActivateAll() is called, because that call fails
+     * fast internally and may already have applied some of its sub-items.
+     * A failure to roll back is logged but not reported: the reason handed to the
+     * caller must stay the one that aborted the activation.
+     * @param undoActions Undo actions of the completed stages, run back to front
+     *                    and emptied.
+     */
+    void RollbackActivateLockedUnsafe(std::vector<std::function<void()>> &undoActions);
+
+    /**
+     * @brief Ask the closed-source extension to apply its own restrictions.
+     *
+     * Must be called with mutex_ held, from Activate() only. Appends the undo action
+     * *before* calling ActivateAll(), because that call fails fast internally and may
+     * already have applied some sub-items when it reports a failure. Does no rollback
+     * itself, so that Activate() keeps a single place that decides to roll back.
+     * @param allowedApps Bundle names that must stay usable during the assessment.
+     * @param failReason Filled with the extension's reason, or with the generic
+     *                   virtual-machine reason when the extension fails but leaves it
+     *                   empty. Left untouched on success and when there is no
+     *                   extension at all.
+     * @param undoActions List the extension undo is appended to.
+     * @return true if applied, or if this device ships no closed-source extension.
+     */
+    bool ActivateExtensionLockedUnsafe(const std::vector<std::string> &allowedApps,
+        std::string &failReason, std::vector<std::function<void()>> &undoActions);
+
+    /**
+     * @brief Restart the distributed softbus, logging a failure instead of
+     *        reporting it. Used as the undo action of the stop-softbus stage.
+     */
+    void StartSoftBusForRollback();
+
+    /**
+     * @brief Ask the closed-source extension to revert what ActivateAll() applied.
+     *
+     * Used as the undo action of the extension stage. The extension's own reason is
+     * dropped on purpose, see RollbackActivateLockedUnsafe().
+     */
+    void RevertExtensionForRollback();
 
     // Serializes Activate()/Deactivate(): they may run on different threads
     // (activation from the common-event thread without the service lock,

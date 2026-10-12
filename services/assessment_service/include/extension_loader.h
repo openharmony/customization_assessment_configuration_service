@@ -40,7 +40,10 @@ namespace AAFwk {
  *   loader enters a degraded state where InvokeCheckAll returns true (pass
  *   by default) instead of crashing, and a DegradedCallback is invoked to
  *   notify the caller.
- * - **Thread safety**: all public methods are guarded by an internal mutex.
+ * - **Thread safety**: all public methods are guarded by an internal mutex, and
+ *   the DegradedCallback is always invoked after that mutex has been released,
+ *   so a callback may safely call back into the loader. Since std::mutex is not
+ *   recursive, invoking the callback while holding the lock would self-deadlock.
  * - **RAII cleanup**: the destructor calls dlclose on the loaded handle.
  *
  * Typical usage:
@@ -105,12 +108,15 @@ public:
     /**
      * @brief Invoke the closed-source IsAwakeAnco function.
      * @param ancoState check the anco state.
-     * @return Result of IsAwakeAnco, or true (pass) if anco freeze.
+     * @return Result of IsAwakeAnco, or false if in degraded mode, so that the
+     *         caller does not keep waiting for anco to become active.
      */
     bool InvokeIsAwakeAnco(std::string ancoState);
 
     /**
      * @brief Invoke the closed-source RestrictAncoApp function.
+     * @return Result of RestrictAncoApp, or -1 if in degraded mode. Callers treat
+     *         only 1 as a failure, so the degraded sentinel is not reported as one.
      */
     int32_t InvokeRestrictAncoApp();
 

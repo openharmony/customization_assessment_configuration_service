@@ -1,0 +1,65 @@
+# Copyright (c) 2026 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import("//build/config/components/ets_frontend/ets2abc_config.gni")
+import("//build/ohos.gni")
+import("//base/customization/assessment_configuration_service/assessment.gni")
+
+ohos_shared_library("customization_assessment_ani") {
+  branch_protector_ret = "pac_ret"
+  cflags_cc = [ "-Os" ]
+  shlib_type = "ani"
+
+  include_dirs = [
+    "./include/",
+  ]
+  sources = [
+    "src/ani_assessment.cpp",
+    "src/ani_assessment_callback.cpp",
+    "src/ani_assessment_utils.cpp",
+  ]
+
+  deps = [
+    "${assessment_innerkits_path}/assessment_service:assessment_manager",
+  ]
+
+  external_deps = [
+    "ability_runtime:ability_context_native",
+    "ability_runtime:abilitykit_native",
+    "c_utils:utils",
+    "eventhandler:libeventhandler",
+    "hilog:libhilog",
+    "ipc:ipc_single",
+    "runtime_core:ani"
+  ]
+
+  innerapi_tags = [ "platformsdk" ]
+  subsystem_name = "customization"
+  part_name = "assessment_configuration_service"
+  output_name = "customization_assessment_ani"
+}
+
+generate_static_abc("customization_assessment_abc") {
+  base_url = "./ets"
+  files = [ "./ets/@ohos.customization.assessment.ets" ]
+  is_boot_abc = "True"
+  device_dst_file = "/system/framework/customization_assessment_abc.abc"
+}
+
+ohos_prebuilt_etc("customization_assessment_ani_etc") {
+  source = "$target_out_dir/customization_assessment_abc.abc"
+  deps = [ ":customization_assessment_abc" ]
+  module_install_dir = "framework"
+  subsystem_name = "customization"
+  part_name = "assessment_configuration_service"
+}

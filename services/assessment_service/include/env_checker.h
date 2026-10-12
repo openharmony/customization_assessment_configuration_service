@@ -20,16 +20,10 @@
 #include <memory>
 #include <string>
 
-#include "device_manager_callback.h"
 #include "extension_loader.h"
 
 namespace OHOS {
 namespace AAFwk {
-
-class AssessmentDmInitCallback : public DistributedHardware::DmInitCallback {
-public:
-    void OnRemoteDied() override;
-};
 
 /**
  * @class EnvChecker
@@ -41,8 +35,20 @@ public:
  * and PC virtual-machine detection.
  *
  * The check logic is organized as follows:
- * 1. IsScreenRecording  - Detects screen capture via DisplayManager.
- * 2. IsScreenCasting    - Detects remote devices via DeviceManager (soft bus).
+ * 1. IsScreenRecording  - Detects a running or paused screen recording through
+ *                        ScreenCaptureMonitor::IsScreenCaptureWorking(), which
+ *                        returns the pid list of the processes holding a capture.
+ *                        - DisplayManager::IsCaptured() cannot serve here: on PC it
+ *                          reports false while a recording is paused, which allowed a
+ *                          paused recorder to enter the assessment unnoticed.
+ *                        - The monitor adds a pid only when a capture starts and
+ *                          drops it only when the capture stops, so a paused capture
+ *                          stays listed.
+ * 2. IsScreenCasting    - Detects screen casting through DisplayManager::IsCaptured().
+ *                        - Kept separate from recording so the trace event can tell
+ *                          the two apart. The earlier soft-bus remote-device query is
+ *                          still gone: querying remote devices caused problems of its
+ *                          own and IsCaptured() already covers casting.
  * 3. IsMultiScreen      - Detects non built-in (external/virtual) screens via ScreenManager.
  *                        - Only checked when screen count > 1 (some devices have no built-in screen).
  * 4. IsInCall           - Detects active phone call via CallManagerClient.
@@ -52,10 +58,11 @@ public:
  * All checks must pass (return true from CheckAll) for the assessment to proceed.
  * Any single failure causes CheckAll to return false immediately.
  *
- * @note Heavyweight dependencies (extension loader, DeviceManager, CallManager)
- *       are initialized once via Init() at service startup rather than lazily on
- *       each check. If a dependency fails to initialize, the corresponding check
- *       is skipped (fails open) and a warning is logged.
+ * @note Heavyweight dependencies (extension loader, CallManager) are initialized
+ *       once via Init() at service startup rather than lazily on each check. If a
+ *       dependency fails to initialize, the corresponding check is skipped (fails
+ *       open) and a warning is logged. Nothing here may hard-depend on the
+ *       closed-source extension: some devices do not ship it.
  */
 class EnvChecker {
 public:
@@ -64,10 +71,12 @@ public:
 
     /**
      * @brief Initialize heavyweight dependencies: the closed-source extension
-     *        loader, DeviceManager, and CallManager. Intended to be called once
-     *        at service startup.
-     * @return true if DeviceManager and CallManager both initialized; false if
-     *         either failed (extension-loader degradation is non-fatal).
+     *        loader and CallManager. Intended to be called once at service startup.
+     *
+     * A false return only means CallManager is unavailable, so IsInCall() will be
+     * skipped. Callers must not treat it as fatal: the SA has to start on devices
+     * without telephony and without the closed-source extension alike.
+     * @return true if CallManager initialized; false otherwise (non-fatal).
      */
     bool Init();
 
@@ -105,7 +114,6 @@ public:
     int32_t RestrictAncoApp();
 
 private:
-    bool InitDeviceManager();
     bool InitCallManager();
     bool IsScreenRecording();
     bool IsScreenCasting();
@@ -116,10 +124,8 @@ private:
 
     // Atomic because Init() runs on the service startup thread while the
     // check methods may run concurrently on IPC threads.
-    std::atomic<bool> deviceManagerInited_ = false;
     std::atomic<bool> callManagerInited_ = false;
 
-    std::shared_ptr<AssessmentDmInitCallback> dmInitCallback_;
     std::unique_ptr<ExtensionLoader> loader_;
 };
 

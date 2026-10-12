@@ -113,29 +113,40 @@ bool ExtensionLoader::InvokeCheckAll(const std::vector<std::string> &allowedApps
 
 bool ExtensionLoader::InvokeIsAwakeAnco(std::string ancoState)
 {
-    std::lock_guard<std::mutex> lock(mutex_);
-    if (isAwakeAncoFunc_ == nullptr) {
+    IS_AWAKE_ANCO_FUNC isAwakeAncoFunc = nullptr;
+    DegradedCallback degradedCb = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        isAwakeAncoFunc = isAwakeAncoFunc_;
+        degradedCb = degradedCallback_;
+    }
+    if (isAwakeAncoFunc == nullptr) {
         TAG_LOGW(AAFwkTag::DEFAULT, "IsAwakeAnco func is null, degrade");
-        if (degradedCallback_) {
-            degradedCallback_(soPath_, "IsAwakeAnco");
+        if (degradedCb) {
+            degradedCb(soPath_, "IsAwakeAnco");
         }
         return false;
     }
-    return isAwakeAncoFunc_(ancoState);
+    return isAwakeAncoFunc(ancoState);
 }
 
 int32_t ExtensionLoader::InvokeRestrictAncoApp()
 {
-    std::lock_guard<std::mutex> lock(mutex_);
-    if (restrictAncoAppFunc == nullptr) {
+    RESTRICT_ANCO_APP_FUNC restrictAncoFunc = nullptr;
+    DegradedCallback degradedCb = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        restrictAncoFunc = restrictAncoAppFunc;
+        degradedCb = degradedCallback_;
+    }
+    if (restrictAncoFunc == nullptr) {
         TAG_LOGW(AAFwkTag::DEFAULT, "RestrictAncoApp func is null, degrade");
-        if (degradedCallback_) {
-            degradedCallback_(soPath_, "RestrictAncoApp");
+        if (degradedCb) {
+            degradedCb(soPath_, "RestrictAncoApp");
         }
         return -1;
-    } else {
-        return restrictAncoAppFunc();
     }
+    return restrictAncoFunc();
 }
 
 bool ExtensionLoader::IsDegrade() const
