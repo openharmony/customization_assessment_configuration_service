@@ -1149,7 +1149,8 @@ void AssessmentService::BeginDialogSystemError(const std::string &ticket)
 bool AssessmentService::HoldScreenRunning()
 {
     auto &powerClient = PowerMgr::PowerMgrClient::GetInstance();
-    powerRunningLocker_ = powerClient.CreateRunningLock("AssessmentRequest", PowerMgr::RunningLockType::RUNNINGLOCK_SCREEN);
+    powerRunningLocker_ = powerClient.CreateRunningLock(
+        "AssessmentRequest", PowerMgr::RunningLockType::RUNNINGLOCK_SCREEN);
     if (powerRunningLocker_ == nullptr) {
         return false;
     }
