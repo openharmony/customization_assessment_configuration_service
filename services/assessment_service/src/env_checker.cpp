@@ -16,6 +16,7 @@
 #include "env_checker.h"
 
 #include <cinttypes>
+#include <list>
 
 #include "assessment_fail_reason.h"
 #include "assessment_utils.h"
@@ -23,6 +24,7 @@
 #include "display_manager.h"
 #include "enterprise_device_mgr_proxy.h"
 #include "hilog_tag_wrapper.h"
+#include "screen_capture_monitor.h"
 #include "screen_info.h"
 #include "screen_manager.h"
 #include "singleton.h"
@@ -51,9 +53,18 @@ bool EnvChecker::Init()
 
 bool EnvChecker::CheckAll(std::string &failReason)
 {
+    // Recording is checked before casting: an active capture also makes IsCaptured()
+    // true, and reporting it as recording is the more precise diagnosis. A paused
+    // recording is visible to the monitor only, so this order catches both cases.
     if (IsScreenRecording()) {
         failReason = FAIL_REASON_SCREEN_RECORDING;
-        TAG_LOGE(AAFwkTag::DEFAULT, "Screen recording or casting detected");
+        TAG_LOGE(AAFwkTag::DEFAULT, "Screen recording detected");
+        return false;
+    }
+
+    if (IsScreenCasting()) {
+        failReason = FAIL_REASON_SCREEN_CASTING;
+        TAG_LOGE(AAFwkTag::DEFAULT, "Screen casting detected");
         return false;
     }
 
@@ -97,9 +108,32 @@ int32_t EnvChecker::RestrictAncoApp()
 
 bool EnvChecker::IsScreenRecording()
 {
+    auto *monitor = Media::ScreenCaptureMonitor::GetInstance();
+    if (monitor == nullptr) {
+        // Only reachable on a build compiled with UNSUPPORT_SCREEN_CAPTURE, where the
+        // platform offers no screen capture at all, so there is nothing to detect.
+        TAG_LOGW(AAFwkTag::DEFAULT, "ScreenCaptureMonitor unavailable, skip recording check");
+        return false;
+    }
+    // An empty list means both "no process holds a capture" and "the monitor service
+    // could not be reached"; this interface has no error channel to tell them apart.
+    // Both are treated as no recording, since a device whose monitor is unavailable
+    // has no screen capture to report either. When the monitor is unreachable the
+    // player_framework side logs "screen capture monitor service does not exist."
+    std::list<int32_t> capturePids = monitor->IsScreenCaptureWorking();
+    if (capturePids.empty()) {
+        return false;
+    }
+    TAG_LOGE(AAFwkTag::DEFAULT, "Screen recording detected, capturing process count: %{public}zu",
+        capturePids.size());
+    return true;
+}
+
+bool EnvChecker::IsScreenCasting()
+{
     bool isCaptured = Rosen::DisplayManager::GetInstance().IsCaptured();
     if (isCaptured) {
-        TAG_LOGE(AAFwkTag::DEFAULT, "Screen recording or casting detected, isCaptured = true");
+        TAG_LOGE(AAFwkTag::DEFAULT, "Screen casting detected, isCaptured = true");
         return true;
     }
     return false;

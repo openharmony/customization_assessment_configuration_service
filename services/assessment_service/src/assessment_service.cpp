@@ -104,7 +104,8 @@ const std::string ENV_ANOMALY_FALLBACK_MSG = "Environment Anomaly";
 std::string AssessmentFailReasonToErrMsg(const std::string &failReason)
 {
     static const std::unordered_map<std::string, std::string> REASON_TO_MSG_MAP = {
-        { FAIL_REASON_SCREEN_RECORDING, "Screen recording or casting detected" },
+        { FAIL_REASON_SCREEN_RECORDING, "Screen recording detected" },
+        { FAIL_REASON_SCREEN_CASTING, "Screen casting detected" },
         { FAIL_REASON_MULTI_SCREEN, "External screen detected" },
         { FAIL_REASON_IN_CALL, "Phone call in progress" },
         { FAIL_REASON_VIRTUAL_MACHINE, "Virtual machine running detected" },

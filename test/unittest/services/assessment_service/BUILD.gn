@@ -85,7 +85,8 @@ ohos_unittest("AssessmentServiceTest") {
     "input:libmmi-client",
     "ability_runtime:app_manager",
     "window_manager:libdm",
-    "power_manager:powermgr_client"
+    "power_manager:powermgr_client",
+    "player_framework:media_client"
   ]
 
   sanitize = {
@@ -160,7 +161,8 @@ ohos_unittest("AssessmentUtilsTest") {
     "input:libmmi-client",
     "ability_runtime:app_manager",
     "window_manager:libdm",
-    "power_manager:powermgr_client"
+    "power_manager:powermgr_client",
+    "player_framework:media_client"
   ]
 
   sanitize = {
@@ -235,7 +237,8 @@ ohos_unittest("AssessmentCallbackManagerTest") {
     "input:libmmi-client",
     "ability_runtime:app_manager",
     "window_manager:libdm",
-    "power_manager:powermgr_client"
+    "power_manager:powermgr_client",
+    "player_framework:media_client"
   ]
 
   sanitize = {
@@ -310,7 +313,8 @@ ohos_unittest("AssessmentEventManagerTest") {
     "input:libmmi-client",
     "ability_runtime:app_manager",
     "window_manager:libdm",
-    "power_manager:powermgr_client"
+    "power_manager:powermgr_client",
+    "player_framework:media_client"
   ]
 
   sanitize = {
@@ -385,7 +389,8 @@ ohos_unittest("AssessmentServiceAbilityTest") {
     "input:libmmi-client",
     "ability_runtime:app_manager",
     "window_manager:libdm",
-    "power_manager:powermgr_client"
+    "power_manager:powermgr_client",
+    "player_framework:media_client"
   ]
 
   sanitize = {
@@ -460,7 +465,37 @@ ohos_unittest("AssessmentServiceAppStateCBTest") {
     "input:libmmi-client",
     "ability_runtime:app_manager",
     "window_manager:libdm",
-    "power_manager:powermgr_client"
+    "power_manager:powermgr_client",
+    "player_framework:media_client"
+  ]
+
+  sanitize = {
+    boundary_sanitize = true
+    cfi = true
+    cfi_cross_dso = true
+    debug = false
+    integer_overflow = true
+    ubsan = true
+  }
+  branch_protector_ret = "pac_ret"
+  subsystem_name = "customization"
+  part_name = "assessment_configuration_service"
+}
+
+ohos_unittest("AssessmentExtensionLoaderTest") {
+  module_out_path = module_output_path
+
+  sources = [
+    "${assessment_services_path}/assessment_service/src/extension_loader.cpp",
+    "./src/extension_loader_test.cpp",
+  ]
+
+  configs = [
+    ":module_private_config",
+  ]
+
+  external_deps = [
+    "hilog:libhilog",
   ]
 
   sanitize = {
@@ -486,5 +521,6 @@ group("unittest") {
     ":AssessmentEventManagerTest",
     ":AssessmentServiceAbilityTest",
     ":AssessmentServiceAppStateCBTest",
+    ":AssessmentExtensionLoaderTest",
   ]
 }
