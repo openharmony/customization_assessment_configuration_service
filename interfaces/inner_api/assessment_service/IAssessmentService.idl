@@ -21,4 +21,11 @@ interface OHOS.AAFwk.IAssessmentService {
     void End([in] IRemoteObject token, [out] int ret);
     void IsActive([out] boolean isActive, [out] int ret);
     void GetConfiguration([out] unsigned int duration, [out] String[] allowedApps, [out] int ret);
+    void DownloadARModel();
+    void DownloadARModelWithCallback([in] IRemoteObject modelStatusCb, [out] int modelStatus);
+    void LoadModel([out] int ret);
+    void UnloadModel([out] int ret);
+    void Infer([in] FileDescriptor inputFd, [in] int inputSize, [out] FileDescriptor outputFd, [out] int outputSize, [out] int ret);
+    void SetPid([in] int pid);
+    void SetTokenid([in] unsigned int tokenid);
 }
