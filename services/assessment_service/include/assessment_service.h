@@ -35,6 +35,7 @@
 #include "process_controller.h"
 #include <input_manager.h>
 #include "assessment_service_app_state_cb.h"
+#include "power_mgr_client.h"
 
 namespace OHOS {
 namespace AAFwk {
@@ -132,7 +133,9 @@ private:
     void RemarkSaIdleLockedUnsafe();
     void CheckAndHandleSaIdleLockedUnsafe(int32_t delta);
     void BeginDialogSystemError(const std::string &ticket);
-    int32_t RestrictScreenOff(bool enable);
+    std::shared_ptr<PowerMgr::RunningLock> powerRunningLocker_;
+    bool HoldScreenRunning();
+    bool RestrictScreenOff(bool enable);
     std::vector<std::string> GetFinalAppList();
 
     static std::mutex mutex_;
