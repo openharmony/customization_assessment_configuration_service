@@ -63,7 +63,6 @@ private:
     SetPidFunc setPidFn_ = nullptr;
     SetTokenidFunc setTokenidFu_ = nullptr;
     CheckModelStatusFunc checkModelStatusFu_ = nullptr;
-
 };
 }
 }
