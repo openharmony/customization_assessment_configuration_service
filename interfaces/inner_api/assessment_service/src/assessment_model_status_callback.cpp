@@ -36,7 +36,7 @@ int AssessmentModelStatusCallbackStub::OnRemoteRequest(
         int32_t status = data.ReadInt32();
         int32_t error = data.ReadInt32();
         uint32_t progress = data.ReadUint32();
-        if(callback_) {
+        if (callback_) {
             callback_(status, error, progress);
         }
     }
