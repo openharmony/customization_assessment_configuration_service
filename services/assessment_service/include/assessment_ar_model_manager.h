@@ -14,7 +14,6 @@
  */
 #ifndef OHOS_AAFwk_ASSESSMENT_AR_MODEL_MANAGER_H
 #define OHOS_AAFwk_ASSESSMENT_AR_MODEL_MANAGER_H
-
 #include <cstdint>
 #include <mutex>
 #include <memory>
