@@ -12,8 +12,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef OHOS_AAFwk_ASSESSMENT_AR_MODEL_MANAGER_H
-#define OHOS_AAFwk_ASSESSMENT_AR_MODEL_MANAGER_H
+#ifndef OHOS_ASSESSMENT_AR_MODEL_MANAGER_H
+#define OHOS_ASSESSMENT_AR_MODEL_MANAGER_H
 
 #include <cstdint>
 #include <mutex>
