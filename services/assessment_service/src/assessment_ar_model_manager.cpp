@@ -27,7 +27,7 @@ namespace fs = std::filesystem'
 
 AssessmenModelDownload::~AssessmenModelDownload()
 {
-    TAG_LOGI(AAFwk::DEFAULT, "AssessmenModelDownload Singleton Instance Destroyed.");
+    TAG_LOGI(AAFwkTag::DEFAULT, "AssessmenModelDownload Singleton Instance Destroyed.");
     std::lock_guard<std::mutex> lock(mutex_);
     if (soHandle_ != nullptr) {
         dlclose(soHandle_);
@@ -44,19 +44,19 @@ AssessmenModelDownload &AssessmenModelDownload::GetInstance()
 bool AssessmenModelDownload::InitLibrary()
 {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (soHandle_ !=nullptr) {
+    if (soHandle_ != nullptr) {
         return true;
     }
     soHandle_ = dlopen("libarengine_ai_model_adapt.z.so", RTLD_NOW);
     if (soHandle_ == nullptr) {
-        TAG_LOGI(AAFwk::DEFAULT, "dlopen failed: %{public}s", dlerror());
+        TAG_LOGI(AAFwkTag::DEFAULT, "dlopen failed: %{public}s", dlerror());
         return false;
     }
     setPidFn_ = reinterpret_cast<SetPidFunc>(dlsym(soHandle_, "HiARSetPid"));
     setTokenidFn_ = reinterpret_cast<SetTokenidFunc>(dlsym(soHandle_, "HiARSetTokenid"));
     checkModelStatusFn_ = reinterpret_cast<CheckModelStatusFunc>(dlsym(soHandle_, "HiARCheckModelStatus"));
     if (!setPidFn_ || !setTokenidFn_ || !checkModelStatusFn_) {
-        TAG_LOGI(AAFwk::DEFAULT, "dlsym failed: %{public}s", dlerror());
+        TAG_LOGI(AAFwkTag::DEFAULT, "dlsym failed: %{public}s", dlerror());
         dlclose(soHandle_);
         soHandle_ = nullptr;
         return false;
