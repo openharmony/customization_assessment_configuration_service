@@ -25,15 +25,15 @@
 namespace OHOS {
 namespace AAFwk {
 
-DcasRtmPoseNpuModel::DcasRtmPoseNpuModel : soHandle_(nullptr),
-    hiARLoadModelFn_(nullptr), hiARUnloadModelFn_(nullptr), hiARInterFn_(nullptr)
+DcasRtmPoseNpuModel::DcasRtmPoseNpuModel() : soHandle_(nullptr), 
+    hiARLoadModelFn_(nullptr), hiARUnloadModelFn_(nullptr), hiARInferFn_(nullptr)
 {
-    TAG_LOGI(AAFwk::DEFAULT, "DcasRtmPoseNpuModel.");
+    TAG_LOGI(AAFwkTag::DEFAULT, "DcasRtmPoseNpuModel.");
 }
 
 DcasRtmPoseNpuModel::~DcasRtmPoseNpuModel()
 {
-    TAG_LOGI(AAFwk::DEFAULT, "~DcasRtmPoseNpuModel.");
+    TAG_LOGI(AAFwkTag::DEFAULT, "~DcasRtmPoseNpuModel.");
     std::lock_guard<std::mutex> lock(mutex_);
     if (soHandle_ != nullptr) {
         dlclose(soHandle_);
@@ -49,14 +49,14 @@ bool DcasRtmPoseNpuModel::InitLibrary()
     }
     soHandle_ = dlopen("libarengine_ai_model_adapt.z.so", RTLD_NOW);
     if (soHandle_ == nullptr) {
-        TAG_LOGI(AAFwk::DEFAULT, "DcasRtmPoseNpuModel dlopen failed: %{public}s", dlerror());
+        TAG_LOGE(AAFwkTag::DEFAULT, "DcasRtmPoseNpuModel dlopen failed: %{public}s", dlerror());
         return false;
     }
     hiARLoadModelFn_ = reinterpret_cast<HiARLoadModelFunc>(dlsym(soHandle_, "HiARLoadModel"));
     hiARUnloadModelFn_ = reinterpret_cast<HiARUnloadModelFunc>(dlsym(soHandle_, "HiARUnloadModel"));
     hiARInferFn_ = reinterpret_cast<HiARInferFunc>(dlsym(soHandle_, "HiARInfer"));
     if (hiARLoadModelFn_ == nullptr || hiARUnloadModelFn_ == nullptr || hiARInferFn_ == nullptr) {
-        TAG_LOGI(AAFwk::DEFAULT, "DcasRtmPoseNpuModel dlsym failed: %{public}s", dlerror());
+        TAG_LOGE(AAFwkTag::DEFAULT, "DcasRtmPoseNpuModel dlsym failed: %{public}s", dlerror());
         dlclose(soHandle_);
         soHandle_ = nullptr;
         return false;
@@ -80,12 +80,12 @@ ErrCode DcasRtmPoseNpuModel::UnloadModel()
     return static_cast<ErrCode>(hiARUnloadModelFn_());
 }
 
-ErrCode DcasRtmPoseNpuModel::Infer(int intputFd, int32_t inputSize, int& outputFd, int32_t& outputSize)
+ErrCode DcasRtmPoseNpuModel::Infer(int inputFd, int32_t inputSize, int& outputFd, int32_t& outputSize)
 {
     if (!InitLibrary()) {
         return ERR_INVALID_VALUE;
     }
-    int32_t ret = hiARInferFn_(intputFd, inputSize, &outputFd, &outputSize);
+    int32_t ret = hiARInferFn_(inputFd, inputSize, &outputFd, &outputSize);
     return static_cast<ErrCode>(ret);
 }
 }
