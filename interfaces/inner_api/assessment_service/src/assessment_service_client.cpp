@@ -14,6 +14,7 @@
  */
 
 #include "assessment_service_client.h"
+
 #include "assessment_service_load_callback.h"
 #include "hilog_tag_wrapper.h"
 #include "hitrace_meter.h"
