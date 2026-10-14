@@ -21,7 +21,6 @@
 #include <memory>
 #include <mutex>
 #include <vector>
-
 #include "iremote_object.h"
 #include "system_ability_definition.h"
 #include "iassessment_service.h"
