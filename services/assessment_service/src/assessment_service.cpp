@@ -47,7 +47,6 @@
 #include "dcas_rtm_pose_npu_model.h"
 #include "nlohmann/json.hpp"
 using json = nlohmann::json;
-
 namespace OHOS {
 namespace AAFwk {
 namespace {
