@@ -5,7 +5,6 @@
 #include "ipc_object_stub.h"
 #include "message_option.h"
 #include "message_parcel.h"
-
 namespace OHOS {
 namespace AAFwk {
 
