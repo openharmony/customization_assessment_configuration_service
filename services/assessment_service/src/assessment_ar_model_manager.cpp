@@ -48,7 +48,7 @@ bool AssessmenModelDownload::InitLibrary()
         return true;
     }
     soHandle_ = dlopen("libarengine_ai_model_adapt.z.so", RTLD_NOW);
-    if (soHandle_ != nullptr) {
+    if (soHandle_ == nullptr) {
         TAG_LOGI(AAFwk::DEFAULT, "dlopen failed: %{public}s", dlerror());
         return false;
     }
