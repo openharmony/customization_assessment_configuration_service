@@ -15,6 +15,7 @@
 
 #ifndef OHOS_ASSESSMENT_SERVICE_H
 #define OHOS_ASSESSMENT_SERVICE_H
+
 #include <mutex>
 #include <string>
 #include <vector>
