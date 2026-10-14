@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#ifndef OHOS_AAFwk_ASSESSMENT_DCAS_RTM_POSE_NPU_MODEL_H
-#define OHOS_AAFwk_ASSESSMENT_DCAS_RTM_POSE_NPU_MODEL_H
+#ifndef OHOS_ASSESSMENT_DCAS_RTM_POSE_NPU_MODEL_H
+#define OHOS_ASSESSMENT_DCAS_RTM_POSE_NPU_MODEL_H
 
 #include <singleton.h>
 #include <string>
