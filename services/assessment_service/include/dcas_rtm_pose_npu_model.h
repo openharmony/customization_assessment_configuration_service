@@ -34,17 +34,17 @@ public:
     ErrCode Infer(int inputFd, int32_t inputSize, int& outputFd, int32_t& outputSize);
 
 private:
-    bool InitLibrary();
-    
+bool InitLibrary();
+
     void* soHandle_ = nullptr;
     std::mutex mutex_;
 
     typedef int32_t (*HiARLoadModelFunc)();
-    typedef int32_t (*HiARUloadModelFunc)();
+    typedef int32_t (*HiARUnloadModelFunc)();
     typedef int32_t (*HiARInferFunc)(int, int32_t, int*, int*);
 
     HiARLoadModelFunc hiARLoadModelFn_ = nullptr;
-    HiARUloadModelFunc hiARUloadModelFn_ = nullptr;
+    HiARUnloadModelFunc hiARUnloadModelFn_ = nullptr;
     HiARInferFunc hiARInferFn_ = nullptr;
 
     DISALLOW_COPY_AND_MOVE(DcasRtmPoseNpuModel);
