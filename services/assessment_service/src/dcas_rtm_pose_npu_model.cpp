@@ -13,7 +13,6 @@
  * limitations under the License.
  */
 #include "dcas_rtm_pose_npu_model.h"
-
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
@@ -21,7 +20,6 @@
 #include <algorithm>
 #include <securec.h>
 #include <sys/mman.h>
-
 #include "hilog_tag_wrapper.h"
 
 namespace OHOS {
