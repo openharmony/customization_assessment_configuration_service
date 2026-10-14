@@ -12,6 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+ 
 #include "assessment_model_status_callback.h"
 #include "hilog_tag_wrapper.h"
 
