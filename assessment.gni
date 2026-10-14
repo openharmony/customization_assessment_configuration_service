@@ -31,6 +31,7 @@ hitrace_path = "//foundation/hitrace/hitrace_meter"
 declare_args() {
   assessment_enable = true
 }
+
 data_computation_analysis_service_enable = false
 if (defined(global_parts_info) && defined(global_parts_info.distributeddatamgr_data_computation_analysis_service)) {
   data_computation_analysis_service_enable = true
