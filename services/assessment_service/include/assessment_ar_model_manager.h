@@ -24,7 +24,7 @@ namespace AAFwk {
 
 enum class AssessmentARModelStatus {
     UNKNOWN = 0,
-    READY = 0,
+    READY = 1,
     UNDOWNLOADED = 2,
     DOWNLOADING = 3,
     DOWNLOAD_FAILED = 4,
@@ -41,6 +41,7 @@ public:
     ~AssessmenModelDownload();
 
     static AssessmenModelDownload &GetInstance();
+    //防止拷贝
     AssessmenModelDownload(const AssessmenModelDownload&) = delete;
     void operator=(const AssessmenModelDownload&) = delete;
 
@@ -61,8 +62,8 @@ private:
     typedef int (*CheckModelStatusFunc)(void*);
 
     SetPidFunc setPidFn_ = nullptr;
-    SetTokenidFunc setTokenidFu_ = nullptr;
-    CheckModelStatusFunc checkModelStatusFu_ = nullptr;
+    SetTokenidFunc setTokenidFn_ = nullptr;
+    CheckModelStatusFunc checkModelStatusFn_ = nullptr;
 };
 }
 }
