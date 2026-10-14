@@ -107,34 +107,35 @@ ErrCode AssessmentServiceClient::DownloadARModel()
     return assessmentService->DownloadARModel();
 }
 
-ErrCode AssessmentServiceClient::DownloadARModelWithCallback(AssessmentModelStatusCallback callback,
-    int32_t& modelStatus)
+ErrCode AssessmentServiceClient::DownloadARModelWithCallback(AssessmentModelStatusCallback callback, int32_t& modelStatus)
 {
     HITRACE_METER_NAME(HITRACE_TAG_ABILITY_MANAGER, __PRETTY_FUNCTION__);
-    TAG_LOGE(AAFwkTag::DEFAULT, "DownloadARModelWithCallback called");
+    TAG_LOGI(AAFwkTag::DEFAULT, "DownloadARModelWithCallback called");
+    
     auto assessmentService = GetAssessmentProxyWithCheck();
     if (assessmentService == nullptr) {
+        modelStatus = -1;
         return ERR_INVALID_VALUE;
     }
-
+    
     sptr<IRemoteObject> callbackObj = nullptr;
     if (callback) {
         callbackObj = new (std::nothrow) AssessmentModelStatusCallbackStub(callback);
     }
-
+    
     return assessmentService->DownloadARModelWithCallback(callbackObj, modelStatus);
 }
 
 ErrCode AssessmentServiceClient::LoadModel()
 {
     HITRACE_METER_NAME(HITRACE_TAG_ABILITY_MANAGER, __PRETTY_FUNCTION__);
-    TAG_LOGE(AAFwkTag::DEFAULT, "LoadModel called");
-
+    TAG_LOGI(AAFwkTag::DEFAULT, "LoadModel called");
+    
     auto assessmentService = GetAssessmentProxyWithCheck();
     if (assessmentService == nullptr) {
         return ERR_INVALID_VALUE;
     }
-
+    
     int32_t ret = ERR_UNKNOWN_REASON;
     assessmentService->LoadModel(ret);
     return ret;
@@ -143,13 +144,13 @@ ErrCode AssessmentServiceClient::LoadModel()
 ErrCode AssessmentServiceClient::UnloadModel()
 {
     HITRACE_METER_NAME(HITRACE_TAG_ABILITY_MANAGER, __PRETTY_FUNCTION__);
-    TAG_LOGE(AAFwkTag::DEFAULT, "UnloadModel called");
-
+    TAG_LOGI(AAFwkTag::DEFAULT, "UnloadModel called");
+    
     auto assessmentService = GetAssessmentProxyWithCheck();
     if (assessmentService == nullptr) {
         return ERR_INVALID_VALUE;
     }
-
+    
     int32_t ret = ERR_UNKNOWN_REASON;
     assessmentService->UnloadModel(ret);
     return ret;
@@ -158,13 +159,13 @@ ErrCode AssessmentServiceClient::UnloadModel()
 ErrCode AssessmentServiceClient::Infer(int inputFd, int32_t inputSize, int& outputFd, int32_t& outputSize)
 {
     HITRACE_METER_NAME(HITRACE_TAG_ABILITY_MANAGER, __PRETTY_FUNCTION__);
-    TAG_LOGE(AAFwkTag::DEFAULT, "Infer called, inputFd: %{public}d, inputSize: %{public}d", inputFd, inputSize);
-
+    TAG_LOGI(AAFwkTag::DEFAULT, "Infer called, inputFd: %{public}d, inputSize: %{public}d", inputFd, inputSize);
+    
     auto assessmentService = GetAssessmentProxyWithCheck();
     if (assessmentService == nullptr) {
         return ERR_INVALID_VALUE;
     }
-
+    
     int32_t ret = ERR_UNKNOWN_REASON;
     assessmentService->Infer(inputFd, inputSize, outputFd, outputSize, ret);
     return ret;
@@ -173,13 +174,12 @@ ErrCode AssessmentServiceClient::Infer(int inputFd, int32_t inputSize, int& outp
 ErrCode AssessmentServiceClient::SetPid(int32_t pid)
 {
     HITRACE_METER_NAME(HITRACE_TAG_ABILITY_MANAGER, __PRETTY_FUNCTION__);
-    TAG_LOGE(AAFwkTag::DEFAULT, "SetPid called");
-
+    TAG_LOGI(AAFwkTag::DEFAULT, "SetPid called");
     auto assessmentService = GetAssessmentProxyWithCheck();
     if (assessmentService == nullptr) {
         return ERR_INVALID_VALUE;
     }
-
+    
     int32_t ret = ERR_UNKNOWN_REASON;
     assessmentService->SetPid(pid);
     return ret;
@@ -188,13 +188,12 @@ ErrCode AssessmentServiceClient::SetPid(int32_t pid)
 ErrCode AssessmentServiceClient::SetTokenid(uint32_t tokenid)
 {
     HITRACE_METER_NAME(HITRACE_TAG_ABILITY_MANAGER, __PRETTY_FUNCTION__);
-    TAG_LOGE(AAFwkTag::DEFAULT, "SetTokenid called");
-
+    TAG_LOGI(AAFwkTag::DEFAULT, "SetTokenid called");
     auto assessmentService = GetAssessmentProxyWithCheck();
     if (assessmentService == nullptr) {
         return ERR_INVALID_VALUE;
     }
-
+    
     int32_t ret = ERR_UNKNOWN_REASON;
     assessmentService->SetTokenid(tokenid);
     return ret;
