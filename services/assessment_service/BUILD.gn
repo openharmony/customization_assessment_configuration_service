@@ -46,11 +46,8 @@ assessment_sources = [
   "src/env_checker.cpp",
   "src/process_controller.cpp",
   "src/assessment_ar_model_manager.cpp",
+  "src/dcas_rtm_pose_npu_model.cpp",
 ]
-
-if (data_computation_analysis_service_enable) {
-  assessment_sources += [ "src/dcas_rtm_pose_npu_model.cpp" ]
-}
 
 ohos_shared_library("assessment_configuration_service") {
   sanitize = {
