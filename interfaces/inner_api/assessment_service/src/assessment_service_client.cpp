@@ -107,7 +107,8 @@ ErrCode AssessmentServiceClient::DownloadARModel()
     return assessmentService->DownloadARModel();
 }
 
-ErrCode AssessmentServiceClient::DownloadARModelWithCallback(AssessmentModelStatusCallback callback, int32_t& modelStatus)
+ErrCode AssessmentServiceClient::DownloadARModelWithCallback(AssessmentModelStatusCallback callback,
+    int32_t& modelStatus)
 {
     HITRACE_METER_NAME(HITRACE_TAG_ABILITY_MANAGER, __PRETTY_FUNCTION__);
     TAG_LOGI(AAFwkTag::DEFAULT, "DownloadARModelWithCallback called");
