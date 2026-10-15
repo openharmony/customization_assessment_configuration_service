@@ -17,7 +17,7 @@ import("//base/customization/assessment_configuration_service/assessment.gni")
 ohos_shared_library("assessment_napi") {
   sanitize = {
     cfi = true
-    cfi_cross_dso = true
+    cfi_cross_dso = false
     cfi_policy = "adaptive"
     debug = false
   }
