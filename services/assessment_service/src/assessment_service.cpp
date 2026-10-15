@@ -545,7 +545,7 @@ ErrCode AssessmentService::GetConfiguration(
 
 ErrCode AssessmentService::DownloadARModel()
 {
-    TAG_LOGW(AAFwkTag::DEFAULT, "AssessmentService DownloadARModel");
+    TAG_LOGI(AAFwkTag::DEFAULT, "AssessmentService DownloadARModel");
     AssessmenModelDownload::GetInstance().CheckModelStatus();
     return ERR_OK;
 }
