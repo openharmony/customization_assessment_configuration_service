@@ -16,7 +16,8 @@ public:
     explicit AssessmentModelStatusCallbackStub(AssessmentModelStatusCallback callback);
     ~AssessmentModelStatusCallbackStub() = default;
 
-    virtual int OnRemoteRequest(uint32_t code, MessageParcel& data, MessageParcel& reply, MessageOption& option) override;
+    virtual int OnRemoteRequest(uint32_t code, MessageParcel& data, MessageParcel& reply,
+        MessageOption& option) override;
 
 private:
     AssessmentModelStatusCallback callback_;
