@@ -97,7 +97,7 @@ ErrCode AssessmentServiceClient::GetConfiguration(uint32_t &duration, std::vecto
 
 ErrCode AssessmentServiceClient::DownloadARModel()
 {
-    TAG_LOGE(AAFwkTag::DEFAULT, "AssessmentServiceClient DownloadARModel");
+    TAG_LOGI(AAFwkTag::DEFAULT, "AssessmentServiceClient DownloadARModel");
     HITRACE_METER_NAME(HITRACE_TAG_ABILITY_MANAGER, __PRETTY_FUNCTION__);
     auto assessmentService = GetAssessmentProxyWithCheck();
     if (assessmentService == nullptr) {
