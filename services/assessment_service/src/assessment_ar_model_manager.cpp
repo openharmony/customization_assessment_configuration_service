@@ -23,7 +23,7 @@
 
 using namespace std;
 using namespace OHOS::AAFwk;
-namespace fs = std::filesystem'
+namespace fs = std::filesystem;
 
 AssessmenModelDownload::~AssessmenModelDownload()
 {
