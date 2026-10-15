@@ -25,7 +25,7 @@
 namespace OHOS {
 namespace AAFwk {
 
-DcasRtmPoseNpuModel::DcasRtmPoseNpuModel() : soHandle_(nullptr), 
+DcasRtmPoseNpuModel::DcasRtmPoseNpuModel() : soHandle_(nullptr),
     hiARLoadModelFn_(nullptr), hiARUnloadModelFn_(nullptr), hiARInferFn_(nullptr)
 {
     TAG_LOGI(AAFwkTag::DEFAULT, "DcasRtmPoseNpuModel.");
