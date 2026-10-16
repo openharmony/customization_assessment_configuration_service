@@ -115,7 +115,6 @@ ErrCode AssessmentServiceClient::DownloadARModelWithCallback(AssessmentModelStat
     
     auto assessmentService = GetAssessmentProxyWithCheck();
     if (assessmentService == nullptr) {
-        modelStatus = -1;
         return ERR_INVALID_VALUE;
     }
     
