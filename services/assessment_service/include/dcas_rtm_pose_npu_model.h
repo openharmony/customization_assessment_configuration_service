@@ -34,15 +34,12 @@ public:
     ErrCode Infer(int inputFd, int32_t inputSize, int& outputFd, int32_t& outputSize);
 
 private:
-bool InitLibrary();
-
-    void* soHandle_ = nullptr;
-    std::mutex mutex_;
-
+    bool InitLibrary();
     typedef int32_t (*HiARLoadModelFunc)();
     typedef int32_t (*HiARUnloadModelFunc)();
     typedef int32_t (*HiARInferFunc)(int, int32_t, int*, int*);
-
+    void* soHandle_ = nullptr;
+    std::mutex mutex_;
     HiARLoadModelFunc hiARLoadModelFn_ = nullptr;
     HiARUnloadModelFunc hiARUnloadModelFn_ = nullptr;
     HiARInferFunc hiARInferFn_ = nullptr;
