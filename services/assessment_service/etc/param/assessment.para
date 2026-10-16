@@ -12,5 +12,3 @@
 # limitations under the License.
 
 persist.assessment.is_active=false
-persist.assessment.duration=0
-persist.assessment.allowed_apps=
