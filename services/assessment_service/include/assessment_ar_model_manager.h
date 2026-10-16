@@ -53,14 +53,11 @@ public:
 private:
     AssessmenModelDownload() = default;
     bool InitLibrary();
-
-    void* soHandle_ = nullptr;
-    std::mutex mutex_;
-
     typedef void (*SetPidFunc)(int32_t);
     typedef void (*SetTokenidFunc)(uint32_t);
     typedef int (*CheckModelStatusFunc)(void*);
-
+    void* soHandle_ = nullptr;
+    std::mutex mutex_;
     SetPidFunc setPidFn_ = nullptr;
     SetTokenidFunc setTokenidFn_ = nullptr;
     CheckModelStatusFunc checkModelStatusFn_ = nullptr;
