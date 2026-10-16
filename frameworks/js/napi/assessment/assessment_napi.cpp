@@ -188,10 +188,25 @@ sptr<AAFwk::JsAssessmentCallback> CreateJsAssessmentCallback(napi_env env, napi_
             napi_create_reference(env, onEndValue, 1, &onEndRef);
         }
 
-        if (onBeginRef != nullptr || onInterruptedRef != nullptr || onEndRef != nullptr) {
+        if (onBeginRef != nullptr && onInterruptedRef != nullptr && onEndRef != nullptr) {
             jsCallback = new (std::nothrow) AAFwk::JsAssessmentCallback(
                 env, onBeginRef, onInterruptedRef, onEndRef);
-            TAG_LOGI(AAFwkTag::DEFAULT, "jsCallback created");
+            if (jsCallback == nullptr) {
+                napi_delete_reference(env, onBeginRef);
+                napi_delete_reference(env, onInterruptedRef);
+                napi_delete_reference(env, onEndRef);
+                TAG_LOGE(AAFwkTag::DEFAULT, "JsAssessmentCallback alloc failed, refs released");
+            }
+        } else {
+            if (onBeginRef != nullptr) {
+                napi_delete_reference(env, onBeginRef);
+            }
+            if (onInterruptedRef != nullptr) {
+                napi_delete_reference(env, onInterruptedRef);
+            }
+            if (onEndRef != nullptr) {
+                napi_delete_reference(env, onEndRef);
+            }
         }
     }
     return jsCallback;

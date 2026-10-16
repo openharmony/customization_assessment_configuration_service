@@ -25,66 +25,51 @@ constexpr const char* ON_INTERRUPTED = "OnInterrupted";
 constexpr const char* ON_END = "OnEnd";
 }
 
-struct OnBeginCallbackParam {
-    JsAssessmentCallback *callback = nullptr;
-    int32_t code = 0;
-    std::string message;
-    napi_async_work work = nullptr;
-};
-
-struct OnInterruptedCallbackParam {
-    JsAssessmentCallback *callback = nullptr;
-    int32_t reason = 0;
-    std::string message;
-    napi_async_work work = nullptr;
-};
-
-struct OnEndCallbackParam {
-    JsAssessmentCallback *callback = nullptr;
-    napi_async_work work = nullptr;
-};
-
-void ExecuteOnBeginCallback(napi_env env, napi_status status, void* data)
-{
-    TAG_LOGI(AAFwkTag::DEFAULT, "assessment onBegin executeCallback called");
-    OnBeginCallbackParam *callbackParam = static_cast<OnBeginCallbackParam*>(data);
-    JsAssessmentCallback *callback = callbackParam->callback;
-    callback->CallJsOnBegin(callbackParam->code, callbackParam->message);
-    napi_delete_async_work(env, callbackParam->work);
-    delete callbackParam;
-}
-
-void ExecuteOnInterruptedCallback(napi_env env, napi_status status, void* data)
-{
-    TAG_LOGI(AAFwkTag::DEFAULT, "assessment onInterrupted executeCallback called");
-    OnInterruptedCallbackParam *callbackParam = static_cast<OnInterruptedCallbackParam*>(data);
-    JsAssessmentCallback *callback = callbackParam->callback;
-    callback->CallJsOnInterrupted(callbackParam->reason, callbackParam->message);
-    napi_delete_async_work(env, callbackParam->work);
-    delete callbackParam;
-}
-
-void ExecuteOnEndCallback(napi_env env, napi_status status, void* data)
-{
-    TAG_LOGI(AAFwkTag::DEFAULT, "assessment onEnd executeCallback called");
-    OnEndCallbackParam *callbackParam = static_cast<OnEndCallbackParam*>(data);
-    JsAssessmentCallback *callback = callbackParam->callback;
-    callback->CallJsOnEnd();
-    napi_delete_async_work(env, callbackParam->work);
-    delete callbackParam;
-}
-
 JsAssessmentCallback::JsAssessmentCallback(napi_env env, napi_ref onBeginRef,
                                            napi_ref onInterruptedRef, napi_ref onEndRef)
     : IPCObjectStub(u"JsAssessmentCallback", false), env_(env), onBeginRef_(onBeginRef),
       onInterruptedRef_(onInterruptedRef), onEndRef_(onEndRef)
 {
     TAG_LOGD(AAFwkTag::DEFAULT, "constructor");
+    auto mainRunner = AppExecFwk::EventRunner::GetMainEventRunner();
+    if (mainRunner == nullptr) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "JsAssessmentCallback, GetMainEventRunner failed");
+        return;
+    }
+    eventHandler_ = std::make_shared<AppExecFwk::EventHandler>(mainRunner);
+    TAG_LOGI(AAFwkTag::DEFAULT, "eventHandler_ created successfully");
 }
 
 JsAssessmentCallback::~JsAssessmentCallback()
 {
     TAG_LOGD(AAFwkTag::DEFAULT, "destructor");
+    if (env_ == nullptr) {
+        return;
+    }
+    napi_env env = env_;
+    napi_ref onBeginRef = onBeginRef_;
+    napi_ref onInterruptedRef = onInterruptedRef_;
+    napi_ref onEndRef = onEndRef_;
+    onBeginRef_ = nullptr;
+    onInterruptedRef_ = nullptr;
+    onEndRef_ = nullptr;
+
+    if (eventHandler_ != nullptr) {
+        auto task = [env, onBeginRef, onInterruptedRef, onEndRef]() {
+            if (onBeginRef != nullptr) {
+                napi_delete_reference(env, onBeginRef);
+            }
+            if (onInterruptedRef != nullptr) {
+                napi_delete_reference(env, onInterruptedRef);
+            }
+            if (onEndRef != nullptr) {
+                napi_delete_reference(env, onEndRef);
+            }
+        };
+        eventHandler_->PostTask(task, "napi_delete_ref", 0, AppExecFwk::EventQueue::Priority::IMMEDIATE);
+    } else {
+        TAG_LOGW(AAFwkTag::DEFAULT, "eventHandler_ is null, napi_ref may leak");
+    }
 }
 
 napi_ref JsAssessmentCallback::GetOnBeginRef() const
@@ -156,72 +141,56 @@ void JsAssessmentCallback::CallJsCallback(napi_ref callbackRef, napi_value* argv
 
 void JsAssessmentCallback::PostOnBegin(int32_t code, const std::string &message)
 {
-    OnBeginCallbackParam *params = new (std::nothrow) OnBeginCallbackParam {
-        .callback = this,
-        .code = code,
-        .message = message,
-        .work = nullptr
-    };
-    if (params == nullptr) {
-        TAG_LOGE(AAFwkTag::DEFAULT, "malloc fail");
+    if (eventHandler_ == nullptr) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "eventHandler_ is nullptr, cannot post CallJsOnBegin to main thread");
         return;
     }
-    napi_value resourceName;
-    napi_create_string_utf8(env_, "ExecuteOnBeginCallback", NAPI_AUTO_LENGTH, &resourceName);
-    napi_create_async_work(
-        env_, nullptr, resourceName,
-        [](napi_env env, void* data) { TAG_LOGD(AAFwkTag::DEFAULT, "assessment onBegin complete called"); },
-        ExecuteOnBeginCallback,
-        params,
-        &params->work);
-    napi_queue_async_work(env_, params->work);
+    auto task = [selfRef = sptr<JsAssessmentCallback>(this), code, message]() {
+        if (selfRef == nullptr) {
+            TAG_LOGE(AAFwkTag::DEFAULT, "PostOnBegin task, this JsAssessmentCallback object is nullptr");
+            return;
+        }
+        selfRef->CallJsOnBegin(code, message);
+    };
+    eventHandler_->PostTask(task, "napi_onBegin", 0, AppExecFwk::EventQueue::Priority::IMMEDIATE);
 }
 
 void JsAssessmentCallback::PostOnInterrupted(int32_t reason, const std::string &message)
 {
-    OnInterruptedCallbackParam *params = new (std::nothrow) OnInterruptedCallbackParam {
-        .callback = this,
-        .reason = reason,
-        .message = message,
-        .work = nullptr
-    };
-    if (params == nullptr) {
-        TAG_LOGE(AAFwkTag::DEFAULT, "malloc fail");
+    if (eventHandler_ == nullptr) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "eventHandler_ is nullptr, cannot post CallJsOnInterrupted to main thread");
         return;
     }
-    napi_value resourceName;
-    napi_create_string_utf8(env_, "ExecuteOnInterruptedCallback", NAPI_AUTO_LENGTH, &resourceName);
-    napi_create_async_work(
-        env_, nullptr, resourceName,
-        [](napi_env env, void* data) { TAG_LOGD(AAFwkTag::DEFAULT, "assessment onInterrupted complete called"); },
-        ExecuteOnInterruptedCallback,
-        params,
-        &params->work);
-    napi_queue_async_work(env_, params->work);
+    auto task = [selfRef = sptr<JsAssessmentCallback>(this), reason, message]() {
+        if (selfRef == nullptr) {
+            TAG_LOGE(AAFwkTag::DEFAULT, "PostOnInterrupted task, this JsAssessmentCallback object is nullptr");
+            return;
+        }
+        selfRef->CallJsOnInterrupted(reason, message);
+    };
+    eventHandler_->PostTask(task, "napi_onInterrupted", 0, AppExecFwk::EventQueue::Priority::IMMEDIATE);
 }
 
 void JsAssessmentCallback::PostOnEnd()
 {
-    OnEndCallbackParam *params = new (std::nothrow) OnEndCallbackParam {
-        .callback = this
-    };
-    if (params == nullptr) {
-        TAG_LOGE(AAFwkTag::DEFAULT, "malloc fail");
+    if (eventHandler_ == nullptr) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "eventHandler_ is nullptr, cannot post CallJsOnEnd to main thread");
         return;
     }
-    napi_value resourceName;
-    napi_create_string_utf8(env_, "ExecuteOnEndCallback", NAPI_AUTO_LENGTH, &resourceName);
-    napi_create_async_work(
-        env_, nullptr, resourceName,
-        [](napi_env env, void* data) { TAG_LOGD(AAFwkTag::DEFAULT, "assessment onEnd complete called"); },
-        ExecuteOnEndCallback,
-        params,
-        &params->work);
-    napi_queue_async_work(env_, params->work);
+    auto task = [selfRef = sptr<JsAssessmentCallback>(this)]() {
+        if (selfRef == nullptr) {
+            TAG_LOGE(AAFwkTag::DEFAULT, "PostOnEnd task, this JsAssessmentCallback object is nullptr");
+            return;
+        }
+        selfRef->CallJsOnEnd();
+    };
+    eventHandler_->PostTask(task, "napi_onEnd", 0, AppExecFwk::EventQueue::Priority::IMMEDIATE);
 }
 
 void JsAssessmentCallback::CallJsOnBegin(int32_t code, const std::string &message)
 {
+    TAG_LOGI(AAFwkTag::DEFAULT,
+        "CallJsOnBegin in, code: %{public}d, message: %{public}s", code, message.c_str());
     napi_value errorObj = nullptr;
     napi_create_object(env_, &errorObj);
     napi_set_named_property(env_, errorObj, "code", CreateJsValue(env_, code));
@@ -232,6 +201,8 @@ void JsAssessmentCallback::CallJsOnBegin(int32_t code, const std::string &messag
 
 void JsAssessmentCallback::CallJsOnInterrupted(int32_t code, const std::string &message)
 {
+    TAG_LOGI(AAFwkTag::DEFAULT,
+        "CallJsOnInterrupted in, code: %{public}d, message: %{public}s", code, message.c_str());
     napi_value infoObj = nullptr;
     napi_create_object(env_, &infoObj);
     napi_set_named_property(env_, infoObj, "code", CreateJsValue(env_, code));
@@ -242,6 +213,7 @@ void JsAssessmentCallback::CallJsOnInterrupted(int32_t code, const std::string &
 
 void JsAssessmentCallback::CallJsOnEnd()
 {
+    TAG_LOGI(AAFwkTag::DEFAULT, "CallJsOnEnd in");
     napi_value argv[] = {};
     CallJsCallback(onEndRef_, argv, 0, ON_END);
 }
