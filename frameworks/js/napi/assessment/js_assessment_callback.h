@@ -16,9 +16,11 @@
 #ifndef OHOS_JS_ASSESSMENT_CALLBACK_H
 #define OHOS_JS_ASSESSMENT_CALLBACK_H
 
+#include <memory>
 #include <string>
 
 #include "assessment_callback_code.h"
+#include "event_handler.h"
 #include "hilog_tag_wrapper.h"
 #include "js_runtime_utils.h"
 #include "ipc_object_stub.h"
@@ -45,7 +47,8 @@ public:
     void CallJsOnEnd();
 
 private:
-    void CallJsCallback(napi_ref callbackRef, napi_value* argv, size_t argc, const std::string& callbackName);
+    void CallJsCallback(napi_ref callbackRef, napi_value* argv,
+                        size_t argc, const std::string& callbackName);
 
     void PostOnBegin(int32_t code, const std::string &message);
     void PostOnInterrupted(int32_t reason, const std::string &message);
@@ -55,6 +58,7 @@ private:
     napi_ref onBeginRef_ = nullptr;
     napi_ref onInterruptedRef_ = nullptr;
     napi_ref onEndRef_ = nullptr;
+    std::shared_ptr<AppExecFwk::EventHandler> eventHandler_ = nullptr;
 };
 
 } // namespace AAFwk
