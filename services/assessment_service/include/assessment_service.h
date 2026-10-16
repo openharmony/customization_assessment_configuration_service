@@ -70,6 +70,13 @@ public:
     ErrCode IsActive(bool &isActive, int32_t &errCode) override;
     ErrCode GetConfiguration(
         uint32_t &duration, std::vector<std::string> &allowedApps, int32_t &errCode) override;
+    ErrCode DownloadARModel() override;
+    ErrCode DownloadARModelWithCallback(const sptr<IRemoteObject>& modelStatusCb, int32_t& modelStatus) override;
+    ErrCode LoadModel(int32_t& ret) override;
+    ErrCode UnloadModel(int32_t& ret) override;
+    ErrCode Infer(int inputFd, int32_t inputSize, int& outputFd, int32_t& outputSize, int32_t& ret) override;
+    ErrCode SetPid(int32_t pid) override;
+    ErrCode SetTokenid(uint32_t tokenid) override;
 
     void OnRemoteDied(const wptr<OHOS::IRemoteObject> &remoteObject);
 

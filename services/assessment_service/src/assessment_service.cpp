@@ -17,6 +17,7 @@
 #include <unordered_map>
 #include <sys/time.h>
 #include <input_manager.h>
+#include <cstring>
 #include "assessment_service.h"
 #include "callback_manager.h"
 #include "hilog_tag_wrapper.h"
@@ -42,6 +43,8 @@
 #include "power_mode_info.h"
 #include "power_mgr_client.h"
 #include "ability_manager_errors.h"
+#include "assessment_ar_model_manager.h"
+#include "dcas_rtm_pose_npu_model.h"
 #include "nlohmann/json.hpp"
 using json = nlohmann::json;
 
@@ -537,6 +540,78 @@ ErrCode AssessmentService::GetConfiguration(
     RemarkSaIdleLockedUnsafe();
     duration = currentConfig_.duration;
     allowedApps = currentConfig_.allowedApps;
+    return ERR_OK;
+}
+
+ErrCode AssessmentService::DownloadARModel()
+{
+    TAG_LOGI(AAFwkTag::DEFAULT, "AssessmentService DownloadARModel");
+    AssessmenModelDownload::GetInstance().CheckModelStatus();
+    return ERR_OK;
+}
+
+ErrCode AssessmentService::DownloadARModelWithCallback(const sptr<IRemoteObject>& modelStatusCb, int32_t& modelStatus)
+{
+    TAG_LOGI(AAFwkTag::DEFAULT, "DownloadARModelWithCallback called");
+    
+    void* callbackToken = (modelStatusCb != nullptr) ? static_cast<void*>(modelStatusCb.GetRefPtr()) : nullptr;
+    
+    int statusInt = AssessmenModelDownload::GetInstance().CheckModelStatus(callbackToken);
+    AssessmentARModelStatus status = static_cast<AssessmentARModelStatus>(statusInt);
+
+    modelStatus = static_cast<int32_t>(status);
+    
+    if (status == AssessmentARModelStatus::READY) {
+        TAG_LOGI(AAFwkTag::DEFAULT, "Model already ready, skip callback");
+    }
+
+    return ERR_OK;
+}
+
+ErrCode AssessmentService::LoadModel(int32_t& ret)
+{
+    TAG_LOGI(AAFwkTag::DEFAULT, "LoadModel called");
+    ret = DcasRtmPoseNpuModel::GetInstance()->LoadModel();
+    if (ret != ERR_OK) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "LoadModel failed, ret: %{public}d", ret);
+        return ERR_INVALID_VALUE;
+    }
+    return ret;
+}
+
+ErrCode AssessmentService::UnloadModel(int32_t& ret)
+{
+    TAG_LOGI(AAFwkTag::DEFAULT, "UnloadModel called");
+    ret = DcasRtmPoseNpuModel::GetInstance()->UnloadModel();
+    if (ret != ERR_OK) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "UnloadModel failed, ret: %{public}d", ret);
+        return ERR_INVALID_VALUE;
+    }
+    return ret;
+}
+
+ErrCode AssessmentService::Infer(int inputFd, int32_t inputSize, int& outputFd, int32_t& outputSize, int32_t& ret)
+{
+    TAG_LOGI(AAFwkTag::DEFAULT, "Infer called, inputFd: %{public}d, inputSize: %{public}d", inputFd, inputSize);
+    ret = DcasRtmPoseNpuModel::GetInstance()->Infer(inputFd, inputSize, outputFd, outputSize);
+    if (ret != ERR_OK) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "Infer failed, ret: %{public}d", ret);
+        return ERR_INVALID_VALUE;
+    }
+    return ERR_OK;
+}
+
+ErrCode AssessmentService::SetPid(int32_t pid)
+{
+    TAG_LOGI(AAFwkTag::DEFAULT, "SetPid called");
+    AssessmenModelDownload::GetInstance().SetPid(pid);
+    return ERR_OK;
+}
+
+ErrCode AssessmentService::SetTokenid(uint32_t tokenid)
+{
+    TAG_LOGI(AAFwkTag::DEFAULT, "SetTokenid called");
+    AssessmenModelDownload::GetInstance().SetTokenid(tokenid);
     return ERR_OK;
 }
 

@@ -48,6 +48,8 @@ ohos_unittest("AssessmentServiceTest") {
     "${assessment_services_path}/assessment_service/src/assessment_event_publisher.cpp",
     "./mock/src/mock_assessment_utils.cpp",
     "./src/assessment_service_test.cpp",
+    "${assessment_services_path}/assessment_service/src/assessment_ar_model_manager.cpp",
+    "${assessment_services_path}/assessment_service/src/dcas_rtm_pose_npu_model.cpp",
   ]
 
   configs = [
@@ -124,6 +126,8 @@ ohos_unittest("AssessmentUtilsTest") {
     "${assessment_services_path}/assessment_service/src/process_controller.cpp",
     "${assessment_services_path}/assessment_service/src/assessment_event_publisher.cpp",
     "./src/assessment_utils_test.cpp",
+    "${assessment_services_path}/assessment_service/src/assessment_ar_model_manager.cpp",
+    "${assessment_services_path}/assessment_service/src/dcas_rtm_pose_npu_model.cpp",
   ]
 
   configs = [
@@ -200,6 +204,8 @@ ohos_unittest("AssessmentCallbackManagerTest") {
     "${assessment_services_path}/assessment_service/src/process_controller.cpp",
     "${assessment_services_path}/assessment_service/src/assessment_event_publisher.cpp",
     "./src/assessment_callback_manager_test.cpp",
+    "${assessment_services_path}/assessment_service/src/assessment_ar_model_manager.cpp",
+    "${assessment_services_path}/assessment_service/src/dcas_rtm_pose_npu_model.cpp",
   ]
 
   configs = [
@@ -276,6 +282,8 @@ ohos_unittest("AssessmentEventManagerTest") {
     "${assessment_services_path}/assessment_service/src/process_controller.cpp",
     "${assessment_services_path}/assessment_service/src/assessment_event_publisher.cpp",
     "./src/assessment_event_manager_test.cpp",
+    "${assessment_services_path}/assessment_service/src/assessment_ar_model_manager.cpp",
+    "${assessment_services_path}/assessment_service/src/dcas_rtm_pose_npu_model.cpp",
   ]
 
   configs = [
@@ -352,6 +360,8 @@ ohos_unittest("AssessmentServiceAbilityTest") {
     "${assessment_services_path}/assessment_service/src/process_controller.cpp",
     "${assessment_services_path}/assessment_service/src/assessment_event_publisher.cpp",
     "./src/assessment_service_ability_test.cpp",
+    "${assessment_services_path}/assessment_service/src/assessment_ar_model_manager.cpp",
+    "${assessment_services_path}/assessment_service/src/dcas_rtm_pose_npu_model.cpp",
   ]
 
   configs = [
@@ -428,6 +438,8 @@ ohos_unittest("AssessmentServiceAppStateCBTest") {
     "${assessment_services_path}/assessment_service/src/process_controller.cpp",
     "${assessment_services_path}/assessment_service/src/assessment_event_publisher.cpp",
     "./src/assessment_service_app_state_cb_test.cpp",
+    "${assessment_services_path}/assessment_service/src/assessment_ar_model_manager.cpp",
+    "${assessment_services_path}/assessment_service/src/dcas_rtm_pose_npu_model.cpp",
   ]
 
   configs = [

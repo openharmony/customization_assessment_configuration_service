@@ -20,10 +20,12 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <vector>
 
 #include "iremote_object.h"
 #include "system_ability_definition.h"
 #include "iassessment_service.h"
+#include "assessment_model_status_callback.h"
 
 namespace OHOS {
 namespace AAFwk {
@@ -40,6 +42,13 @@ public:
     ErrCode End(const sptr<IRemoteObject> &token);
     ErrCode IsActive(bool &isActive);
     ErrCode GetConfiguration(uint32_t &duration, std::vector<std::string> &allowedApps);
+    ErrCode DownloadARModel();
+    ErrCode DownloadARModelWithCallback(AssessmentModelStatusCallback callback, int32_t& modelStatus);
+    ErrCode LoadModel();
+    ErrCode UnloadModel();
+    ErrCode Infer(int inputFd, int32_t inputSize, int& outputFd, int32_t& outputSize);
+    ErrCode SetPid(int32_t pid);
+    ErrCode SetTokenid(uint32_t tokenid);
 
     void OnLoadSystemAbilitySuccess(const sptr<IRemoteObject> &remoteObject);
     void OnLoadSystemAbilityFail();

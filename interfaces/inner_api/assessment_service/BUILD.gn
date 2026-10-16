@@ -51,6 +51,7 @@ ohos_shared_library("assessment_manager") {
         "src/assessment_api_error_code.cpp",
         "src/assessment_service_client.cpp",
         "src/assessment_service_load_callback.cpp",
+        "src/assessment_model_status_callback.cpp",
     ]
 
     sanitize = {
