@@ -66,30 +66,6 @@ const std::string SCENEBOARD_ABILITY_NAME = "com.ohos.sceneboard.systemdialog";
 const std::string SYSTEM_UI_BUNDLE_NAME = "com.ohos.commondialog";
 const std::string SYSTEM_UI_ABILITY_NAME = "AssessmentServiceDialogAbility";
 
-const char* const TRACE_ERR_REASON_NO_ERROR = "NO_ERROR";
-const char* const TRACE_ERR_REASON_INVALID_PARAMS = "INVALID_PARAMS";
-const char* const TRACE_ERR_REASON_PERMISSION_DENIED = "PERMISSION_DENIED";
-const char* const TRACE_ERR_REASON_DEVICE_NOT_SUPPORTED = "DEVICE_NOT_SUPPORTED";
-const char* const TRACE_ERR_REASON_EXAM_ALREADY_STARTED = "EXAM_ALREADY_STARTED";
-const char* const TRACE_ERR_REASON_USER_CONFIRM = "USER_CONFIRM";
-const char* const TRACE_ERR_REASON_USER_CANCEL = "USER_CANCEL";
-const char* const TRACE_ERR_REASON_CALL_KIOSK_FAIL = "CALL_KIOSK_FAIL";
-const char* const TRACE_ERR_REASON_SAVE_SYSPARAM_FAIL = "SAVE_SYSPARAM_FAIL";
-const char* const TRACE_ERR_REASON_NO_EXAM = "NO_EXAM";
-const char* const TRACE_ERR_REASON_RESET_SYSPARAM_FAIL = "RESET_SYSPARAM_FAIL";
-const char* const TRACE_ERR_REASON_NON_OWNER_END = "NON_OWNER_END";
-const char* const TRACE_ERR_REASON_LOCK_SCREENOFF_FAILED = "LOCK_SCREENOFF_FAILED";
-const char* const TRACE_ERR_REASON_KILL_ANCO_APP_FAILED = "KILL_ANCO_APP_FAILED";
-const char* const TRACE_ERR_REASON_APP_DIED = "APP_DIED";
-
-const char* const TRACE_EXIT_REASON_TIMEOUT = "TIMEOUT";
-const char* const TRACE_EXIT_REASON_USER_INITIATED_EXIT = "USER_INITIATED_EXIT";
-const char* const TRACE_EXIT_REASON_ENTER_HIBERNATE = "ENTER_HIBERNATE";
-const char* const TRACE_EXIT_REASON_ENTER_POWER_SAVE_MODE = "ENTER_POWER_SAVE_MODE";
-const char* const TRACE_EXIT_REASON_SHUTDOWN = "SHUTDOWN";
-const char* const TRACE_EXIT_REASON_DEVICE_REBOOT = "DEVICE_REBOOT";
-const char* const TRACE_EXIT_REASON_LID_CLOSED = "LID_CLOSED";
-
 // Kept in sync with ASSESSMENT_EVENT_CODE_ENV_ANOMALY_DESC in
 // interfaces/inner_api/assessment_service/src/assessment_api_error_code.cpp, which
 // has internal linkage there and therefore cannot be referenced from here.
@@ -251,8 +227,8 @@ void AssessmentService::LoadState()
 
 void AssessmentService::SaveState()
 {
-    int ret = system::SetParameter(PARAM_ASSESSMENT_IS_ACTIVE, isActive_ ? "true" : "false");
-    if (ret != 0) {
+    bool ret = system::SetParameter(PARAM_ASSESSMENT_IS_ACTIVE, isActive_ ? "true" : "false");
+    if (!ret) {
         EnterExamParam params = BuildEnterExamParamLockUnsafe();
         AssessmentEventPublisher::PublishEnterExamModeEvent(params, TRACE_ERR_REASON_SAVE_SYSPARAM_FAIL);
     }
@@ -272,8 +248,8 @@ void AssessmentService::SaveState()
 
 void AssessmentService::ClearState()
 {
-    int ret = system::SetParameter(PARAM_ASSESSMENT_IS_ACTIVE, "false");
-    if (ret != 0) {
+    bool ret = system::SetParameter(PARAM_ASSESSMENT_IS_ACTIVE, "false");
+    if (!ret) {
         ExitExamParam params = BuildExitExamParamLockUnsafe();
         AssessmentEventPublisher::PublishExitExamModeEvent(
             params, TRACE_ERR_REASON_RESET_SYSPARAM_FAIL, TRACE_ERR_REASON_RESET_SYSPARAM_FAIL);
@@ -842,11 +818,11 @@ void AssessmentService::HandleBegin(const std::string &ticket, uint32_t operatio
     if (operation == AssessmentConfirmationOperation::CANCEL) {
         EnterExamParam params = BuildEnterExamParamLockUnsafe();
         AssessmentEventPublisher::PublishEnterExamModeEvent(params, TRACE_ERR_REASON_USER_CANCEL);
+        TAG_LOGW(AAFwkTag::ASSESSMENT, "user cancel enter exam dialog");
         CancelBeginLockedUnsafe();
     } else if (operation == AssessmentConfirmationOperation::CONFIRM) {
+        TAG_LOGI(AAFwkTag::ASSESSMENT, "user confirm enter exam dialog");
         ConfirmationBeginLockedUnsafe();
-        EnterExamParam params = BuildEnterExamParamLockUnsafe();
-        AssessmentEventPublisher::PublishEnterExamModeEvent(params, TRACE_ERR_REASON_USER_CONFIRM);
         condSa_.notify_all();
     }
 }
