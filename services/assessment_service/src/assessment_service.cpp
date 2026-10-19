@@ -321,7 +321,7 @@ bool AssessmentService::CheckBeginPreconditions(const sptr<IRemoteObject> &token
     params.bundleName = allowedApps.empty() ? "" : allowedApps.back();
     params.duration = duration;
     params.allowedApps = allowedApps;
-    params.examStartTime = static_cast<long long>(AssessmentServiceUtils::GetCurrentAssessmentTimeStamp());
+    params.examStartTime = static_cast<unsigned long long>(AssessmentServiceUtils::GetCurrentAssessmentTimeStamp());
     if (token == nullptr || callback == nullptr || allowedApps.empty()) {
         TAG_LOGE(AAFwkTag::ASSESSMENT, "assessment invalid params");
         errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_INVALID_PARAMS);
@@ -1254,9 +1254,9 @@ EnterExamParam AssessmentService::BuildEnterExamParamLockUnsafe()
 {
     EnterExamParam params;
     params.bundleName = bundleName_;
-    params.examId = static_cast<long long>(currentConfig_.examId);
-    params.examStartTime = static_cast<long long>(currentConfig_.examStartTime);
-    params.duration = static_cast<long long>(currentConfig_.duration);
+    params.examId = static_cast<unsigned long long>(currentConfig_.examId);
+    params.examStartTime = static_cast<unsigned long long>(currentConfig_.examStartTime);
+    params.duration = static_cast<unsigned long long>(currentConfig_.duration);
     params.allowedApps = currentConfig_.allowedApps;
     // Read the cached result of the check this session was admitted with, rather
     // than re-running CheckAll() here: this function is called while mutexSa_ is
@@ -1269,8 +1269,8 @@ ExitExamParam AssessmentService::BuildExitExamParamLockUnsafe()
 {
     ExitExamParam params;
     params.bundleName = bundleName_;
-    params.examId = static_cast<long long>(currentConfig_.examId);
-    params.examStartTime = static_cast<long long>(currentConfig_.examStartTime);
+    params.examId = static_cast<unsigned long long>(currentConfig_.examId);
+    params.examStartTime = static_cast<unsigned long long>(currentConfig_.examStartTime);
     return params;
 }
 
