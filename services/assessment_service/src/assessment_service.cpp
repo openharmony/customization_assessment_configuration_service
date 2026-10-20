@@ -1236,25 +1236,25 @@ bool AssessmentService::HoldScreenRunning()
 
 bool AssessmentService::RestrictScreenOff(bool enable)
 {
-    auto &powerClient = PowerMgr::PowerMgrClient::GetInstance();
-    PowerMgr::PowerErrors powerError = powerClient.SetInterfaceCallFilteringStrategy(enable ?
-        PowerMgr::InterfaceCallFilteringStrategy::SUSPEND_DEVICE_FILTERING :
-        PowerMgr::InterfaceCallFilteringStrategy::SUSPEND_DEVICE_NOT_FILTERING);
-    if (powerError != PowerMgr::PowerErrors::ERR_OK) {
-        return false;
-    }
-    powerError = powerClient.SetLidFilteringStrategy(enable ?
-        PowerMgr::LidFilteringStrategy::LID_CLOSE_FILTERING :
-        PowerMgr::LidFilteringStrategy::LID_CLOSE_NOT_FILTERING);
-    if (powerError != PowerMgr::PowerErrors::ERR_OK) {
-        return false;
-    }
-    powerError = powerClient.SetPowerKeyFilteringStrategy(enable ?
-        PowerMgr::PowerKeyFilteringStrategy::POWER_KEY_UP_SHORT_PRESS_FILTERING :
-        PowerMgr::PowerKeyFilteringStrategy::POWER_KEY_UP_SHORT_PRESS_NOT_FILTERING);
-    if (powerError != PowerMgr::PowerErrors::ERR_OK) {
-        return false;
-    }
+    // auto &powerClient = PowerMgr::PowerMgrClient::GetInstance();
+    // PowerMgr::PowerErrors powerError = powerClient.SetInterfaceCallFilteringStrategy(enable ?
+    //     PowerMgr::InterfaceCallFilteringStrategy::SUSPEND_DEVICE_FILTERING :
+    //     PowerMgr::InterfaceCallFilteringStrategy::SUSPEND_DEVICE_NOT_FILTERING);
+    // if (powerError != PowerMgr::PowerErrors::ERR_OK) {
+    //     return false;
+    // }
+    // powerError = powerClient.SetLidFilteringStrategy(enable ?
+    //     PowerMgr::LidFilteringStrategy::LID_CLOSE_FILTERING :
+    //     PowerMgr::LidFilteringStrategy::LID_CLOSE_NOT_FILTERING);
+    // if (powerError != PowerMgr::PowerErrors::ERR_OK) {
+    //     return false;
+    // }
+    // powerError = powerClient.SetPowerKeyFilteringStrategy(enable ?
+    //     PowerMgr::PowerKeyFilteringStrategy::POWER_KEY_UP_SHORT_PRESS_FILTERING :
+    //     PowerMgr::PowerKeyFilteringStrategy::POWER_KEY_UP_SHORT_PRESS_NOT_FILTERING);
+    // if (powerError != PowerMgr::PowerErrors::ERR_OK) {
+    //     return false;
+    // }
     return true;
 }
 
