@@ -170,6 +170,15 @@ private:
     void RollbackActivateLockedUnsafe(std::vector<std::function<void()>> &undoActions);
 
     /**
+     * @brief Restart device_manager so its stale client-side meta-socket bookkeeping
+     *        is cleared after softbus_server was SIGKILLed and cold-started.
+     *
+     * Must be called after softbus_server has reached SERVICE_STARTED and its SA has
+     * had time to publish. Returns false on ServiceControl or wait-for-status failure.
+     */
+    bool RestartDeviceManager();
+
+    /**
      * @brief Ask the closed-source extension to apply its own restrictions.
      *
      * Must be called with mutex_ held, from Activate() only. Appends the undo action

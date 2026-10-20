@@ -52,6 +52,9 @@ inline constexpr const char *const FAIL_REASON_EDM_ADMIN = "EDM_ADMIN_PRESENT";
 
 // Process control sub-items driven from the open-source tree.
 inline constexpr const char *const FAIL_REASON_SOFTBUS_CONTROL = "ENABLE_SOFTBUS_FAILED";
+// Softbus restarted but device_manager could not be brought back up, so the watch
+// meta socket (w****dm) may not re-register and watch collaboration stays broken.
+inline constexpr const char *const FAIL_REASON_SOFTBUS_RECOVER = "SOFTBUS_RECOVER_FAILED";
 inline constexpr const char *const FAIL_REASON_CALL_OBSERVER = "LISTEN_CALLING_STATE_FAILED";
 inline constexpr const char *const FAIL_REASON_SCREEN_LISTENER = "REGISTER_SCREEN_LISTENER_FAILED";
 
