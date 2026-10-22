@@ -16,12 +16,6 @@ import("//build/ohos.gni")
 import("//base/customization/assessment_configuration_service/assessment.gni")
 
 ohos_shared_library("customization_assessment_ani") {
-  sanitize = {
-    cfi = true
-    cfi_cross_dso = false
-    cfi_policy = "adaptive"
-    debug = false
-  }
   branch_protector_ret = "pac_ret"
   cflags_cc = [ "-Os" ]
   shlib_type = "ani"

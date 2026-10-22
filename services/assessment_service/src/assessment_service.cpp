@@ -66,6 +66,18 @@ const std::string SCENEBOARD_ABILITY_NAME = "com.ohos.sceneboard.systemdialog";
 const std::string SYSTEM_UI_BUNDLE_NAME = "com.ohos.commondialog";
 const std::string SYSTEM_UI_ABILITY_NAME = "AssessmentServiceDialogAbility";
 
+// Bundles kept usable during an assessment even when the caller does not list
+// them. Writing a missed call record is served by the CallLogAbility data share
+// extension (authority datashare://com.ohos.calllogability) hosted by
+// com.ohos.contactsdataability, which kiosk mode intercepts unless whitelisted.
+// The authority is listed too: matching is by bundle name, so it is inert here
+// but stays correct on products that ship it as a separate bundle.
+const std::vector<std::string> PRESET_KIOSK_BUNDLE_LIST = {
+    "com.ohos.calllogability",
+    "com.ohos.contacts",
+    "com.ohos.contactsdataability",
+};
+
 // Kept in sync with ASSESSMENT_EVENT_CODE_ENV_ANOMALY_DESC in
 // interfaces/inner_api/assessment_service/src/assessment_api_error_code.cpp, which
 // has internal linkage there and therefore cannot be referenced from here.
@@ -1237,6 +1249,7 @@ bool AssessmentService::RestrictScreenOff(bool enable)
 std::vector<std::string> AssessmentService::GetFinalAppList()
 {
     std::vector<std::string> result = currentConfig_.allowedApps;
+    result.insert(result.end(), PRESET_KIOSK_BUNDLE_LIST.begin(), PRESET_KIOSK_BUNDLE_LIST.end());
     const std::string PARAM_IME_KEY = "persist.sys.default_ime";
     std::string inputName = system::GetParameter(PARAM_IME_KEY, "");
     if (!inputName.empty()) {
@@ -1247,6 +1260,7 @@ std::vector<std::string> AssessmentService::GetFinalAppList()
         result.push_back(inputName);
         TAG_LOGE(AAFwkTag::ASSESSMENT, "assessment fetch ime default: %{public}s", inputName.c_str());
     }
+    TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment kiosk whitelist size: %{public}zu", result.size());
     return result;
 }
 
