@@ -56,7 +56,7 @@ const char* const PARAM_ANCO_STATE = "anco_state";
 const uint64_t MILLISECONDS_UNIT = 1000;
 const uint64_t DEFAULT_TIME_SLICE_INTERVAL = 5 * MILLISECONDS_UNIT;
 const uint32_t DEFAULT_MAX_DURATION = 8 * 60 * 60 * 1000;
-const uint64_t SA_IDLE_MAX_INTERVAL = 5 * 60 * 1000;
+const uint64_t SA_IDLE_MAX_INTERVAL = 25 * 1000;
 const int32_t TICKET_LEN = 16;
 
 const char* const ASSESSMENT_COMMON_EVENT_CONFIRMATION = "assessment.event.confirmation";
@@ -660,7 +660,10 @@ void AssessmentService::DoLoop()
         if (!running_) {
             break;
         }
-
+        if (!isActive_) {
+            // Ensure data sync when not in exam mode.
+            system::SetParameter(PARAM_ASSESSMENT_IS_ACTIVE, "false");
+        }
         int32_t timeout = this->ComputeNextTaskTimeoutLockedUnsafe();
         TAG_LOGD(AAFwkTag::DEFAULT, "Assessment execute compute next round: %{public}d", timeout);
 
