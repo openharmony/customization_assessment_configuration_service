@@ -88,7 +88,8 @@ ohos_unittest("AssessmentServiceTest") {
     "ability_runtime:app_manager",
     "window_manager:libdm",
     "power_manager:powermgr_client",
-    "player_framework:media_client"
+    "player_framework:media_client",
+    "hisysevent:libhisysevent"
   ]
 
   sanitize = {
@@ -166,7 +167,8 @@ ohos_unittest("AssessmentUtilsTest") {
     "ability_runtime:app_manager",
     "window_manager:libdm",
     "power_manager:powermgr_client",
-    "player_framework:media_client"
+    "player_framework:media_client",
+    "hisysevent:libhisysevent"
   ]
 
   sanitize = {
@@ -244,7 +246,8 @@ ohos_unittest("AssessmentCallbackManagerTest") {
     "ability_runtime:app_manager",
     "window_manager:libdm",
     "power_manager:powermgr_client",
-    "player_framework:media_client"
+    "player_framework:media_client",
+    "hisysevent:libhisysevent"
   ]
 
   sanitize = {
@@ -322,7 +325,8 @@ ohos_unittest("AssessmentEventManagerTest") {
     "ability_runtime:app_manager",
     "window_manager:libdm",
     "power_manager:powermgr_client",
-    "player_framework:media_client"
+    "player_framework:media_client",
+    "hisysevent:libhisysevent"
   ]
 
   sanitize = {
@@ -400,7 +404,8 @@ ohos_unittest("AssessmentServiceAbilityTest") {
     "ability_runtime:app_manager",
     "window_manager:libdm",
     "power_manager:powermgr_client",
-    "player_framework:media_client"
+    "player_framework:media_client",
+    "hisysevent:libhisysevent"
   ]
 
   sanitize = {
@@ -478,7 +483,8 @@ ohos_unittest("AssessmentServiceAppStateCBTest") {
     "ability_runtime:app_manager",
     "window_manager:libdm",
     "power_manager:powermgr_client",
-    "player_framework:media_client"
+    "player_framework:media_client",
+    "hisysevent:libhisysevent"
   ]
 
   sanitize = {
