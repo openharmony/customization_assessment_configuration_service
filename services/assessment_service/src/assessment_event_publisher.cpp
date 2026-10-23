@@ -126,8 +126,8 @@ void AssessmentEventPublisher::PublishExitExamModeEvent(const ExitExamParam &par
              "[ExitExamMode] exit reason: %{public}s, error reason: %{public}s", exitReason, errorReason);
 }
 
-void AssessmentEventPublisher::WriteHiSysEnterExamModeEvent(const char* eventName,
-                                                            const EnterExamParam& params,
+void AssessmentEventPublisher::WriteHiSysEnterExamModeEvent(const char *eventName,
+                                                            const EnterExamParam &params,
                                                             const char *errorReason)
 {
     TAG_LOGI(AAFwkTag::ASSESSMENT, "WriteHiSysEnterExamModeEvent, eventName:%{public}s", eventName);
@@ -152,8 +152,8 @@ void AssessmentEventPublisher::WriteHiSysEnterExamModeEvent(const char* eventNam
     }
 }
 
-void AssessmentEventPublisher::WriteHiSysExitExamModeEvent(const char* eventName,
-                                                           const ExitExamParam& params,
+void AssessmentEventPublisher::WriteHiSysExitExamModeEvent(const char *eventName,
+                                                           const ExitExamParam &params,
                                                            uint64_t examDuration,
                                                            const char *exitReason,
                                                            const char *errorReason)
