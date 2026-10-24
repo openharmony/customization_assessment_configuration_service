@@ -128,13 +128,24 @@ static napi_value GetStringArrayFromJs(napi_env env, napi_value value, std::vect
 {
     bool isArray = false;
     napi_is_array(env, value, &isArray);
-    if (!isArray) {
-        TAG_LOGE(AAFwkTag::DEFAULT, "value is not array");
-        return nullptr;
-    }
 
     uint32_t length = 0;
-    napi_get_array_length(env, value, &length);
+    if (isArray) {
+        napi_get_array_length(env, value, &length);
+    } else {
+        napi_value lengthKey = nullptr;
+        napi_create_string_utf8(env, "length", NAPI_AUTO_LENGTH, &lengthKey);
+        napi_value lengthVal = nullptr;
+        napi_status st = napi_get_property(env, value, lengthKey, &lengthVal);
+        if (st != napi_ok || lengthVal == nullptr) {
+            TAG_LOGE(AAFwkTag::DEFAULT, "value is not array and has no length");
+            return nullptr;
+        }
+        if (napi_get_value_uint32(env, lengthVal, &length) != napi_ok) {
+            TAG_LOGE(AAFwkTag::DEFAULT, "length is not uint32");
+            return nullptr;
+        }
+    }
 
     for (uint32_t i = 0; i < length; i++) {
         napi_value item = nullptr;
