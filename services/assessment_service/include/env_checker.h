@@ -104,9 +104,8 @@ public:
 
     /**
      * @brief Check anco state.
-     * @return true if anco freeze, false if anco active.
      */
-    bool IsAwakeAnco(std::string ancoState);
+    void AwakeAnco();
 
     /**
      * @brief Restrict anco app.

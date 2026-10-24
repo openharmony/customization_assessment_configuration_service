@@ -96,9 +96,9 @@ bool EnvChecker::CheckAll(std::string &failReason)
     return true;
 }
 
-bool EnvChecker::IsAwakeAnco(std::string ancoState)
+void EnvChecker::AwakeAnco()
 {
-    return loader_->InvokeIsAwakeAnco(ancoState);
+    loader_->InvokeAwakeAnco();
 }
 
 int32_t EnvChecker::RestrictAncoApp()

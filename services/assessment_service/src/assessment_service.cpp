@@ -263,14 +263,11 @@ void AssessmentService::LoadState()
 
 void AssessmentService::SaveState()
 {
-    int ret = system::SetParameter(PARAM_ASSESSMENT_IS_ACTIVE, isActive_ ? "true" : "false");
-    if (ret != 0) {
+    bool updataSuccess = UpdateState();
+    if (!updataSuccess) {
         EnterExamParam params = BuildEnterExamParamLockUnsafe();
         AssessmentEventPublisher::PublishEnterExamModeEvent(params, TRACE_ERR_REASON_SAVE_SYSPARAM_FAIL);
     }
-
-    std::string ancoState = system::GetParameter(PARAM_ANCO_STATE, "2");
-    isWaittingAncoActive_ = envChecker_.IsAwakeAnco(ancoState);
     if (isActive_) {
         int32_t retCode = envChecker_.RestrictAncoApp();
         constexpr int32_t RESTRICT_ANCO_APP_FAILED = 1;
@@ -284,15 +281,27 @@ void AssessmentService::SaveState()
 
 void AssessmentService::ClearState()
 {
-    int ret = system::SetParameter(PARAM_ASSESSMENT_IS_ACTIVE, "false");
-    if (ret != 0) {
+    bool updataSuccess = UpdateState();
+    if (!updataSuccess) {
         ExitExamParam params = BuildExitExamParamLockUnsafe();
         AssessmentEventPublisher::PublishExitExamModeEvent(
             params, TRACE_ERR_REASON_RESET_SYSPARAM_FAIL, TRACE_ERR_REASON_RESET_SYSPARAM_FAIL);
     }
-    std::string ancoState = system::GetParameter(PARAM_ANCO_STATE, "2");
-    isWaittingAncoActive_ = envChecker_.IsAwakeAnco(ancoState);
     TAG_LOGD(AAFwkTag::DEFAULT, "State cleared");
+}
+
+bool AssessmentService::UpdateState()
+{
+    std::string ancoState = system::GetParameter(PARAM_ANCO_STATE, "2");
+    bool isAncoActive = (strcmp(ancoState.c_str(), "0") == 0);
+    if (isAncoActive) {
+        int ret = system::SetParameter(PARAM_ASSESSMENT_IS_ACTIVE, isActive_ ? "true" : "false");
+        return (ret == 0);
+    } else {
+        isWaittingAncoActive_ = true;
+        envChecker_.AwakeAnco();
+        return true;
+    }
 }
 
 void AssessmentService::ConfigCurrentSession(const sptr<IRemoteObject> &token, uint32_t duration,
@@ -660,10 +669,7 @@ void AssessmentService::DoLoop()
         if (!running_) {
             break;
         }
-        if (!isActive_) {
-            // Ensure data sync when not in exam mode.
-            system::SetParameter(PARAM_ASSESSMENT_IS_ACTIVE, "false");
-        }
+
         int32_t timeout = this->ComputeNextTaskTimeoutLockedUnsafe();
         TAG_LOGD(AAFwkTag::DEFAULT, "Assessment execute compute next round: %{public}d", timeout);
 
@@ -1148,10 +1154,17 @@ void AssessmentService::AncoStateChangeCallback(const char *key, const char *val
     bool isAncoStateKey = (strcmp(key, PARAM_ANCO_STATE) == 0);
     bool isAncoActive = (strcmp(value, "0") == 0);
     if (service->isWaittingAncoActive_ && isAncoStateKey && isAncoActive) {
-        system::SetParameter(PARAM_ASSESSMENT_IS_ACTIVE, service->isActive_ ? "true" : "false");
-        TAG_LOGI(AAFwkTag::DEFAULT,
-                 "AncoStateChangeCallback called, sync anco state success, assessment status: %{public}s",
-                 service->isActive_ ? "true" : "false");
+        int ret = system::SetParameter(PARAM_ASSESSMENT_IS_ACTIVE, service->isActive_ ? "true" : "false");
+        if (ret != 0) {
+            if (service->isActive_) {
+                EnterExamParam params = service->BuildEnterExamParamLockUnsafe();
+                AssessmentEventPublisher::PublishEnterExamModeEvent(params, TRACE_ERR_REASON_SAVE_SYSPARAM_FAIL);
+            } else {
+                ExitExamParam params = service->BuildExitExamParamLockUnsafe();
+                AssessmentEventPublisher::PublishExitExamModeEvent(
+                    params, TRACE_ERR_REASON_RESET_SYSPARAM_FAIL, TRACE_ERR_REASON_RESET_SYSPARAM_FAIL);
+            }
+        }
         service->isWaittingAncoActive_ = false;
     }
 }
@@ -1251,25 +1264,25 @@ bool AssessmentService::HoldScreenRunning()
 
 bool AssessmentService::RestrictScreenOff(bool enable)
 {
-    // auto &powerClient = PowerMgr::PowerMgrClient::GetInstance();
-    // PowerMgr::PowerErrors powerError = powerClient.SetInterfaceCallFilteringStrategy(enable ?
-    //     PowerMgr::InterfaceCallFilteringStrategy::SUSPEND_DEVICE_FILTERING :
-    //     PowerMgr::InterfaceCallFilteringStrategy::SUSPEND_DEVICE_NOT_FILTERING);
-    // if (powerError != PowerMgr::PowerErrors::ERR_OK) {
-    //     return false;
-    // }
-    // powerError = powerClient.SetLidFilteringStrategy(enable ?
-    //     PowerMgr::LidFilteringStrategy::LID_CLOSE_FILTERING :
-    //     PowerMgr::LidFilteringStrategy::LID_CLOSE_NOT_FILTERING);
-    // if (powerError != PowerMgr::PowerErrors::ERR_OK) {
-    //     return false;
-    // }
-    // powerError = powerClient.SetPowerKeyFilteringStrategy(enable ?
-    //     PowerMgr::PowerKeyFilteringStrategy::POWER_KEY_UP_SHORT_PRESS_FILTERING :
-    //     PowerMgr::PowerKeyFilteringStrategy::POWER_KEY_UP_SHORT_PRESS_NOT_FILTERING);
-    // if (powerError != PowerMgr::PowerErrors::ERR_OK) {
-    //     return false;
-    // }
+    auto &powerClient = PowerMgr::PowerMgrClient::GetInstance();
+    PowerMgr::PowerErrors powerError = powerClient.SetInterfaceCallFilteringStrategy(enable ?
+        PowerMgr::InterfaceCallFilteringStrategy::SUSPEND_DEVICE_FILTERING :
+        PowerMgr::InterfaceCallFilteringStrategy::SUSPEND_DEVICE_NOT_FILTERING);
+    if (powerError != PowerMgr::PowerErrors::ERR_OK) {
+        return false;
+    }
+    powerError = powerClient.SetLidFilteringStrategy(enable ?
+        PowerMgr::LidFilteringStrategy::LID_CLOSE_FILTERING :
+        PowerMgr::LidFilteringStrategy::LID_CLOSE_NOT_FILTERING);
+    if (powerError != PowerMgr::PowerErrors::ERR_OK) {
+        return false;
+    }
+    powerError = powerClient.SetPowerKeyFilteringStrategy(enable ?
+        PowerMgr::PowerKeyFilteringStrategy::POWER_KEY_UP_SHORT_PRESS_FILTERING :
+        PowerMgr::PowerKeyFilteringStrategy::POWER_KEY_UP_SHORT_PRESS_NOT_FILTERING);
+    if (powerError != PowerMgr::PowerErrors::ERR_OK) {
+        return false;
+    }
     return true;
 }
 

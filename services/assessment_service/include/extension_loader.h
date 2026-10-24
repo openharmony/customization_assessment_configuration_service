@@ -75,7 +75,7 @@ public:
     // The extension must leave failReason untouched when it succeeds.
     typedef bool (*CHECK_ALL_FUNC)(const std::vector<std::string> &allowedApps, std::string &failReason);
 
-    typedef bool (*IS_AWAKE_ANCO_FUNC)(std::string ancoState);
+    typedef void (*AWAKE_ANCO_FUNC)();
 
     typedef int32_t (*RESTRICT_ANCO_APP_FUNC)();
 
@@ -106,12 +106,9 @@ public:
     bool InvokeCheckAll(const std::vector<std::string> &allowedApps, std::string &failReason);
 
     /**
-     * @brief Invoke the closed-source IsAwakeAnco function.
-     * @param ancoState check the anco state.
-     * @return Result of IsAwakeAnco, or false if in degraded mode, so that the
-     *         caller does not keep waiting for anco to become active.
+     * @brief Invoke the closed-source AwakeAnco function.
      */
-    bool InvokeIsAwakeAnco(std::string ancoState);
+    void InvokeAwakeAnco();
 
     /**
      * @brief Invoke the closed-source RestrictAncoApp function.
@@ -161,7 +158,7 @@ private:
     mutable std::mutex mutex_;
     DegradedCallback degradedCallback_;
     CHECK_ALL_FUNC checkAllFunc_ = nullptr;
-    IS_AWAKE_ANCO_FUNC isAwakeAncoFunc_ = nullptr;
+    AWAKE_ANCO_FUNC awakeAncoFunc_ = nullptr;
     RESTRICT_ANCO_APP_FUNC restrictAncoAppFunc = nullptr;
     ACTIVATE_ALL_FUNC activateAllFunc_ = nullptr;
     DEACTIVATE_ALL_FUNC deactivateAllFunc_ = nullptr;
