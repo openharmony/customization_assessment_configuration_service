@@ -12,3 +12,4 @@
 # limitations under the License.
 
 persist.assessment.is_active=false
+sys.assessment.is_active=false
