@@ -16,37 +16,17 @@
 #include "process_controller.h"
 
 #include <cinttypes>
-#include <chrono>
-#include <thread>
 
 #include "assessment_fail_reason.h"
 #include "call_manager_client.h"
 #include "hilog_tag_wrapper.h"
 #include "parameter.h"
-#include "service_control.h"
 #include "singleton.h"
 #include "system_ability_definition.h"
 #include "telephony_observer_broker.h"
 
 namespace OHOS {
 namespace AAFwk {
-namespace {
-const char *const SOFTBUS_SERVICE_NAME = "softbus_server";
-const char *const DEVICE_MANAGER_SERVICE_NAME = "device_manager";
-
-// ServiceControl(START) only writes ohos.ctl.start and returns; init consumes the
-// parameter asynchronously, so the service must be waited on before assuming it runs.
-constexpr int32_t SOFTBUS_START_WAIT_TIMEOUT_SEC = 5;
-
-// SERVICE_STARTED is reported by init right after the process forks, while the SA is
-// only published once OnStart() finishes (observed ~260ms later in the device logs).
-// The new softbus_server's meta-socket registry exists only after publish, so give it
-// a short settle before restarting device_manager.
-constexpr int32_t SOFTBUS_PUBLISH_SETTLE_MS = 1000;
-
-constexpr int32_t DEVICE_MANAGER_RESTART_WAIT_TIMEOUT_SEC = 5;
-}
-
 const std::string EXTENSION_SO_PATH = "libassessment_configuration_service_ext.z.so";
 
 void AssessmentTelephonyObserver::OnCallStateUpdated(
@@ -131,17 +111,6 @@ bool ProcessController::Activate(const std::vector<std::string> &allowedApps, st
     // rolled back without this function keeping track of which stages ran.
     std::vector<std::function<void()>> undoActions;
 
-    // Distributed softbus must be stopped before the assessment starts, otherwise
-    // assessment content could still be shared with nearby devices.
-    int32_t ret = ServiceControl(SOFTBUS_SERVICE_NAME, ServiceAction::STOP);
-    if (ret != 0) {
-        TAG_LOGE(AAFwkTag::DEFAULT, "Stop %{public}s failed, ret : %{public}d", SOFTBUS_SERVICE_NAME, ret);
-        failReason = FAIL_REASON_SOFTBUS_CONTROL;
-        return false;
-    }
-    undoActions.push_back([this]() { StartSoftBusForRollback(); });
-    TAG_LOGI(AAFwkTag::DEFAULT, "%{public}s stopped", SOFTBUS_SERVICE_NAME);
-
     // Mark activated before registering the observer so that an incoming-call
     // callback arriving during activation already sees the active state.
     activated_ = true;
@@ -202,13 +171,6 @@ void ProcessController::RollbackActivateLockedUnsafe(std::vector<std::function<v
     }
 }
 
-void ProcessController::StartSoftBusForRollback()
-{
-    if (ServiceControl(SOFTBUS_SERVICE_NAME, ServiceAction::START) != 0) {
-        TAG_LOGE(AAFwkTag::DEFAULT, "Start %{public}s failed during rollback", SOFTBUS_SERVICE_NAME);
-    }
-}
-
 void ProcessController::RevertExtensionForRollback()
 {
     if (extLoader_ == nullptr) {
@@ -237,70 +199,13 @@ void ProcessController::Deactivate(std::string &failReason)
     UnregisterScreenListener();
     UnRegisterCallObserver();
 
-    // Restoring the device is best-effort: a failure here must not abort the
-    // remaining restore steps, but it is reported so that the caller can publish
-    // a trace event for it.
+    // Restoring the device is best-effort: a failure is reported so that the caller
+    // can publish a trace event for it.
     if (extLoader_ != nullptr && !extLoader_->InvokeDeactivateAll(failReason)) {
         if (failReason.empty()) {
             failReason = FAIL_REASON_ENABLE_VM;
         }
     }
-
-    int32_t ret = ServiceControl(SOFTBUS_SERVICE_NAME, ServiceAction::START);
-    if (ret != 0) {
-        TAG_LOGE(AAFwkTag::DEFAULT, "Start %{public}s failed, ret : %{public}d", SOFTBUS_SERVICE_NAME, ret);
-        if (failReason.empty()) {
-            failReason = FAIL_REASON_SOFTBUS_CONTROL;
-        }
-        return;
-    }
-    TAG_LOGI(AAFwkTag::DEFAULT, "%{public}s started", SOFTBUS_SERVICE_NAME);
-
-    // ServiceControl(START) is asynchronous: it only writes ohos.ctl.start, so the
-    // process may not be up yet when this returns. Wait until init reports it started.
-    if (ServiceWaitForStatus(SOFTBUS_SERVICE_NAME, SERVICE_STARTED, SOFTBUS_START_WAIT_TIMEOUT_SEC) != 0) {
-        TAG_LOGE(AAFwkTag::DEFAULT, "Wait %{public}s SERVICE_STARTED timed out", SOFTBUS_SERVICE_NAME);
-        if (failReason.empty()) {
-            failReason = FAIL_REASON_SOFTBUS_CONTROL;
-        }
-        return;
-    }
-    TAG_LOGI(AAFwkTag::DEFAULT, "%{public}s SERVICE_STARTED", SOFTBUS_SERVICE_NAME);
-
-    // SIGKILLing softbus_server wiped its in-memory meta-socket registry. device_manager
-    // only re-registers w****dm through BindTarget (driven by wear_link_service), and its
-    // one-shot death callback already failed while the new server was still starting up.
-    // Restarting device_manager clears its stale client-side bookkeeping, so the next
-    // BindTarget retry (wear_link_service keeps retrying while the watch is bound) goes
-    // through the full create+open path against the now-ready server.
-    if (!RestartDeviceManager()) {
-        TAG_LOGE(AAFwkTag::DEFAULT, "restart %{public}s failed", DEVICE_MANAGER_SERVICE_NAME);
-        if (failReason.empty()) {
-            failReason = FAIL_REASON_SOFTBUS_RECOVER;
-        }
-    }
-}
-
-bool ProcessController::RestartDeviceManager()
-{
-    // The meta-socket registry only exists once the SA is published (OnStart finished),
-    // which lags SERVICE_STARTED by a few hundred ms, so settle before the restart.
-    std::this_thread::sleep_for(std::chrono::milliseconds(SOFTBUS_PUBLISH_SETTLE_MS));
-
-    int32_t ret = ServiceControl(DEVICE_MANAGER_SERVICE_NAME, ServiceAction::RESTART);
-    if (ret != 0) {
-        TAG_LOGE(AAFwkTag::DEFAULT, "Restart %{public}s failed, ret : %{public}d",
-            DEVICE_MANAGER_SERVICE_NAME, ret);
-        return false;
-    }
-    if (ServiceWaitForStatus(DEVICE_MANAGER_SERVICE_NAME, SERVICE_STARTED,
-        DEVICE_MANAGER_RESTART_WAIT_TIMEOUT_SEC) != 0) {
-        TAG_LOGE(AAFwkTag::DEFAULT, "Wait %{public}s SERVICE_STARTED timed out",
-            DEVICE_MANAGER_SERVICE_NAME);
-        return false;
-    }
-    TAG_LOGI(AAFwkTag::DEFAULT, "%{public}s restarted and SERVICE_STARTED", DEVICE_MANAGER_SERVICE_NAME);
-    return true;
 }
 
 bool ProcessController::IsActivated() const
