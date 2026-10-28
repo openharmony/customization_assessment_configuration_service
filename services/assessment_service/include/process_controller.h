@@ -77,10 +77,16 @@ private:
  * 1. Registers a telephony observer to detect incoming calls.
  * 2. Forwards call-state events to the assessment service for interruption.
  * 3. Disables virtual machines via the closed-source extension.
- * 4. Stops the distributed softbus service.
- * 5. Registers a screen listener; an external screen plugged in mid-assessment
+ * 4. Registers a screen listener; an external screen plugged in mid-assessment
  *    is reported through the environment-anomaly callback so that the service
  *    can interrupt the assessment.
+ *
+ * The distributed softbus is deliberately left running. Stopping it for the
+ * assessment broke watch collaboration once the assessment ended, because the
+ * freshly started softbus_server lost its in-memory meta-socket registry and
+ * device_manager could not re-register the watch socket. Phone-to-watch
+ * notification mirroring is owned by the notification subsystem and needs no
+ * help from here, so there is nothing left to stop or to restore.
  */
 class ProcessController {
 public:
@@ -98,9 +104,9 @@ public:
     /**
      * @brief Lock down the device for an assessment.
      *
-     * Stops the distributed softbus, registers the telephony observer that
-     * auto-rejects incoming calls, registers the screen hotplug listener, then asks
-     * the closed-source extension to apply its own restrictions.
+     * Registers the telephony observer that auto-rejects incoming calls, registers
+     * the screen hotplug listener, then asks the closed-source extension to apply
+     * its own restrictions.
      *
      * Every sub-item is fatal: an assessment must not run without a restriction it
      * asked for. The first failure stops the sequence, the stages already completed
@@ -118,9 +124,9 @@ public:
 
     /**
      * @brief Revert every restriction applied by Activate().
-     * @param failReason Filled with the reason of the first sub-item that could not
-     *                   be reverted (softbus restart or closed-source DeactivateAll).
-     *                   Left untouched when everything was restored.
+     * @param failReason Filled with the reason of the sub-item that could not be
+     *                   reverted (the closed-source DeactivateAll). Left untouched
+     *                   when everything was restored.
      */
     void Deactivate(std::string &failReason);
 
@@ -170,15 +176,6 @@ private:
     void RollbackActivateLockedUnsafe(std::vector<std::function<void()>> &undoActions);
 
     /**
-     * @brief Restart device_manager so its stale client-side meta-socket bookkeeping
-     *        is cleared after softbus_server was SIGKILLed and cold-started.
-     *
-     * Must be called after softbus_server has reached SERVICE_STARTED and its SA has
-     * had time to publish. Returns false on ServiceControl or wait-for-status failure.
-     */
-    bool RestartDeviceManager();
-
-    /**
      * @brief Ask the closed-source extension to apply its own restrictions.
      *
      * Must be called with mutex_ held, from Activate() only. Appends the undo action
@@ -195,12 +192,6 @@ private:
      */
     bool ActivateExtensionLockedUnsafe(const std::vector<std::string> &allowedApps,
         std::string &failReason, std::vector<std::function<void()>> &undoActions);
-
-    /**
-     * @brief Restart the distributed softbus, logging a failure instead of
-     *        reporting it. Used as the undo action of the stop-softbus stage.
-     */
-    void StartSoftBusForRollback();
 
     /**
      * @brief Ask the closed-source extension to revert what ActivateAll() applied.
