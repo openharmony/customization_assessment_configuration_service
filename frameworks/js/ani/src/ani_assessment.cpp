@@ -124,8 +124,6 @@ ani_object AniAssessment::CreateAssessmentConfigObject(ani_env* env,
         status = AAFwk::GetAniString(env, allowedApps[i], &aniStr);
         if (status != ANI_OK || aniStr == nullptr) {
             TAG_LOGE(AAFwkTag::DEFAULT, "failed to convert string at index %{public}zu", i);
-            env->Array_Delete(allowedAppsArray);
-            env->Object_Delete(configObj);
             AAFwk::ThrowAniError(env, AAFwk::AssessmentApiErrCode::ERR_INTERNAL_ERROR, "Failed to convert allowedApp");
             return AAFwk::CreateAniUndefined(env);
         }
