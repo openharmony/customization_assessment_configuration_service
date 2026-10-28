@@ -12,3 +12,4 @@
 # limitations under the License.
 
 persist.assessment.="system:system:775"
+sys.assessment.="system:system:775"
