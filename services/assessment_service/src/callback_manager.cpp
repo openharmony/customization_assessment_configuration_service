@@ -16,6 +16,7 @@
 #include "callback_manager.h"
 #include "hilog_tag_wrapper.h"
 #include "ipc_types.h"
+#include "assessment_callback_code.h"
 
 namespace OHOS {
 namespace AAFwk {
@@ -86,6 +87,7 @@ void CallbackManager::OnBegin(const sptr<IRemoteObject>& token, int32_t code, co
     }
 
     MessageParcel data;
+    data.WriteInterfaceToken(OHOS::AAFwk::ASSESSMENT_CALLBACK_INTERFACE_TOKEN);
     data.WriteInt32(code);
     data.WriteString(message);
 
@@ -104,6 +106,7 @@ void CallbackManager::OnInterrupted(const sptr<IRemoteObject>& token, int32_t re
     }
 
     MessageParcel data;
+    data.WriteInterfaceToken(OHOS::AAFwk::ASSESSMENT_CALLBACK_INTERFACE_TOKEN);
     data.WriteInt32(reason);
     data.WriteString(message);
 
@@ -122,6 +125,7 @@ void CallbackManager::OnEnd(const sptr<IRemoteObject>& token)
     }
 
     MessageParcel data;
+    data.WriteInterfaceToken(OHOS::AAFwk::ASSESSMENT_CALLBACK_INTERFACE_TOKEN);
     MessageParcel reply;
     MessageOption option(MessageOption::TF_SYNC);
     it->second->SendRequest(static_cast<uint32_t>(AssessmentCallbackCode::ON_END), data, reply, option);
