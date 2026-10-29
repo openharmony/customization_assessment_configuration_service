@@ -239,8 +239,8 @@ void AssessmentService::LoadState()
 
 void AssessmentService::SaveState()
 {
-    bool ret = system::SetParameter(PARAM_ASSESSMENT_IS_ACTIVE, isActive_ ? "true" : "false");
-    if (!ret) {
+    int ret = system::SetParameter(PARAM_ASSESSMENT_IS_ACTIVE, isActive_ ? "true" : "false");
+    if (ret != 0) {
         EnterExamParam params = BuildEnterExamParamLockUnsafe();
         AssessmentEventPublisher::PublishEnterExamModeEvent(params, TRACE_ERR_REASON_SAVE_SYSPARAM_FAIL);
     }
@@ -260,8 +260,8 @@ void AssessmentService::SaveState()
 
 void AssessmentService::ClearState()
 {
-    bool ret = system::SetParameter(PARAM_ASSESSMENT_IS_ACTIVE, "false");
-    if (!ret) {
+    int ret = system::SetParameter(PARAM_ASSESSMENT_IS_ACTIVE, "false");
+    if (ret != 0) {
         ExitExamParam params = BuildExitExamParamLockUnsafe();
         AssessmentEventPublisher::PublishExitExamModeEvent(
             params, TRACE_ERR_REASON_RESET_SYSPARAM_FAIL, TRACE_ERR_REASON_RESET_SYSPARAM_FAIL);
