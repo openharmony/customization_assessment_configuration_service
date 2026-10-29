@@ -52,9 +52,9 @@ bool ExtensionLoader::InitExtensionLoader()
         return false;
     }
 
-    isAwakeAncoFunc_ = reinterpret_cast<IS_AWAKE_ANCO_FUNC>(dlsym(handle_, "IsAwakeAnco"));
-    if (isAwakeAncoFunc_ == nullptr) {
-        TAG_LOGE(AAFwkTag::DEFAULT, "dlsym IsAwakeAnco failed: %{private}s", dlerror());
+    awakeAncoFunc_ = reinterpret_cast<AWAKE_ANCO_FUNC>(dlsym(handle_, "AwakeAnco"));
+    if (awakeAncoFunc_ == nullptr) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "dlsym AwakeAnco failed: %{private}s", dlerror());
         return false;
     }
 
@@ -111,23 +111,22 @@ bool ExtensionLoader::InvokeCheckAll(const std::vector<std::string> &allowedApps
     return checkFunc(allowedApps, failReason);
 }
 
-bool ExtensionLoader::InvokeIsAwakeAnco(std::string ancoState)
+void ExtensionLoader::InvokeAwakeAnco()
 {
-    IS_AWAKE_ANCO_FUNC isAwakeAncoFunc = nullptr;
+    AWAKE_ANCO_FUNC awakeAncoFunc = nullptr;
     DegradedCallback degradedCb = nullptr;
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        isAwakeAncoFunc = isAwakeAncoFunc_;
+        awakeAncoFunc = awakeAncoFunc_;
         degradedCb = degradedCallback_;
     }
-    if (isAwakeAncoFunc == nullptr) {
-        TAG_LOGW(AAFwkTag::DEFAULT, "IsAwakeAnco func is null, degrade");
+    if (awakeAncoFunc == nullptr) {
+        TAG_LOGW(AAFwkTag::DEFAULT, "AwakeAnco func is null, degrade");
         if (degradedCb) {
-            degradedCb(soPath_, "IsAwakeAnco");
+            degradedCb(soPath_, "AwakeAnco");
         }
-        return false;
     }
-    return isAwakeAncoFunc(ancoState);
+    awakeAncoFunc();
 }
 
 int32_t ExtensionLoader::InvokeRestrictAncoApp()

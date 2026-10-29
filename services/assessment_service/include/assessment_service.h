@@ -111,6 +111,7 @@ private:
     int32_t InvokeSystemDialog();
     int32_t ComputeNextTaskTimeoutLockedUnsafe();
     void CheckEndpointAndExecuteTaskLockedUnsafe();
+    bool UpdateState();
     void Quit();
     void Destroy();
 
