@@ -67,8 +67,6 @@ void AssessmentEventPublisher::PublishEnterExamModeEvent(const EnterExamParam &p
     want.SetParam(EVENT_KEY_ENV_CHECK_RESULT, params.envCheckResult);
     want.SetParam(EVENT_KEY_ERROR_REASON, errorReason);
 
-    TAG_LOGI(AAFwkTag::DEFAULT, "zsp: %{public}s", errorReason);
-
     EventFwk::CommonEventData data;
     data.SetWant(want);
 
@@ -109,8 +107,6 @@ void AssessmentEventPublisher::PublishExitExamModeEvent(const ExitExamParam &par
     want.SetParam(EVENT_KEY_EXAM_DURATION, static_cast<long long>(EXAM_DURATION));
     want.SetParam(EVENT_KEY_EXIT_REASON, exitReason);
     want.SetParam(EVENT_KEY_ERROR_REASON, errorReason);
-
-    TAG_LOGI(AAFwkTag::DEFAULT, "zsp: %{public}s, %{public}s", exitReason, errorReason);
 
     EventFwk::CommonEventData data;
     data.SetWant(want);
