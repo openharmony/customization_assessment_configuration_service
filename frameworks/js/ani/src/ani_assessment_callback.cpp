@@ -82,6 +82,11 @@ int AniAssessmentCallback::OnRemoteRequest(uint32_t code,
                                            MessageParcel& reply,
                                            MessageOption& option)
 {
+    auto token = data.ReadInterfaceToken();
+    if (token != OHOS::AAFwk::ASSESSMENT_CALLBACK_INTERFACE_TOKEN) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "invalid remote request");
+        return -1;
+    }
     TAG_LOGI(AAFwkTag::DEFAULT, "OnRemoteRequest called, code: %{public}d", code);
     switch (static_cast<AssessmentCallbackCode>(code)) {
         case AssessmentCallbackCode::ON_BEGIN: {

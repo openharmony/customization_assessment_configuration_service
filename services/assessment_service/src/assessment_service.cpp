@@ -700,8 +700,9 @@ int32_t AssessmentService::ComputeNextTaskTimeoutLockedUnsafe()
         return DEFAULT_TIME_SLICE_INTERVAL;
     }
 
-    uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::system_clock::now().time_since_epoch()).count();
+    uint64_t now = static_cast<uint64_t>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
     if (now >= endpointCheckPoint_) {
         return 0;
     }
@@ -721,8 +722,9 @@ void AssessmentService::CheckEndpointAndExecuteTaskLockedUnsafe()
     if (callerToken_ == nullptr) {
         return;
     }
-    uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::system_clock::now().time_since_epoch()).count();
+    uint64_t now = static_cast<uint64_t>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
     if (now >= endpointCheckPoint_) {
         this->TimeoutLockedUnsafe();
     }
@@ -731,7 +733,7 @@ void AssessmentService::CheckEndpointAndExecuteTaskLockedUnsafe()
 void AssessmentService::CheckAndHandleSaIdleLockedUnsafe(int32_t delta)
 {
     if (!isActive_ && examStatus_ == AssessmentExamStatus::IDLE) {
-        accumulateIdleTime_ += delta;
+        accumulateIdleTime_ += static_cast<uint64_t>(delta);
         if (accumulateIdleTime_ > SA_IDLE_MAX_INTERVAL) {
             this->running_ = false;
         }
@@ -923,8 +925,8 @@ void AssessmentService::ConfirmationBeginLockedUnsafe()
     }
 
     auto pt = std::chrono::system_clock::now() + std::chrono::milliseconds(currentConfig_.duration);
-    endpointCheckPoint_
-        = std::chrono::duration_cast<std::chrono::milliseconds>(pt.time_since_epoch()).count();
+    endpointCheckPoint_ = static_cast<uint64_t>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(pt.time_since_epoch()).count());
     isActive_ = true;
     examStatus_ = AssessmentExamStatus::ACTIVE;
     SaveState();
@@ -1124,10 +1126,10 @@ void AssessmentService::DispatchEvent(const OHOS::EventFwk::CommonEventData& eve
             params, TRACE_EXIT_REASON_SHUTDOWN, TRACE_ERR_REASON_NO_ERROR);
         TAG_LOGI(AAFwkTag::DEFAULT, "System shutdown");
     } else if (action == OHOS::EventFwk::CommonEventSupport::COMMON_EVENT_POWER_SAVE_MODE_CHANGED) {
-        uint32_t code = eventData.GetCode();
+        int32_t code = eventData.GetCode();
         TAG_LOGI(AAFwkTag::ASSESSMENT,
             "assessment POWER_SAVE_MODE_CHANGED, mode: %{public}u", code);
-        if (code == static_cast<uint32_t>(OHOS::PowerMgr::PowerMode::EXTREME_POWER_SAVE_MODE)) {
+        if (code == static_cast<int32_t>(OHOS::PowerMgr::PowerMode::EXTREME_POWER_SAVE_MODE)) {
             std::unique_lock<std::mutex> lock(this->mutexSa_);
             ExitExamParam params = BuildExitExamParamLockUnsafe();
             AssessmentEventPublisher::PublishExitExamModeEvent(
