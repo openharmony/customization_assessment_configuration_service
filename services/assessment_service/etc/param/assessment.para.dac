@@ -11,5 +11,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-persist.assessment.="system:system:775"
-sys.assessment.="system:system:775"
+persist.assessment.="assessment_service:assessment_service:775"
+sys.assessment.="assessment_service:assessment_service:775"
