@@ -55,6 +55,8 @@ void AssessmentEventPublisher::PublishEnterExamModeEvent(const EnterExamParam &p
         return;
     }
 
+    const std::string errorReasonStr(errorReason ? errorReason : "");
+
     OHOS::AAFwk::Want want;
     want.SetAction(COMMON_EVENT_EXAM_MODE);
     want.SetParam(EVENT_KEY_PNAMEID, PNAMEID);
@@ -65,7 +67,7 @@ void AssessmentEventPublisher::PublishEnterExamModeEvent(const EnterExamParam &p
     want.SetParam(EVENT_KEY_DURATION, static_cast<long long>(params.duration));
     want.SetParam(EVENT_KEY_ALLOWED_APPS, params.allowedApps);
     want.SetParam(EVENT_KEY_ENV_CHECK_RESULT, params.envCheckResult);
-    want.SetParam(EVENT_KEY_ERROR_REASON, errorReason);
+    want.SetParam(EVENT_KEY_ERROR_REASON, errorReasonStr);
 
     EventFwk::CommonEventData data;
     data.SetWant(want);
@@ -97,6 +99,8 @@ void AssessmentEventPublisher::PublishExitExamModeEvent(const ExitExamParam &par
     uint64_t examStartTime = params.examStartTime;
     uint64_t examEndTime = AssessmentServiceUtils::GetCurrentAssessmentTimeStamp();
     uint64_t EXAM_DURATION = (examEndTime > examStartTime) ? (examEndTime - examStartTime) : 0;
+    const std::string exitReasonStr(exitReason ? exitReason : "");
+    const std::string errorReasonStr(errorReason ? errorReason : "");
 
     OHOS::AAFwk::Want want;
     want.SetAction(COMMON_EVENT_EXAM_MODE);
@@ -105,8 +109,8 @@ void AssessmentEventPublisher::PublishExitExamModeEvent(const ExitExamParam &par
     want.SetParam(EVENT_KEY_PACKAGE_NAME, params.bundleName);
     want.SetParam(EVENT_KEY_EXAM_ID, static_cast<long long>(params.examId));
     want.SetParam(EVENT_KEY_EXAM_DURATION, static_cast<long long>(EXAM_DURATION));
-    want.SetParam(EVENT_KEY_EXIT_REASON, exitReason);
-    want.SetParam(EVENT_KEY_ERROR_REASON, errorReason);
+    want.SetParam(EVENT_KEY_EXIT_REASON, exitReasonStr);
+    want.SetParam(EVENT_KEY_ERROR_REASON, errorReasonStr);
 
     EventFwk::CommonEventData data;
     data.SetWant(want);
