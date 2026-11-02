@@ -72,7 +72,7 @@ void AssessmentEventPublisher::PublishEnterExamModeEvent(const EnterExamParam &p
     EventFwk::CommonEventData data;
     data.SetWant(want);
 
-    WriteHiSysEnterExamModeEvent(ENTER_EXAM_MODE, params, errorReason);
+    WriteHiSysEnterExamModeEvent(ENTER_EXAM_MODE, params, errorReasonStr);
 
     if (!EventFwk::CommonEventManager::PublishCommonEvent(data)) {
         TAG_LOGW(AAFwkTag::DEFAULT, "Fail to publish enter exam mode event");
@@ -115,7 +115,7 @@ void AssessmentEventPublisher::PublishExitExamModeEvent(const ExitExamParam &par
     EventFwk::CommonEventData data;
     data.SetWant(want);
 
-    WriteHiSysExitExamModeEvent(EXIT_EXAM_MODE, params, EXAM_DURATION, exitReason, errorReason);
+    WriteHiSysExitExamModeEvent(EXIT_EXAM_MODE, params, EXAM_DURATION, exitReasonStr, errorReasonStr);
 
     if (!EventFwk::CommonEventManager::PublishCommonEvent(data)) {
         TAG_LOGW(AAFwkTag::DEFAULT, "Fail to publish exit exam mode event");
@@ -128,11 +128,9 @@ void AssessmentEventPublisher::PublishExitExamModeEvent(const ExitExamParam &par
 
 void AssessmentEventPublisher::WriteHiSysEnterExamModeEvent(const char *eventName,
                                                             const EnterExamParam &params,
-                                                            const char *errorReason)
+                                                            const std::string &errorReasonStr)
 {
     TAG_LOGI(AAFwkTag::ASSESSMENT, "WriteHiSysEnterExamModeEvent, eventName:%{public}s", eventName);
-    
-    std::string errorReasonStr(errorReason ? errorReason : "");
 
     int32_t ret = HiSysEventWrite(
         HiSysEvent::Domain::ASSESSMENT_UE, eventName,
@@ -155,13 +153,10 @@ void AssessmentEventPublisher::WriteHiSysEnterExamModeEvent(const char *eventNam
 void AssessmentEventPublisher::WriteHiSysExitExamModeEvent(const char *eventName,
                                                            const ExitExamParam &params,
                                                            uint64_t examDuration,
-                                                           const char *exitReason,
-                                                           const char *errorReason)
+                                                           const std::string &exitReasonStr,
+                                                           const std::string &errorReasonStr)
 {
     TAG_LOGI(AAFwkTag::ASSESSMENT, "WriteHiSysExitExamModeEvent, eventName:%{public}s", eventName);
-
-    std::string exitReasonStr(exitReason ? exitReason : "");
-    std::string errorReasonStr(errorReason ? errorReason : "");
 
     int32_t ret = HiSysEventWrite(
         HiSysEvent::Domain::ASSESSMENT_UE, eventName,

@@ -71,10 +71,10 @@ public:
         const char *exitReason, const char *errorReason);
 private:
     static void WriteHiSysEnterExamModeEvent(const char *eventName, const EnterExamParam &params,
-                                             const char *errorReason);
+                                             const std::string &errorReasonStr);
     static void WriteHiSysExitExamModeEvent(const char *eventName, const ExitExamParam &params,
-                                            uint64_t examDuration, const char *exitReason,
-                                            const char *errorReason);
+                                            uint64_t examDuration, const std::string &exitReasonStr,
+                                            const std::string errorReasonStr);
 };
 
 } // namespace AAFwk
