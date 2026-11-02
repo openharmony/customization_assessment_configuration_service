@@ -53,9 +53,9 @@ std::string AssessmentServiceUtils::GenerateRandomString(size_t length)
     return result;
 }
 
-uint64_t AssessmentServiceUtils::GenerateRandomExamId()
+uint32_t AssessmentServiceUtils::GenerateRandomExamId()
 {
-    uint64_t result = 0;
+    uint32_t result = 0;
     ssize_t ret = getrandom(&result, sizeof(result), GRND_NONBLOCK);
     if (ret != sizeof(result)) {
         TAG_LOGE(AAFwkTag::DEFAULT, "GenerateRandomExamId failed, ret=%{public}zd, errno=%{public}d", ret, errno);

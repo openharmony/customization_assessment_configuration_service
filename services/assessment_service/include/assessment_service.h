@@ -42,7 +42,7 @@ namespace AAFwk {
 
 struct AssessmentConfig {
     uint32_t duration = 0;
-    uint64_t examId = 0;
+    uint32_t examId = 0;
     uint64_t examStartTime = 0;
     std::vector<std::string> allowedApps;
 };

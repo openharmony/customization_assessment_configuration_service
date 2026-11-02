@@ -62,7 +62,7 @@ bool AssessmentServiceUtils::CheckDeviceTypeSupported()
     return OHOS::AAFwk::TEST::AssessmentTestConstants().GetInstance().CheckDeviceTypeSupported;
 }
 
-uint64_t AssessmentServiceUtils::GenerateRandomExamId()
+uint32_t AssessmentServiceUtils::GenerateRandomExamId()
 {
     std::random_device rd;
     std::mt19937_64 gen(rd());

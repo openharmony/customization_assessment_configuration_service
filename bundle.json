@@ -42,7 +42,8 @@
                 "input",
                 "power_manager",
                 "runtime_core",
-                "player_framework"
+                "player_framework",
+                "hisysevent"
             ],
             "third_party": []
         },
