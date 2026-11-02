@@ -74,7 +74,7 @@ private:
                                              const std::string &errorReasonStr);
     static void WriteHiSysExitExamModeEvent(const char *eventName, const ExitExamParam &params,
                                             uint64_t examDuration, const std::string &exitReasonStr,
-                                            const std::string errorReasonStr);
+                                            const std::string &errorReasonStr);
 };
 
 } // namespace AAFwk
