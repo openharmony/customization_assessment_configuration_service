@@ -125,6 +125,7 @@ void ExtensionLoader::InvokeAwakeAnco()
         if (degradedCb) {
             degradedCb(soPath_, "AwakeAnco");
         }
+        return;
     }
     awakeAncoFunc();
 }
