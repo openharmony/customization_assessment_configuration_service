@@ -79,30 +79,6 @@ const std::vector<std::string> PRESET_KIOSK_BUNDLE_LIST = {
     "com.ohos.contactsdataability",
 };
 
-const char* const TRACE_ERR_REASON_NO_ERROR = "NO_ERROR";
-const char* const TRACE_ERR_REASON_INVALID_PARAMS = "INVALID_PARAMS";
-const char* const TRACE_ERR_REASON_PERMISSION_DENIED = "PERMISSION_DENIED";
-const char* const TRACE_ERR_REASON_DEVICE_NOT_SUPPORTED = "DEVICE_NOT_SUPPORTED";
-const char* const TRACE_ERR_REASON_EXAM_ALREADY_STARTED = "EXAM_ALREADY_STARTED";
-const char* const TRACE_ERR_REASON_USER_CONFIRM = "USER_CONFIRM";
-const char* const TRACE_ERR_REASON_USER_CANCEL = "USER_CANCEL";
-const char* const TRACE_ERR_REASON_CALL_KIOSK_FAIL = "CALL_KIOSK_FAIL";
-const char* const TRACE_ERR_REASON_SAVE_SYSPARAM_FAIL = "SAVE_SYSPARAM_FAIL";
-const char* const TRACE_ERR_REASON_NO_EXAM = "NO_EXAM";
-const char* const TRACE_ERR_REASON_RESET_SYSPARAM_FAIL = "RESET_SYSPARAM_FAIL";
-const char* const TRACE_ERR_REASON_NON_OWNER_END = "NON_OWNER_END";
-const char* const TRACE_ERR_REASON_LOCK_SCREENOFF_FAILED = "LOCK_SCREENOFF_FAILED";
-const char* const TRACE_ERR_REASON_KILL_ANCO_APP_FAILED = "KILL_ANCO_APP_FAILED";
-const char* const TRACE_ERR_REASON_APP_DIED = "APP_DIED";
-
-const char* const TRACE_EXIT_REASON_TIMEOUT = "TIMEOUT";
-const char* const TRACE_EXIT_REASON_USER_INITIATED_EXIT = "USER_INITIATED_EXIT";
-const char* const TRACE_EXIT_REASON_ENTER_HIBERNATE = "ENTER_HIBERNATE";
-const char* const TRACE_EXIT_REASON_ENTER_POWER_SAVE_MODE = "ENTER_POWER_SAVE_MODE";
-const char* const TRACE_EXIT_REASON_SHUTDOWN = "SHUTDOWN";
-const char* const TRACE_EXIT_REASON_DEVICE_REBOOT = "DEVICE_REBOOT";
-const char* const TRACE_EXIT_REASON_LID_CLOSED = "LID_CLOSED";
-
 // Kept in sync with ASSESSMENT_EVENT_CODE_ENV_ANOMALY_DESC in
 // interfaces/inner_api/assessment_service/src/assessment_api_error_code.cpp, which
 // has internal linkage there and therefore cannot be referenced from here.
@@ -370,7 +346,7 @@ bool AssessmentService::CheckBeginPreconditions(const sptr<IRemoteObject> &token
     params.bundleName = allowedApps.empty() ? "" : allowedApps.back();
     params.duration = duration;
     params.allowedApps = allowedApps;
-    params.examStartTime = static_cast<long long>(AssessmentServiceUtils::GetCurrentAssessmentTimeStamp());
+    params.examStartTime = static_cast<unsigned long long>(AssessmentServiceUtils::GetCurrentAssessmentTimeStamp());
     if (token == nullptr || callback == nullptr || allowedApps.empty()) {
         TAG_LOGE(AAFwkTag::ASSESSMENT, "assessment invalid params");
         errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_INVALID_PARAMS);
@@ -700,8 +676,9 @@ int32_t AssessmentService::ComputeNextTaskTimeoutLockedUnsafe()
         return DEFAULT_TIME_SLICE_INTERVAL;
     }
 
-    uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::system_clock::now().time_since_epoch()).count();
+    uint64_t now = static_cast<uint64_t>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
     if (now >= endpointCheckPoint_) {
         return 0;
     }
@@ -721,8 +698,9 @@ void AssessmentService::CheckEndpointAndExecuteTaskLockedUnsafe()
     if (callerToken_ == nullptr) {
         return;
     }
-    uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::system_clock::now().time_since_epoch()).count();
+    uint64_t now = static_cast<uint64_t>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
     if (now >= endpointCheckPoint_) {
         this->TimeoutLockedUnsafe();
     }
@@ -731,7 +709,7 @@ void AssessmentService::CheckEndpointAndExecuteTaskLockedUnsafe()
 void AssessmentService::CheckAndHandleSaIdleLockedUnsafe(int32_t delta)
 {
     if (!isActive_ && examStatus_ == AssessmentExamStatus::IDLE) {
-        accumulateIdleTime_ += delta;
+        accumulateIdleTime_ += static_cast<uint64_t>(delta);
         if (accumulateIdleTime_ > SA_IDLE_MAX_INTERVAL) {
             this->running_ = false;
         }
@@ -867,11 +845,11 @@ void AssessmentService::HandleBegin(const std::string &ticket, uint32_t operatio
     if (operation == AssessmentConfirmationOperation::CANCEL) {
         EnterExamParam params = BuildEnterExamParamLockUnsafe();
         AssessmentEventPublisher::PublishEnterExamModeEvent(params, TRACE_ERR_REASON_USER_CANCEL);
+        TAG_LOGW(AAFwkTag::ASSESSMENT, "user cancel enter exam dialog");
         CancelBeginLockedUnsafe();
     } else if (operation == AssessmentConfirmationOperation::CONFIRM) {
+        TAG_LOGI(AAFwkTag::ASSESSMENT, "user confirm enter exam dialog");
         ConfirmationBeginLockedUnsafe();
-        EnterExamParam params = BuildEnterExamParamLockUnsafe();
-        AssessmentEventPublisher::PublishEnterExamModeEvent(params, TRACE_ERR_REASON_USER_CONFIRM);
         condSa_.notify_all();
     }
 }
@@ -923,8 +901,8 @@ void AssessmentService::ConfirmationBeginLockedUnsafe()
     }
 
     auto pt = std::chrono::system_clock::now() + std::chrono::milliseconds(currentConfig_.duration);
-    endpointCheckPoint_
-        = std::chrono::duration_cast<std::chrono::milliseconds>(pt.time_since_epoch()).count();
+    endpointCheckPoint_ = static_cast<uint64_t>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(pt.time_since_epoch()).count());
     isActive_ = true;
     examStatus_ = AssessmentExamStatus::ACTIVE;
     SaveState();
@@ -1124,10 +1102,10 @@ void AssessmentService::DispatchEvent(const OHOS::EventFwk::CommonEventData& eve
             params, TRACE_EXIT_REASON_SHUTDOWN, TRACE_ERR_REASON_NO_ERROR);
         TAG_LOGI(AAFwkTag::DEFAULT, "System shutdown");
     } else if (action == OHOS::EventFwk::CommonEventSupport::COMMON_EVENT_POWER_SAVE_MODE_CHANGED) {
-        uint32_t code = eventData.GetCode();
+        int32_t code = eventData.GetCode();
         TAG_LOGI(AAFwkTag::ASSESSMENT,
             "assessment POWER_SAVE_MODE_CHANGED, mode: %{public}u", code);
-        if (code == static_cast<uint32_t>(OHOS::PowerMgr::PowerMode::EXTREME_POWER_SAVE_MODE)) {
+        if (code == static_cast<int32_t>(OHOS::PowerMgr::PowerMode::EXTREME_POWER_SAVE_MODE)) {
             std::unique_lock<std::mutex> lock(this->mutexSa_);
             ExitExamParam params = BuildExitExamParamLockUnsafe();
             AssessmentEventPublisher::PublishExitExamModeEvent(
@@ -1312,9 +1290,9 @@ EnterExamParam AssessmentService::BuildEnterExamParamLockUnsafe()
 {
     EnterExamParam params;
     params.bundleName = bundleName_;
-    params.examId = static_cast<long long>(currentConfig_.examId);
-    params.examStartTime = static_cast<long long>(currentConfig_.examStartTime);
-    params.duration = static_cast<long long>(currentConfig_.duration);
+    params.examId = static_cast<unsigned long long>(currentConfig_.examId);
+    params.examStartTime = static_cast<unsigned long long>(currentConfig_.examStartTime);
+    params.duration = static_cast<unsigned long long>(currentConfig_.duration);
     params.allowedApps = currentConfig_.allowedApps;
     // Read the cached result of the check this session was admitted with, rather
     // than re-running CheckAll() here: this function is called while mutexSa_ is
@@ -1327,8 +1305,8 @@ ExitExamParam AssessmentService::BuildExitExamParamLockUnsafe()
 {
     ExitExamParam params;
     params.bundleName = bundleName_;
-    params.examId = static_cast<long long>(currentConfig_.examId);
-    params.examStartTime = static_cast<long long>(currentConfig_.examStartTime);
+    params.examId = static_cast<unsigned long long>(currentConfig_.examId);
+    params.examStartTime = static_cast<unsigned long long>(currentConfig_.examStartTime);
     return params;
 }
 

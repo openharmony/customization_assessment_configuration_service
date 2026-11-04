@@ -25,6 +25,8 @@ enum class AssessmentCallbackCode : uint32_t {
     ON_END = 2,
 };
 
+const std::u16string ASSESSMENT_CALLBACK_INTERFACE_TOKEN = u"ohos.customization.assessment.jscallback";
+
 }
 }
 #endif // OHOS_ASSESSMENT_CALLBACK_CODE_H

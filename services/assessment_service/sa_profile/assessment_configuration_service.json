@@ -1,5 +1,5 @@
 {
-    "process": "assessment_service",
+    "process": "assessment_configuration_service",
     "systemability": [
         {
             "name": 8660,

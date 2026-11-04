@@ -14,6 +14,7 @@
  */
 
 #include "js_assessment_callback.h"
+#include "assessment_callback_code.h"
 
 namespace OHOS {
 namespace AAFwk {
@@ -90,6 +91,11 @@ napi_ref JsAssessmentCallback::GetOnEndRef() const
 int JsAssessmentCallback::OnRemoteRequest(uint32_t code, MessageParcel& data,
                                           MessageParcel& reply, MessageOption& option)
 {
+    auto token = data.ReadInterfaceToken();
+    if (token != OHOS::AAFwk::ASSESSMENT_CALLBACK_INTERFACE_TOKEN) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "invalid remote request");
+        return -1;
+    }
     TAG_LOGI(AAFwkTag::DEFAULT, "OnRemoteRequest code: %{public}d", code);
 
     switch (static_cast<AssessmentCallbackCode>(code)) {
