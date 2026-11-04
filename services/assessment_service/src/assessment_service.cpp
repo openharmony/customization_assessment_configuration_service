@@ -234,6 +234,7 @@ void AssessmentService::LoadState()
     }
     if (historyActive) {
         TAG_LOGI(AAFwkTag::ASSESSMENT, "need reset state");
+        CleanAndResetKioskStatus();
     }
     system::SetParameter(PARAM_ASSESSMENT_IS_ACTIVE, "false");
     system::SetParameter(NON_PERSIST_ASSESSMENT_IS_ACTIVE, "false");
@@ -1328,6 +1329,51 @@ void AssessmentService::ExamDeathRecipient::OnRemoteDied(const wptr<IRemoteObjec
     if (s) {
         s->OnRemoteDied(remoteObject);
     }
+}
+
+void AssessmentService::CleanAndResetKioskStatus()
+{
+    const int32_t EXAM_TYPE = 1;
+    std::shared_ptr<OHOS::AAFwk::AbilityManagerClient> abilityManagerClient
+        = OHOS::AAFwk::AbilityManagerClient::GetInstance();
+    if (abilityManagerClient == nullptr) {
+        return;
+    }
+    AAFwk::KioskStatus kioskStatus;
+    ErrCode statusRet = abilityManagerClient->GetKioskStatus(kioskStatus);
+    if (statusRet != ERR_OK) {
+        TAG_LOGW(AAFwkTag::ASSESSMENT, "GetKioskStatus fail, ret: %{public}d", statusRet);
+        return;
+    }
+    if (!kioskStatus.isKioskMode_ || kioskStatus.kioskType_ != EXAM_TYPE
+        || kioskStatus.kioskToken_ == nullptr) {
+        TAG_LOGI(AAFwkTag::ASSESSMENT, "ignore clean assessment task");
+        return;
+    }
+
+    const int tries = 3;
+    const int32_t TIMEOUT = 200;
+    ErrCode lastCode = ERR_OK;
+    for (int i = 0; i < tries; i++) {
+        lastCode = abilityManagerClient->ExitKioskMode(kioskStatus.kioskToken_);
+        if (lastCode == ERR_OK) {
+            break;
+        }
+        TAG_LOGW(AAFwkTag::ASSESSMENT,
+            "exitKioskMode %{public}d time, ret %{public}d", i + 1, lastCode);
+        if (lastCode == OHOS::AAFwk::NativeFreeInstallError::INVALID_PARAMETERS_ERR
+            || lastCode == OHOS::AAFwk::ERR_KIOSK_MODE_NOT_IN_WHITELIST) {
+            lastCode = ERR_OK;
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(TIMEOUT));
+    }
+    if (lastCode != ERR_OK) {
+        TAG_LOGW(AAFwkTag::ASSESSMENT,
+            "exitKioskMode failed for clean assessment  task, %{public}d", lastCode);
+        return;
+    }
+    TAG_LOGI(AAFwkTag::ASSESSMENT, "exitKioskMode successfully for clean assessment task");
 }
 }  // namespace AAFwk
 }  // namespace OHOS

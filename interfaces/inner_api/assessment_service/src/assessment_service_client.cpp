@@ -268,6 +268,16 @@ void AssessmentServiceClient::AssessmentDeathRecipient::OnRemoteDied([[maybe_unu
             impl->loadSaFinished_ = false;
             impl->loadSaCondation_.notify_one();
         }
+        
+        SaDiedCallback cb;
+        {
+            std::lock_guard<std::mutex> lock(impl->mutex_);
+            cb = std::move(impl->SaDiedCallback_);
+            impl->SaDiedCallback_ = nullptr;
+        }
+        if (cb) {
+            cb();
+        }
     }
 
     TAG_LOGI(AAFwkTag::DEFAULT, "State reset after SA died");
@@ -340,6 +350,12 @@ void AssessmentServiceClient::OnLoadSystemAbilityFail()
     std::unique_lock<std::mutex> lock(loadSaMutex_);
     loadSaFinished_ = true;
     loadSaCondation_.notify_one();
+}
+
+void AssessmentServiceClient::SetSaDiedCallback(SaDiedCallback cb)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    SaDiedCallback_ = std::move(cb);
 }
 } // namespace AAFwk
 } // namespace OHOS
