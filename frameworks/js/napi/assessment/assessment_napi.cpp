@@ -305,6 +305,7 @@ napi_value AssessmentNapiBegin(napi_env env, napi_callback_info info)
     if (ret != ERR_OK) {
         return ThrowError(env, ret, OHOS::AAFwk::AssessmentApiErrCodeToErrMsg(ret));
     }
+    OHOS::AAFwk::RegisterActiveAssessmentCallback(jsCallback);
     return GetNapiUndefined(env);
 }
 
@@ -337,7 +338,7 @@ napi_value AssessmentNapiEnd(napi_env env, napi_callback_info info)
     if (ret != ERR_OK) {
         return ThrowError(env, ret, OHOS::AAFwk::AssessmentApiErrCodeToErrMsg(ret));
     }
-
+    OHOS::AAFwk::UnregisterActiveAssessmentCallback();
     return GetNapiUndefined(env);
 }
 

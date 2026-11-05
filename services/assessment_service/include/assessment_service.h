@@ -138,6 +138,7 @@ private:
     bool HoldScreenRunning();
     bool RestrictScreenOff(bool enable);
     std::vector<std::string> GetFinalAppList();
+    void CleanAndResetKioskStatus();
 
     static std::mutex mutex_;
     static sptr<AssessmentService> instance_;
