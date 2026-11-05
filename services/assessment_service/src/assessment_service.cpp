@@ -247,14 +247,6 @@ void AssessmentService::SaveState()
         AssessmentEventPublisher::PublishEnterExamModeEvent(params, TRACE_ERR_REASON_SAVE_SYSPARAM_FAIL);
     }
     system::SetParameter(NON_PERSIST_ASSESSMENT_IS_ACTIVE, isActive_ ? "true" : "false");
-    if (isActive_) {
-        int32_t retCode = envChecker_.RestrictAncoApp();
-        constexpr int32_t RESTRICT_ANCO_APP_FAILED = 1;
-        if (retCode == RESTRICT_ANCO_APP_FAILED) {
-            EnterExamParam params = BuildEnterExamParamLockUnsafe();
-            AssessmentEventPublisher::PublishEnterExamModeEvent(params, TRACE_ERR_REASON_KILL_ANCO_APP_FAILED);
-        }
-    }
     TAG_LOGD(AAFwkTag::DEFAULT, "State saved");
 }
 
@@ -272,15 +264,14 @@ void AssessmentService::ClearState()
 
 bool AssessmentService::UpdateState()
 {
-    std::string ancoState = system::GetParameter(PARAM_ANCO_STATE, "2");
+    std::string ancoState = system::GetParameter(PARAM_ANCO_STATE, "");
     bool isAncoActive = (strcmp(ancoState.c_str(), "0") == 0);
-    if (isAncoActive) {
-        int ret = system::SetParameter(PARAM_ASSESSMENT_IS_ACTIVE, isActive_ ? "true" : "false");
-        return (ret == 0);
+    if (ancoState.empty() || isAncoActive) {
+        bool ret = system::SetParameter(PARAM_ASSESSMENT_IS_ACTIVE, isActive_ ? "true" : "false");
+        return ret;
     } else {
         isWaittingAncoActive_ = true;
-        envChecker_.AwakeAnco();
-        return true;
+        return envChecker_.AwakeAnco();
     }
 }
 
@@ -949,9 +940,19 @@ void AssessmentService::TimeoutLockedUnsafe()
 
 ErrCode AssessmentService::EnterKioskModeLockedUnsafe()
 {
+    bool ret = envChecker_.RestrictAncoApp();
+    if (!ret) {
+        TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment RestrictAncoApp failed");
+        EnterExamParam params = BuildEnterExamParamLockUnsafe();
+        AssessmentEventPublisher::PublishEnterExamModeEvent(params, TRACE_ERR_REASON_KILL_ANCO_APP_FAILED);
+        return static_cast<int32_t>(AssessmentErrorCode::SYSTEM_ERROR);
+    }
+    TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment RestrictAncoApp succcessfully");
+    
     bool retHoldScreenRunning = HoldScreenRunning();
     bool retRestrictScreenOff = RestrictScreenOff(true);
     if (!retHoldScreenRunning || !retRestrictScreenOff) {
+        TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment retRestrictScreenOff failed");
         EnterExamParam params = BuildEnterExamParamLockUnsafe();
         AssessmentEventPublisher::PublishEnterExamModeEvent(params, TRACE_ERR_REASON_LOCK_SCREENOFF_FAILED);
         return static_cast<int32_t>(AssessmentErrorCode::SYSTEM_ERROR);

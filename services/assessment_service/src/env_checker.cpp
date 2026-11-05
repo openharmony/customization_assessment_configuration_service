@@ -96,12 +96,12 @@ bool EnvChecker::CheckAll(std::string &failReason)
     return true;
 }
 
-void EnvChecker::AwakeAnco()
+bool EnvChecker::AwakeAnco()
 {
-    loader_->InvokeAwakeAnco();
+    return loader_->InvokeAwakeAnco();
 }
 
-int32_t EnvChecker::RestrictAncoApp()
+bool EnvChecker::RestrictAncoApp()
 {
     return loader_->InvokeRestrictAncoApp();
 }

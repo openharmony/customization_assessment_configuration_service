@@ -75,9 +75,9 @@ public:
     // The extension must leave failReason untouched when it succeeds.
     typedef bool (*CHECK_ALL_FUNC)(const std::vector<std::string> &allowedApps, std::string &failReason);
 
-    typedef void (*AWAKE_ANCO_FUNC)();
+    typedef bool (*AWAKE_ANCO_FUNC)();
 
-    typedef int32_t (*RESTRICT_ANCO_APP_FUNC)();
+    typedef bool (*RESTRICT_ANCO_APP_FUNC)();
 
     typedef bool (*ACTIVATE_ALL_FUNC)(const std::vector<std::string> &allowedApps, std::string &failReason);
 

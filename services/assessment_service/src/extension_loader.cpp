@@ -111,7 +111,7 @@ bool ExtensionLoader::InvokeCheckAll(const std::vector<std::string> &allowedApps
     return checkFunc(allowedApps, failReason);
 }
 
-void ExtensionLoader::InvokeAwakeAnco()
+bool ExtensionLoader::InvokeAwakeAnco()
 {
     AWAKE_ANCO_FUNC awakeAncoFunc = nullptr;
     DegradedCallback degradedCb = nullptr;
@@ -125,12 +125,12 @@ void ExtensionLoader::InvokeAwakeAnco()
         if (degradedCb) {
             degradedCb(soPath_, "AwakeAnco");
         }
-        return;
+        return true;
     }
-    awakeAncoFunc();
+    return awakeAncoFunc();
 }
 
-int32_t ExtensionLoader::InvokeRestrictAncoApp()
+bool ExtensionLoader::InvokeRestrictAncoApp()
 {
     RESTRICT_ANCO_APP_FUNC restrictAncoFunc = nullptr;
     DegradedCallback degradedCb = nullptr;
@@ -144,7 +144,7 @@ int32_t ExtensionLoader::InvokeRestrictAncoApp()
         if (degradedCb) {
             degradedCb(soPath_, "RestrictAncoApp");
         }
-        return -1;
+        return true;
     }
     return restrictAncoFunc();
 }
