@@ -77,6 +77,7 @@ const std::vector<std::string> PRESET_KIOSK_BUNDLE_LIST = {
     "com.ohos.calllogability",
     "com.ohos.contacts",
     "com.ohos.contactsdataability",
+    "com.ohos.formrenderservice"
 };
 
 // Kept in sync with ASSESSMENT_EVENT_CODE_ENV_ANOMALY_DESC in
