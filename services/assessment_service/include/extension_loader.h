@@ -108,14 +108,14 @@ public:
     /**
      * @brief Invoke the closed-source AwakeAnco function.
      */
-    void InvokeAwakeAnco();
+    bool InvokeAwakeAnco();
 
     /**
      * @brief Invoke the closed-source RestrictAncoApp function.
      * @return Result of RestrictAncoApp, or -1 if in degraded mode. Callers treat
      *         only 1 as a failure, so the degraded sentinel is not reported as one.
      */
-    int32_t InvokeRestrictAncoApp();
+    bool InvokeRestrictAncoApp();
 
     /**
      * @brief Invoke the closed-source ActivateAll function, which applies every
