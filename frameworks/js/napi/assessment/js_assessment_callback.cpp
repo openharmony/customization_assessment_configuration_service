@@ -231,24 +231,36 @@ void JsAssessmentCallback::CallJsOnBegin(int32_t code, const std::string &messag
 {
     TAG_LOGI(AAFwkTag::DEFAULT,
         "CallJsOnBegin in, code: %{public}d, message: %{public}s", code, message.c_str());
+    napi_handle_scope scope = nullptr;
+    napi_open_handle_scope(env_, &scope);
+    if (scope == nullptr) {
+        return;
+    }
     napi_value errorObj = nullptr;
     napi_create_object(env_, &errorObj);
     napi_set_named_property(env_, errorObj, "code", CreateJsValue(env_, code));
     napi_set_named_property(env_, errorObj, "message", CreateJsValue(env_, message));
     napi_value argv[] = { errorObj };
     CallJsCallback(onBeginRef_, argv, 1, ON_BEGIN);
+    napi_close_handle_scope(env_, scope);
 }
 
 void JsAssessmentCallback::CallJsOnInterrupted(int32_t code, const std::string &message)
 {
     TAG_LOGI(AAFwkTag::DEFAULT,
         "CallJsOnInterrupted in, code: %{public}d, message: %{public}s", code, message.c_str());
+    napi_handle_scope scope = nullptr;
+    napi_open_handle_scope(env_, &scope);
+    if (scope == nullptr) {
+        return;
+    }
     napi_value infoObj = nullptr;
     napi_create_object(env_, &infoObj);
     napi_set_named_property(env_, infoObj, "code", CreateJsValue(env_, code));
     napi_set_named_property(env_, infoObj, "message", CreateJsValue(env_, message));
     napi_value argv[] = { infoObj };
     CallJsCallback(onInterruptedRef_, argv, 1, ON_INTERRUPTED);
+    napi_close_handle_scope(env_, scope);
 
     OHOS::AAFwk::UnregisterActiveAssessmentCallback();
 }
