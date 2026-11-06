@@ -104,13 +104,15 @@ public:
 
     /**
      * @brief Check anco state.
+     * @return true if anco awake successfully, false otherwise.
      */
-    void AwakeAnco();
+    bool AwakeAnco();
 
     /**
      * @brief Restrict anco app.
+     * @return true if anco app restrict successfully, false otherwise.
      */
-    int32_t RestrictAncoApp();
+    bool RestrictAncoApp();
 
 private:
     bool InitCallManager();

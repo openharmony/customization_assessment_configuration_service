@@ -75,9 +75,9 @@ public:
     // The extension must leave failReason untouched when it succeeds.
     typedef bool (*CHECK_ALL_FUNC)(const std::vector<std::string> &allowedApps, std::string &failReason);
 
-    typedef void (*AWAKE_ANCO_FUNC)();
+    typedef bool (*AWAKE_ANCO_FUNC)();
 
-    typedef int32_t (*RESTRICT_ANCO_APP_FUNC)();
+    typedef bool (*RESTRICT_ANCO_APP_FUNC)();
 
     typedef bool (*ACTIVATE_ALL_FUNC)(const std::vector<std::string> &allowedApps, std::string &failReason);
 
@@ -108,14 +108,14 @@ public:
     /**
      * @brief Invoke the closed-source AwakeAnco function.
      */
-    void InvokeAwakeAnco();
+    bool InvokeAwakeAnco();
 
     /**
      * @brief Invoke the closed-source RestrictAncoApp function.
      * @return Result of RestrictAncoApp, or -1 if in degraded mode. Callers treat
      *         only 1 as a failure, so the degraded sentinel is not reported as one.
      */
-    int32_t InvokeRestrictAncoApp();
+    bool InvokeRestrictAncoApp();
 
     /**
      * @brief Invoke the closed-source ActivateAll function, which applies every
