@@ -29,6 +29,9 @@
 
 namespace OHOS {
 namespace AAFwk {
+
+using SaDiedCallback = std::function<void()>;
+
 class AssessmentServiceClient : public std::enable_shared_from_this<AssessmentServiceClient> {
 public:
     AssessmentServiceClient() = default;
@@ -52,7 +55,7 @@ public:
 
     void OnLoadSystemAbilitySuccess(const sptr<IRemoteObject> &remoteObject);
     void OnLoadSystemAbilityFail();
-
+    void SetSaDiedCallback(SaDiedCallback cb);
 private:
     sptr<IAssessmentService> GetAssessmentProxy();
     sptr<IAssessmentService> GetAssessmentProxyWithCheck();
@@ -80,6 +83,7 @@ private:
     bool loadSaFinished_ = false;
     std::mutex mutex_;
     sptr<IAssessmentService> assessmentService_ = nullptr;
+    SaDiedCallback SaDiedCallback_;
 };
 } // namespace AAFwk
 } // namespace OHOS

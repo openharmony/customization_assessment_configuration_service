@@ -15,6 +15,8 @@
 
 #include "js_assessment_callback.h"
 #include "assessment_callback_code.h"
+#include "assessment_api_error_code.h"
+#include "assessment_service_client.h"
 
 namespace OHOS {
 namespace AAFwk {
@@ -24,6 +26,38 @@ namespace {
 constexpr const char* ON_BEGIN = "OnBegin";
 constexpr const char* ON_INTERRUPTED = "OnInterrupted";
 constexpr const char* ON_END = "OnEnd";
+}
+
+std::mutex gActiveCallbackMutex;
+sptr<AAFwk::JsAssessmentCallback> gActiveCallback;
+
+void NotifyAssessmentServiceDied()
+{
+    sptr<AAFwk::JsAssessmentCallback> cb;
+    {
+        std::lock_guard<std::mutex> lock(gActiveCallbackMutex);
+        cb = gActiveCallback;
+    }
+    if (cb == nullptr) {
+        TAG_LOGW(AAFwkTag::DEFAULT, "NotifyAssessmentServiceDied but no active callback");
+        return;
+    }
+    cb->TriggerBySaDie();
+}
+
+void RegisterActiveAssessmentCallback(const sptr<OHOS::AAFwk::JsAssessmentCallback> &cb)
+{
+    std::lock_guard<std::mutex> lock(gActiveCallbackMutex);
+    gActiveCallback = cb;
+    OHOS::AAFwk::AssessmentServiceClient::GetInstance()->SetSaDiedCallback(
+        NotifyAssessmentServiceDied);
+}
+
+void UnregisterActiveAssessmentCallback()
+{
+    std::lock_guard<std::mutex> lock(gActiveCallbackMutex);
+    gActiveCallback = nullptr;
+    OHOS::AAFwk::AssessmentServiceClient::GetInstance()->SetSaDiedCallback(nullptr);
 }
 
 JsAssessmentCallback::JsAssessmentCallback(napi_env env, napi_ref onBeginRef,
@@ -215,6 +249,8 @@ void JsAssessmentCallback::CallJsOnInterrupted(int32_t code, const std::string &
     napi_set_named_property(env_, infoObj, "message", CreateJsValue(env_, message));
     napi_value argv[] = { infoObj };
     CallJsCallback(onInterruptedRef_, argv, 1, ON_INTERRUPTED);
+
+    OHOS::AAFwk::UnregisterActiveAssessmentCallback();
 }
 
 void JsAssessmentCallback::CallJsOnEnd()
@@ -222,6 +258,15 @@ void JsAssessmentCallback::CallJsOnEnd()
     TAG_LOGI(AAFwkTag::DEFAULT, "CallJsOnEnd in");
     napi_value argv[] = {};
     CallJsCallback(onEndRef_, argv, 0, ON_END);
+
+    OHOS::AAFwk::UnregisterActiveAssessmentCallback();
+}
+
+void JsAssessmentCallback::TriggerBySaDie()
+{
+    this->PostOnInterrupted(
+        static_cast<int32_t>(OHOS::AAFwk::AssessmentErrorCode::SYSTEM_ERROR),
+        OHOS::AAFwk::AssessmentErrCodeToErrMsg(OHOS::AAFwk::AssessmentErrorCode::SYSTEM_ERROR));
 }
 } // namespace AAFwk
 } // namespace OHOS
