@@ -67,6 +67,8 @@ ani_boolean AniAssessment::IsActiveAni(ani_env* env)
     ErrCode ret = AAFwk::AssessmentServiceClient::GetInstance()->IsActive(isActive);
     if (ret != ERR_OK) {
         TAG_LOGE(AAFwkTag::ASSESSMENT, "IsActive failed, ret: %{public}d", ret);
+        AAFwk::ThrowAniError(env, static_cast<AAFwk::AssessmentApiErrCode>(ret),
+            AAFwk::AssessmentApiErrCodeToErrMsg(static_cast<int32_t>(ret)));
         return ANI_FALSE;
     }
     TAG_LOGI(AAFwkTag::ASSESSMENT, "IsActive finish, result: %{public}d", isActive);
@@ -82,7 +84,8 @@ ani_object AniAssessment::GetConfigurationAni(ani_env* env)
     ErrCode ret = AAFwk::AssessmentServiceClient::GetInstance()->GetConfiguration(duration, allowedApps);
     if (ret != ERR_OK) {
         TAG_LOGE(AAFwkTag::ASSESSMENT, "GetConfiguration failed, ret: %{public}d", ret);
-        AAFwk::ThrowAniError(env, AAFwk::AssessmentApiErrCode::ERR_INTERNAL_ERROR, "Get Configuration failed");
+        AAFwk::ThrowAniError(env, static_cast<AAFwk::AssessmentApiErrCode>(ret),
+            AAFwk::AssessmentApiErrCodeToErrMsg(static_cast<int32_t>(ret)));
         return AAFwk::CreateAniUndefined(env);
     }
     TAG_LOGI(AAFwkTag::ASSESSMENT, "GetConfiguration, duration: %{public}d, allowedApps size: %{public}zu",
