@@ -942,12 +942,16 @@ void AssessmentService::TimeoutLockedUnsafe()
 
 ErrCode AssessmentService::EnterKioskModeLockedUnsafe()
 {
-    bool ret = envChecker_.RestrictAncoApp();
-    if (!ret) {
-        TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment RestrictAncoApp failed");
-        EnterExamParam params = BuildEnterExamParamLockUnsafe();
-        AssessmentEventPublisher::PublishEnterExamModeEvent(params, TRACE_ERR_REASON_KILL_ANCO_APP_FAILED);
-        return static_cast<int32_t>(AssessmentErrorCode::SYSTEM_ERROR);
+
+    std::string ancoState = system::GetParameter(PARAM_ANCO_STATE, "");
+    if (!ancoState.empty()) {
+        bool ret = envChecker_.RestrictAncoApp();
+        if (!ret) {
+            TAG_LOGW(AAFwkTag::ASSESSMENT, "assessment RestrictAncoApp failed");
+            EnterExamParam params = BuildEnterExamParamLockUnsafe();
+            AssessmentEventPublisher::PublishEnterExamModeEvent(params, TRACE_ERR_REASON_KILL_ANCO_APP_FAILED);
+            return static_cast<int32_t>(AssessmentErrorCode::SYSTEM_ERROR);
+        }
     }
     TAG_LOGI(AAFwkTag::ASSESSMENT, "assessment RestrictAncoApp succcessfully");
     
