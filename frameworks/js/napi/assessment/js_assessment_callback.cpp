@@ -256,8 +256,14 @@ void JsAssessmentCallback::CallJsOnInterrupted(int32_t code, const std::string &
 void JsAssessmentCallback::CallJsOnEnd()
 {
     TAG_LOGI(AAFwkTag::DEFAULT, "CallJsOnEnd in");
+    napi_handle_scope scope = nullptr;
+    napi_open_handle_scope(env_, &scope);
+    if (scope == nullptr) {
+        return;
+    }
     napi_value argv[] = {};
     CallJsCallback(onEndRef_, argv, 0, ON_END);
+    napi_close_handle_scope(env_, scope);
 
     OHOS::AAFwk::UnregisterActiveAssessmentCallback();
 }
