@@ -75,7 +75,6 @@ const std::string SYSTEM_UI_ABILITY_NAME = "AssessmentServiceDialogAbility";
 // but stays correct on products that ship it as a separate bundle.
 const std::vector<std::string> PRESET_KIOSK_BUNDLE_LIST = {
     "com.ohos.calllogability",
-    "com.ohos.contacts",
     "com.ohos.contactsdataability",
     "com.ohos.formrenderservice"
 };
