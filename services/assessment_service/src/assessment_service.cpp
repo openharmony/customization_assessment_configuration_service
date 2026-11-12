@@ -52,7 +52,6 @@ namespace OHOS {
 namespace AAFwk {
 namespace {
 const char* const PARAM_ASSESSMENT_IS_ACTIVE = "persist.assessment.is_active";
-const char* const NON_PERSIST_ASSESSMENT_IS_ACTIVE = "sys.assessment.is_active";
 const char* const PARAM_ANCO_STATE = "anco_state";
 const uint64_t MILLISECONDS_UNIT = 1000;
 const uint64_t DEFAULT_TIME_SLICE_INTERVAL = 5 * MILLISECONDS_UNIT;
@@ -237,7 +236,6 @@ void AssessmentService::LoadState()
         CleanAndResetKioskStatus();
     }
     system::SetParameter(PARAM_ASSESSMENT_IS_ACTIVE, "false");
-    system::SetParameter(NON_PERSIST_ASSESSMENT_IS_ACTIVE, "false");
 }
 
 void AssessmentService::SaveState()
@@ -250,7 +248,6 @@ void AssessmentService::SaveState()
     } else {
         TAG_LOGD(AAFwkTag::ASSESSMENT, "set paramter success");
     }
-    system::SetParameter(NON_PERSIST_ASSESSMENT_IS_ACTIVE, isActive_ ? "true" : "false");
     TAG_LOGD(AAFwkTag::DEFAULT, "State saved");
 }
 
@@ -265,7 +262,6 @@ void AssessmentService::ClearState()
     } else {
         TAG_LOGD(AAFwkTag::ASSESSMENT, "reset paramter success");
     }
-    system::SetParameter(NON_PERSIST_ASSESSMENT_IS_ACTIVE, "false");
     TAG_LOGD(AAFwkTag::DEFAULT, "State cleared");
 }
 
