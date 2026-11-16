@@ -43,7 +43,6 @@ DcasRtmPoseNpuModel::~DcasRtmPoseNpuModel()
 
 bool DcasRtmPoseNpuModel::InitLibrary()
 {
-    std::lock_guard<std::mutex> lock(mutex_);
     if (soHandle_ != nullptr) {
         return true;
     }
@@ -66,6 +65,7 @@ bool DcasRtmPoseNpuModel::InitLibrary()
 
 ErrCode DcasRtmPoseNpuModel::LoadModel()
 {
+    std::lock_guard<std::mutex> lock(mutex_);
     if (!InitLibrary()) {
         return ERR_INVALID_VALUE;
     }
@@ -74,6 +74,7 @@ ErrCode DcasRtmPoseNpuModel::LoadModel()
 
 ErrCode DcasRtmPoseNpuModel::UnloadModel()
 {
+    std::lock_guard<std::mutex> lock(mutex_);
     if (!InitLibrary()) {
         return ERR_INVALID_VALUE;
     }
@@ -82,6 +83,7 @@ ErrCode DcasRtmPoseNpuModel::UnloadModel()
 
 ErrCode DcasRtmPoseNpuModel::Infer(int inputFd, int32_t inputSize, int& outputFd, int32_t& outputSize)
 {
+    std::lock_guard<std::mutex> lock(mutex_);
     if (!InitLibrary()) {
         return ERR_INVALID_VALUE;
     }
