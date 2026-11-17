@@ -238,31 +238,33 @@ void AssessmentService::LoadState()
     system::SetParameter(PARAM_ASSESSMENT_IS_ACTIVE, "false");
 }
 
-void AssessmentService::SaveState()
+bool AssessmentService::SaveState()
 {
     bool updataSuccess = UpdateState();
     if (!updataSuccess) {
         EnterExamParam params = BuildEnterExamParamLockUnsafe();
         AssessmentEventPublisher::PublishEnterExamModeEvent(params, TRACE_ERR_REASON_SAVE_SYSPARAM_FAIL);
-        TAG_LOGE(AAFwkTag::ASSESSMENT, "set paramter fail");
-    } else {
-        TAG_LOGD(AAFwkTag::ASSESSMENT, "set paramter success");
+        TAG_LOGW(AAFwkTag::ASSESSMENT, "set parameter fail");
+        return false;
     }
+    TAG_LOGD(AAFwkTag::ASSESSMENT, "set parameter success");
     TAG_LOGD(AAFwkTag::DEFAULT, "State saved");
+    return true;
 }
 
-void AssessmentService::ClearState()
+bool AssessmentService::ClearState()
 {
     bool updataSuccess = UpdateState();
     if (!updataSuccess) {
         ExitExamParam params = BuildExitExamParamLockUnsafe();
         AssessmentEventPublisher::PublishExitExamModeEvent(
             params, TRACE_ERR_REASON_RESET_SYSPARAM_FAIL, TRACE_ERR_REASON_RESET_SYSPARAM_FAIL);
-        TAG_LOGD(AAFwkTag::ASSESSMENT, "reset paramter fail");
-    } else {
-        TAG_LOGD(AAFwkTag::ASSESSMENT, "reset paramter success");
+        TAG_LOGW(AAFwkTag::ASSESSMENT, "reset parameter fail");
+        return false;
     }
+    TAG_LOGD(AAFwkTag::ASSESSMENT, "reset parameter success");
     TAG_LOGD(AAFwkTag::DEFAULT, "State cleared");
+    return true;
 }
 
 bool AssessmentService::UpdateState()
@@ -490,11 +492,13 @@ ErrCode AssessmentService::End(const sptr<IRemoteObject> &token, int32_t &errCod
     if (caller != nullptr) {
         CallbackManager::GetInstance().OnEnd(caller);
     }
+    if (!ClearState()) {
+        return ERR_OK;
+    }
     ExitExamParam params = BuildExitExamParamLockUnsafe();
     AssessmentEventPublisher::PublishExitExamModeEvent(
         params, TRACE_EXIT_REASON_USER_INITIATED_EXIT, TRACE_ERR_REASON_NO_ERROR);
     CleanupCurrentSession();
-    ClearState();
     errCode = ERR_OK;
     TAG_LOGI(AAFwkTag::ASSESSMENT, "End over");
     return ERR_OK;
@@ -906,13 +910,14 @@ void AssessmentService::ConfirmationBeginLockedUnsafe()
         std::chrono::duration_cast<std::chrono::milliseconds>(pt.time_since_epoch()).count());
     isActive_ = true;
     examStatus_ = AssessmentExamStatus::ACTIVE;
-    SaveState();
+    bool ret = SaveState();
     callback_->AddDeathRecipient(examDeathRecipient_);
     CallbackManager::GetInstance().OnBegin(callerToken_,
         static_cast<int32_t>(AssessmentErrorCode::OK),
         AssessmentErrCodeToErrMsg(AssessmentErrorCode::OK));
-    // Every sub-item of Activate() is fatal, so reaching this point means they all
-    // succeeded: a failure was already published where it happened and returned.
+    if (!ret) {
+        return;
+    }
     EnterExamParam params = BuildEnterExamParamLockUnsafe();
     AssessmentEventPublisher::PublishEnterExamModeEvent(params, TRACE_ERR_REASON_NO_ERROR);
     TAG_LOGI(AAFwkTag::ASSESSMENT, "Exam start, duration: %{public}d", currentConfig_.duration);
@@ -1153,17 +1158,7 @@ void AssessmentService::AncoStateChangeCallback(const char *key, const char *val
     bool isAncoStateKey = (strcmp(key, PARAM_ANCO_STATE) == 0);
     bool isAncoActive = (strcmp(value, "0") == 0);
     if (service->isWaittingAncoActive_ && isAncoStateKey && isAncoActive) {
-        int ret = system::SetParameter(PARAM_ASSESSMENT_IS_ACTIVE, service->isActive_ ? "true" : "false");
-        if (ret != 0) {
-            if (service->isActive_) {
-                EnterExamParam params = service->BuildEnterExamParamLockUnsafe();
-                AssessmentEventPublisher::PublishEnterExamModeEvent(params, TRACE_ERR_REASON_SAVE_SYSPARAM_FAIL);
-            } else {
-                ExitExamParam params = service->BuildExitExamParamLockUnsafe();
-                AssessmentEventPublisher::PublishExitExamModeEvent(
-                    params, TRACE_ERR_REASON_RESET_SYSPARAM_FAIL, TRACE_ERR_REASON_RESET_SYSPARAM_FAIL);
-            }
-        }
+        system::SetParameter(PARAM_ASSESSMENT_IS_ACTIVE, service->isActive_ ? "true" : "false");
         service->isWaittingAncoActive_ = false;
     }
 }
