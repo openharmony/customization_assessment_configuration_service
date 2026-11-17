@@ -492,13 +492,14 @@ ErrCode AssessmentService::End(const sptr<IRemoteObject> &token, int32_t &errCod
     if (caller != nullptr) {
         CallbackManager::GetInstance().OnEnd(caller);
     }
-    if (!ClearState()) {
-        return ERR_OK;
-    }
+    bool ret = ClearState();
     ExitExamParam params = BuildExitExamParamLockUnsafe();
     AssessmentEventPublisher::PublishExitExamModeEvent(
         params, TRACE_EXIT_REASON_USER_INITIATED_EXIT, TRACE_ERR_REASON_NO_ERROR);
     CleanupCurrentSession();
+    if (!ret) {
+        return ERR_OK;
+    }
     errCode = ERR_OK;
     TAG_LOGI(AAFwkTag::ASSESSMENT, "End over");
     return ERR_OK;
