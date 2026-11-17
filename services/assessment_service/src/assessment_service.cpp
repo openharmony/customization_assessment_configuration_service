@@ -492,12 +492,12 @@ ErrCode AssessmentService::End(const sptr<IRemoteObject> &token, int32_t &errCod
     if (caller != nullptr) {
         CallbackManager::GetInstance().OnEnd(caller);
     }
-    bool ret = ClearState();
+    bool clearStateRet = ClearState();
     ExitExamParam params = BuildExitExamParamLockUnsafe();
     AssessmentEventPublisher::PublishExitExamModeEvent(
         params, TRACE_EXIT_REASON_USER_INITIATED_EXIT, TRACE_ERR_REASON_NO_ERROR);
     CleanupCurrentSession();
-    if (!ret) {
+    if (!clearStateRet) {
         return ERR_OK;
     }
     errCode = ERR_OK;
@@ -911,12 +911,12 @@ void AssessmentService::ConfirmationBeginLockedUnsafe()
         std::chrono::duration_cast<std::chrono::milliseconds>(pt.time_since_epoch()).count());
     isActive_ = true;
     examStatus_ = AssessmentExamStatus::ACTIVE;
-    bool ret = SaveState();
+    bool saveStateRet = SaveState();
     callback_->AddDeathRecipient(examDeathRecipient_);
     CallbackManager::GetInstance().OnBegin(callerToken_,
         static_cast<int32_t>(AssessmentErrorCode::OK),
         AssessmentErrCodeToErrMsg(AssessmentErrorCode::OK));
-    if (!ret) {
+    if (!saveStateRet) {
         return;
     }
     EnterExamParam params = BuildEnterExamParamLockUnsafe();
