@@ -85,8 +85,8 @@ public:
     void NotifyEnd();
 
     void LoadState();
-    void SaveState();
-    void ClearState();
+    bool SaveState();
+    bool ClearState();
 
     void DoLoop();
     void DispatchEvent(const OHOS::EventFwk::CommonEventData& data);
