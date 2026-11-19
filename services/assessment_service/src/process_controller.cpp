@@ -24,6 +24,9 @@
 #include "singleton.h"
 #include "system_ability_definition.h"
 #include "telephony_observer_broker.h"
+#include "screen_capture_monitor.h"
+#include "screen_info.h"
+#include "screen_manager.h"
 
 namespace OHOS {
 namespace AAFwk {
@@ -319,5 +322,38 @@ void ProcessController::UnregisterScreenListener()
     }
 }
 
+bool ProcessController::IsMultiScreen()
+{
+    std::vector<sptr<Rosen::Screen>> screens;
+    Rosen::DMError ret = Rosen::ScreenManager::GetInstance().GetAllScreens(screens);
+    if (ret != Rosen::DMError::DM_OK) {
+        TAG_LOGW(AAFwkTag::DEFAULT, "GetAllScreens failed, ret: %{public}d", static_cast<int32_t>(ret));
+        return false;
+    }
+    // Only check screen type when more than one screen is present.
+    // Some devices have no built-in screen; a single external screen is allowed.
+    if (screens.size() <= 1) {
+        return false;
+    }
+    for (const auto &screen : screens) {
+        if (screen == nullptr) {
+            continue;
+        }
+        sptr<Rosen::ScreenInfo> screenInfo = screen->GetScreenInfo();
+        if (screenInfo == nullptr) {
+            // Cannot confirm the screen is built-in: treat it as an anomaly.
+            TAG_LOGE(AAFwkTag::DEFAULT, "GetScreenInfo null, screenId: %{public}" PRIu64, screen->GetId());
+            return true;
+        }
+        Rosen::ScreenTypeInfo screenType = screenInfo->GetScreenTypeInfo();
+        if (screenType == Rosen::ScreenTypeInfo::EXTERNAL) {
+            TAG_LOGE(AAFwkTag::DEFAULT, "Multi screen check failed, non built-in screen detected,"
+                " screenId: %{public}" PRIu64 ", screenType: %{public}d",
+                screen->GetId(), static_cast<int32_t>(screenType));
+            return true;
+        }
+    }
+    return false;
+}
 } // namespace AAFwk
 } // namespace OHOS

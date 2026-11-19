@@ -152,6 +152,7 @@ public:
      */
     void NotifyScreenConnected(Rosen::ScreenId screenId);
 
+    bool IsMultiScreen();
 private:
     bool InitCallManager();
     bool RegisterCallObserver();

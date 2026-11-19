@@ -172,7 +172,12 @@ bool AssessmentService::Init()
         TAG_LOGE(AAFwkTag::DEFAULT, "EnvChecker init incomplete, some env checks will be skipped");
     }
     this->processController_.SetEnvAnomalyCallback([this]() {
-        this->OnExternalScreenConnected();
+        if (this->eventHandler_ == nullptr) {
+            return;
+        }
+        this->eventHandler_->PostTask([this]() {
+            this->OnExternalScreenConnected();
+        });
     });
     if (!this->processController_.Init()) {
         TAG_LOGE(AAFwkTag::DEFAULT, "ProcessController init incomplete, call restriction will be skipped");
@@ -447,6 +452,8 @@ ErrCode AssessmentService::Begin(const sptr<IRemoteObject> &token,
         if (invokeRet == ERR_OK) {
             return ERR_OK;
         }
+        errCode = static_cast<int32_t>(AssessmentApiErrCode::ERR_INTERNAL_ERROR);
+        return ERR_OK;
     }
 
     ConfirmationBeginLockedUnsafe();
@@ -1204,7 +1211,7 @@ void AssessmentService::OnExternalScreenConnected()
     // Re-run the very same judgement used before the assessment started, so the
     // "screen count <= 1" exemption for devices without a built-in screen
     // applies to hotplug as well.
-    if (!this->envChecker_.IsMultiScreen()) {
+    if (!this->processController_.IsMultiScreen()) {
         TAG_LOGI(AAFwkTag::ASSESSMENT, "screen connected but still not multi-screen, keep assessment");
         return;
     }
