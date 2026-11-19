@@ -74,6 +74,8 @@ const std::string SYSTEM_UI_ABILITY_NAME = "AssessmentServiceDialogAbility";
 // but stays correct on products that ship it as a separate bundle.
 const std::vector<std::string> PRESET_KIOSK_BUNDLE_LIST = {
     "com.ohos.calllogability",
+    "com.ohos.contacts",
+    "com.ohos.mms",
     "com.ohos.contactsdataability",
     "com.ohos.formrenderservice"
 };
@@ -544,8 +546,10 @@ ErrCode AssessmentService::GetConfiguration(
 
     std::unique_lock<std::mutex> lock(this->mutexSa_);
     RemarkSaIdleLockedUnsafe();
-    duration = currentConfig_.duration;
-    allowedApps = currentConfig_.allowedApps;
+    if (isActive_) {
+        duration = currentConfig_.duration;
+        allowedApps = currentConfig_.allowedApps;
+    }
     return ERR_OK;
 }
 
