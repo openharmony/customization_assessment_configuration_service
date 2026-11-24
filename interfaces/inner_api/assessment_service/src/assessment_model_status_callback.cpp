@@ -32,6 +32,11 @@ int AssessmentModelStatusCallbackStub::OnRemoteRequest(
     uint32_t code, MessageParcel& data, MessageParcel& reply, MessageOption& option)
 {
     TAG_LOGI(AAFwkTag::DEFAULT, "OnRemoteRequest code: %{public}u", code);
+    auto token = data.ReadInterfaceToken();
+    if (token != OHOS::AAFwk::ASSESSMENT_MODEL_STATUS_CALLBACK_INTERFACE_TOKEN) {
+        TAG_LOGE(AAFwkTag::DEFAULT, "invalid remote request");
+        return -1;
+    }
 
     if (code == static_cast<uint32_t>(AssessmentModelStatusCallbackCode::ON_MODEL_STATUS_CHANGED)) {
         int32_t status = data.ReadInt32();

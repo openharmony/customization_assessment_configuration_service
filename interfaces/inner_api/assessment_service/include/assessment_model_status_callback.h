@@ -36,6 +36,8 @@ public:
 private:
     AssessmentModelStatusCallback callback_;
 };
+
+const std::u16string ASSESSMENT_MODEL_STATUS_CALLBACK_INTERFACE_TOKEN = u"ohos.customization.assessment.jscallback";
 } // namespace AAFwk
 } // namespace OHOS
 #endif
